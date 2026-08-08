@@ -15,7 +15,6 @@ the constraints are not met.
 - Module boundaries, dependencies, data flow, or runtime shape change.
 - A new dependency, service, datastore, or integration is introduced.
 - Any Tier 1 change (standing board member).
-- Gate G2.
 
 ## Skip when
 
@@ -82,16 +81,21 @@ the constraints are not met.
 
 ---
 
-## Blocking failures
+## Severity calibration
 
-- A dependency cycle, or a boundary violation that will spread if merged.
-- An external call with no timeout, or a retry loop that can amplify an outage.
-- A data model that makes a required future change impossible without migration of
-  everything.
-- A material decision made without an ADR, where a later reader could not reconstruct
-  why.
-- Business logic made untestable by its placement.
-- Silent data loss or corruption on any partial-failure path.
+| Finding | Sev |
+| --- | --- |
+| Silent data loss or corruption on any partial-failure path | S1 — S0 kind, gated behind a failure that has not happened |
+| A retry loop that can amplify an outage into total unavailability | S1 |
+| An external call with no timeout on a critical path | S1 |
+| A data model that makes a required future change impossible without migrating everything | S2 |
+| A dependency cycle, or a boundary violation that will spread once merged | S2 |
+| Business logic made untestable by where it was placed | S2 |
+| A material decision made with no ADR, where a later reader could not reconstruct why | S3 |
+
+"Material" means: expensive to reverse, or a future reader would otherwise have to
+reverse-engineer the reasoning from the code. If you are unsure whether a decision is
+material, it is — an unnecessary ADR costs a page.
 
 ---
 

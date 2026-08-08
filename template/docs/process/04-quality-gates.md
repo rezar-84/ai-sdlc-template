@@ -16,15 +16,23 @@ Run in this order — cheapest and most localising first, so failures are diagno
 | 3 | Typecheck / static analysis | Contract violations before runtime. | `checks.typecheck` |
 | 4 | Unit | Logic in isolation. | `checks.unit` |
 | 5 | Integration | Components against real boundaries — data store, queue, filesystem, auth. | `checks.integration` |
-| 6 | Build / package | It actually assembles. | `checks.build` |
-| 7 | Dependency + secret scan | Known vulnerabilities, leaked credentials. | `checks.scan` |
-| 8 | Accessibility | Automated a11y smoke, where there is an interface. | `checks.a11y` |
-| 9 | End-to-end | The real journeys, in a realistic environment. | `checks.e2e` |
+| 6 | Contract | The shape of any interface others consume, or that you consume. | `checks.contract` |
+| 7 | Build / package | It actually assembles. | `checks.build` |
+| 8 | Dependency + secret scan | Known vulnerabilities, leaked credentials. | `checks.scan` |
+| 9 | Accessibility | Automated a11y smoke, where there is an interface. | `checks.a11y` |
+| 10 | End-to-end | The real journeys, in a realistic environment. | `checks.e2e` |
+
+**How much of it runs, by tier.** Tier 1 and Tier 2 run the whole sequence. Tier 3 runs
+the stages that can plausibly be affected — for a copy change that is format, lint,
+typecheck and the unit suite — and reports the rest **Not run — Tier 3, no code path
+affected**. That is a stated reason, so it is not the unexplained skip that QA rates S2.
+A Tier 3 change that touches anything executable is not a Tier 3 change.
 
 **Rules:**
-- A stage the project does not have is skipped *explicitly and reported*, not silently
-  assumed to pass. "No integration suite exists" is a finding for the QA role, not a
-  neutral fact.
+- A stage with no command in the charter is reported **absent**, explicitly, every time —
+  not silently assumed to pass. "No integration suite exists" is a finding for the QA
+  role, not a neutral fact. A stage that exists but you did not run is **not run**, with
+  the reason (`06-evidence-and-claims.md`).
 - Never disable, skip, or loosen a check to make a change pass. If a check is wrong,
   fix the check as its own tracked item with its own justification.
 - A flaky test is a defect. Quarantine it with a tracked ID and a deadline; do not
@@ -78,13 +86,27 @@ Where the project has them, these are required — not optional extras:
 Rate by **consequence if it reaches users**, never by likelihood or by how hard it is to
 fix.
 
-| | Severity | Definition | Response |
+The examples in each rung are illustrative, not an exhaustive list. Rate an unlisted
+finding by matching the *kind* of consequence, not by hunting for its exact wording.
+
+| | Severity | The consequence is… | Response |
 | --- | --- | --- | --- |
-| **S0** | Critical | Data loss or corruption, security breach, exposure of one user's or tenant's data to another, credential leak, total unavailability. | Stop the release. Incident process. Fix before anything else. |
-| **S1** | Major | A core journey is unusable — cannot sign in, cannot complete the primary task, cannot recover from an error. No workaround. | Release blocker. |
-| **S2** | Significant | Important function degraded, accessibility barrier, a materially wrong or misleading claim shown to users, a broken public URL or metadata regression. Workaround exists but is poor. | Blocker unless a named human waives it in writing with a tracked follow-up. |
-| **S3** | Minor | Localised functional or visual defect, inconsistent behaviour, poor edge-case handling. | Scheduled fix; does not block. |
-| **S4** | Trivial | Polish, wording nits, internal documentation gaps. | Backlog. |
+| **S0** | Critical | **Irreversible or unbounded harm.** Data loss or corruption; a security breach or credential leak; one user's or tenant's data exposed to another; total unavailability; content that can physically harm a user; unlawful handling of special-category or children's data; a report that makes every other report untrustworthy. | Stop the release. Incident process. Fix before anything else. |
+| **S1** | Major | **Serious harm with no workaround.** A core journey unusable — cannot sign in, cannot complete the primary task, cannot recover from an error. A latent defect of S0 *kind* that has not yet fired: an injectable query, a reachable known-vulnerable dependency, a recovery path that has never been executed. Legal exposure: an unlicensed asset, an unhonourable deletion promise, a representation a regulator would act on. | Release blocker. |
+| **S2** | Significant | **Real harm with a poor workaround.** Important function degraded; an accessibility barrier on a surface that is still usable another way; a materially wrong or misleading claim shown to users; a broken public URL or metadata regression on part of the site. | Blocker unless a named human waives it in writing with a tracked follow-up. |
+| **S3** | Minor | **Localised.** A functional or visual defect on one surface, inconsistent behaviour, poor edge-case handling, a `project/` document that has drifted from the code. | Scheduled fix; does not block. |
+| **S4** | Trivial | **Cosmetic.** Polish, wording preferences, comment and code-level documentation gaps. | Backlog. |
+
+Two rungs to get right, because they are where miscalibration concentrates:
+
+- **S0 vs S1 is not "did it happen yet".** Severity is by consequence, never by
+  likelihood — but a defect whose harm *has already occurred, or needs nothing further to
+  occur than a user acting normally or an attacker choosing to*, is S0. The same class of
+  defect still gated behind an event that has not happened is S1. An exposed record is S0;
+  an injectable query nobody has injected is S0 too, because nothing stands between it and
+  an attacker. A backup gap that only costs you on the day the disk dies is S1.
+- **S2 vs S1 is "poor workaround" vs "no workaround".** A form that is painful by
+  keyboard is S2. A primary journey that cannot be completed by keyboard at all is S1.
 
 **Calibration examples** — the point of these is that the first two are *not* judgement
 calls:
@@ -92,10 +114,20 @@ calls:
 - One customer can read another customer's record → **S0**, always, regardless of how
   unlikely the path is.
 - A password reset email never arrives → S1.
-- A form is unusable by keyboard → S2.
-- A published page states an unverified statistic about the business → S2 (see
-  `06-evidence-and-claims.md`).
+- A form is painful but usable by keyboard → S2. A *primary* journey that cannot be
+  completed by keyboard at all → S1: no workaround.
+- A published page states an unverified statistic about the business → S2, or S1 if being
+  wrong about it is legally or financially consequential (`06-evidence-and-claims.md`).
+- A whole production section is accidentally blocked from indexing → S1: not one broken
+  URL, but the site's discoverability gone, with no workaround.
+- `architecture.md` now describes a structure the code does not have → S3.
 - A button is 2px misaligned on one breakpoint → S4.
+
+Each role playbook in `../roles/` carries a **Severity calibration** table pre-rating its
+characteristic findings against this ladder, so the rating is not re-argued every review.
+Those tables are the working reference — use the rating they give. If one genuinely
+conflicts with the rungs above, rate by the rungs, record the finding, and raise the
+mismatch as a defect in the kit, because it will mislead the next review too.
 
 ---
 

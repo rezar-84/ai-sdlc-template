@@ -1,5 +1,5 @@
 ---
-status: active
+status: draft
 owner: product-manager
 last-reviewed: YYYY-MM-DD
 ---
@@ -10,7 +10,7 @@ last-reviewed: YYYY-MM-DD
 > (`../process/06-evidence-and-claims.md`). When a fact is needed and not available, the
 > answer is a row here — never an invented value.
 >
-> Read at the start of every session and reconciled at every gate.
+> Read at the start of every session, and reconciled at CLOSE for every work item.
 
 ## Open assumptions
 
@@ -40,7 +40,9 @@ Anything published or written down that lacks evidence on file. Each is a defect
 
 ## Risks
 
-Things that could go wrong, rated by consequence.
+Things that could go wrong. A *risk* is forecasting — likelihood belongs here. A *defect
+severity* is not, and is rated by consequence alone (`../process/04-quality-gates.md`).
+Do not let the two columns bleed into each other.
 
 | # | Risk | Impact | Likelihood | Mitigation / early warning | Owner |
 | --- | --- | --- | --- | --- | --- |

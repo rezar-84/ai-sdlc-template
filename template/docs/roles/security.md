@@ -14,7 +14,7 @@ credentials, dependencies, and a build pipeline.
 - User input is accepted, stored, rendered, or executed.
 - A dependency, integration, or external call is added.
 - Infrastructure, configuration, or deployment changes.
-- Any Tier 1 change (standing board member). Gates G2, G4, G5.
+- Any Tier 1 change, regardless of surface.
 
 ## Skip when
 
@@ -107,17 +107,21 @@ diff, and the actual enforcement points in the code.
 
 ---
 
-## Blocking failures — always S0/S1, never negotiable
+## Severity calibration
 
-- One user or tenant can reach another's data, by any path, including error messages,
-  metadata, timing, or counts.
-- Identity or entitlement derived from client-controllable input.
-- Authorisation enforced only in the interface.
-- A secret committed, logged, or shipped to a client.
-- Unparameterised query or command construction from user input.
-- Authentication or session handling weakened for convenience.
-- A known-vulnerable dependency in a reachable path with no compensating control.
-- Disabling a security check to make a test or build pass.
+Rate by consequence if it reaches users, never by how unlikely the path looks. Nothing
+in this table is below S1, which is why this role is never switched off.
+
+| Finding | Sev |
+| --- | --- |
+| One user or tenant can reach another's data, by any path — including error messages, metadata, timing, or counts | S0 — the exposure exists now |
+| A secret committed, logged, or shipped to a client | S0 — the leak has already happened; rotate, do not just remove |
+| Identity or entitlement derived from client-controllable input | S0 — a user can help themselves today |
+| Authorisation enforced only in the interface, not on the object | S0 — the API is the real surface |
+| Unparameterised query or command construction from user input | S0 — nothing stands between it and an attacker who chooses to |
+| A known-vulnerable dependency in a reachable path with no compensating control | S1 |
+| Authentication or session handling weakened for convenience | S1 |
+| A security check disabled to make a test or build pass | S1 |
 
 ---
 

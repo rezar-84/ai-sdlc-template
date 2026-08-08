@@ -10,7 +10,6 @@ observed.
 
 - Any change to what a user can do, or to priority, sequencing, or scope.
 - Any Tier 1 change (standing board member).
-- Gate transitions G0, G1, G6.
 
 ## Skip when
 
@@ -60,13 +59,21 @@ observed.
 
 ---
 
-## Blocking failures
+## Severity calibration
 
-- Work that no identified user needs, delivered as if it were requested.
-- Scope quietly changed from what was asked, without the change being surfaced.
-- A feature shipped with no way to tell whether it worked.
-- A dependency on a human decision that was resolved by guessing instead of asking.
-- A partial delivery presented as complete.
+Every row here is checkable against an artifact — the request, the backlog row, the
+acceptance criteria, the measurement plan. That is deliberate: this role's findings are
+the easiest in the kit to fake, because an agent reviewing its own plan will agree with
+it. Do not raise a finding you cannot point at a document to support.
+
+| Finding | Sev |
+| --- | --- |
+| A partial delivery presented as complete | S1 — compare the worklog's "Not done" section against what the response claims |
+| Scope quietly changed from what was asked, with the change never surfaced | S1 — compare the backlog row's one-line outcome against the diff |
+| A dependency on a human decision, resolved by guessing instead of asking | S1 — every unresolved unknown should be a row in `project/assumptions-and-risks.md` |
+| A feature shipped with no way to tell whether it worked | S2 — the measurement plan names no event for it |
+| Work no identified user needs, delivered as if it were requested | S2 — no user story, no request, no backlog row predates the work |
+| An acceptance criterion that restates the story instead of specifying observable behaviour | S3 |
 
 ---
 

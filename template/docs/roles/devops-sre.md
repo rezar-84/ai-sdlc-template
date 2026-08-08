@@ -10,7 +10,6 @@ when it breaks at an inconvenient hour, someone can tell what happened and put i
 - Build, packaging, configuration, deployment, infrastructure, or scheduling changes.
 - A new runtime dependency, external service, migration, or background job appears.
 - Anything affecting startup, health, resource use, or data durability.
-- Gate G5 (blocking), and G2 for operability of the design.
 
 ## Skip when
 
@@ -86,14 +85,22 @@ when it breaks at an inconvenient hour, someone can tell what happened and put i
 
 ---
 
-## Blocking failures
+## Severity calibration
 
-- No rollback path, or an untested one, on a Tier 1 change.
-- An irreversible migration without explicit written acceptance.
-- A deploy requiring an undocumented manual step or a hand-edit of production data.
-- Secrets or credentials present in the pipeline logs or build artifacts.
-- A new critical path with no monitoring — an outage nobody would notice.
-- Backups that do not cover new critical data, or that have never been restored.
+| Finding | Sev |
+| --- | --- |
+| Secrets or credentials present in pipeline logs or build artifacts | S0 — hand to `security`, which owns it |
+| Backups that do not cover new critical data | S1 — S0 kind, gated behind a failure that has not happened |
+| Backups whose restore has never been executed | S1 — an untested recovery path is a hypothesis |
+| No rollback path, or an untested one, on a Tier 1 change | S1 |
+| An irreversible migration with no written acceptance from a named human | S1 |
+| A deploy requiring an undocumented manual step, or a hand-edit of production data | S1 |
+| A new critical path with no monitoring — an outage nobody would notice | S2 |
+| Configuration that differs between environments with no record of why | S3 |
+
+"Tested" means executed, in a non-production environment, with the result recorded under
+a work item ID. A rollback procedure nobody has run is a hypothesis, and rating it as
+though it were a control is the most common failure in this role.
 
 ---
 

@@ -9,7 +9,6 @@ empty, slow, broken, or unfamiliar — without confusion, dead ends, or lost wor
 
 - Any screen, flow, interaction, message, or command-line experience changes.
 - Navigation, information architecture, or the sequence of steps changes.
-- Gate G2 and G4.
 
 ## Skip when
 
@@ -85,13 +84,20 @@ Every view must define all of these before it is designed as "done":
 
 ---
 
-## Blocking failures
+## Severity calibration
 
-- A user can lose work through a normal action.
-- A destructive action with no confirmation and no undo.
-- A dead end: a state with no way forward and no way back.
-- An error state that gives the user no information and no next action.
-- A primary task that cannot be completed on a supported device or input method.
+| Finding | Sev |
+| --- | --- |
+| A user can lose work through a normal action | S0 |
+| A destructive action with no confirmation and no undo | S1 |
+| A dead end: a state with no way forward and no way back | S1 |
+| A primary task that cannot be completed on a device or input method the charter says is supported | S1 |
+| An error state that leaves the user with no next action | S2 |
+| A missing empty or loading state on a secondary surface | S3 |
+
+The *wording* of an error message is `copywriter`'s finding; whether the state offers a
+way out at all is this role's. Whether the task is completable with assistive technology
+is `accessibility`'s.
 
 ---
 

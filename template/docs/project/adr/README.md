@@ -14,17 +14,9 @@ obvious option**.
 
 Not: naming, formatting, or anything a lint rule can express.
 
-## Rules
-
-- Numbered sequentially. **Never renumber, never reuse a number**, even for an abandoned
-  proposal.
-- Status: `Proposed` → `Approved` → (`Superseded by NNNN` | `Deprecated`).
-- **Never edit the Decision section of an Approved ADR.** Write a new one that supersedes
-  it, and link both directions. The record of what was decided and later abandoned is the
-  most valuable part of this archive — it stops the same idea being re-proposed and
-  re-rejected.
-- Record rejected options with the real reason. "Not a good fit" tells a future reader
-  nothing and is usually a sign the reason was never articulated.
+Rules — numbering, the status lifecycle, superseding rather than editing, and recording
+the real reason an option lost — are in `../../process/05-change-control.md`,
+"Architecture Decision Records".
 
 ## Index
 

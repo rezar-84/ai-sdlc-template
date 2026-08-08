@@ -38,9 +38,15 @@ the format:
 - **Reads** — the inputs it needs before it can say anything useful.
 - **Design-review checklist** — applied to a plan, before building.
 - **Ship-review checklist** — applied to a diff and a running result.
-- **Blocking failures** — the specific findings that must return *Block*, not advice.
+- **Severity calibration** — this role's characteristic findings, each pre-rated on the
+  S0–S4 ladder so the rating is not re-argued every review.
 - **Owns** — the `project/` artifacts this role maintains.
 - **Hands off to** — where its findings go when they belong to another role.
+
+A role rates findings; it does not decide the verdict. The severity ladder in
+`../process/04-quality-gates.md` does that, and `../process/02-role-reviews.md` maps
+severity to *Pass* / *Pass with conditions* / *Block*. If a playbook's calibration table
+and the ladder ever disagree, the ladder wins.
 
 ## Adapting roles to a project
 
@@ -49,5 +55,7 @@ these files. That keeps `roles/` re-installable from a newer version of the kit 
 losing your project's additions.
 
 If a project genuinely needs a role that is not here (data engineer, localisation lead,
-hardware/firmware, ML evaluation, support), copy the shape of an existing file into
-`project/roles/<name>.md` and register it in the charter.
+hardware/firmware, ML evaluation, support), define it in the charter's
+**Project-specific roles** table — the same place project-specific checks live. Keeping
+both in one file means one place to look, and nothing project-shaped inside `roles/`
+to lose at the next upgrade.

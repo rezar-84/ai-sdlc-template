@@ -37,8 +37,9 @@ project facts here.
 ## `roles/` — who reviews
 
 One playbook per professional perspective. Each has the same shape: mission, when to
-engage, inputs, a concrete checklist, outputs, and the failures that must block a
-release. See `roles/README.md` for the roster and how to run a review.
+engage and when to skip, what it reads, a design-review checklist, a ship-review
+checklist, a severity calibration table, what it owns, and where it hands findings off.
+See `roles/README.md` for the roster and how to run a review.
 
 ## `templates/` — blank artifacts
 
@@ -61,14 +62,13 @@ to hold project content.
 | `release-runbook.md` | `project/release-runbook.md` | Anything that deploys |
 | `adr.md` | `project/adr/NNNN-slug.md` | Per material decision |
 | `plan.md` | inline in the response, or `project/plans/{{PREFIX}}-###.md` | Per Tier 1–2 task |
-| `task.md` | a row in `project/backlog.md` | Per unit of work |
-| `role-review.md` | `project/reviews/{{PREFIX}}-###-<stage>.md` | Per review |
+| `role-review.md` | `project/reviews/{{PREFIX}}-###-<stage>.md` | Per Tier 1 review only; Tier 2 and 3 record verdicts in the worklog entry |
 | `worklog-entry.md` | appended to `project/worklog.md` | Per completed task |
 | `postmortem.md` | `project/postmortems/YYYY-MM-DD-slug.md` | After an S0/S1 incident |
 
 ## `project/` — this project's reality
 
-The only directory that changes daily. Everything in it carries frontmatter:
+The only directory that changes daily. Every document in it carries frontmatter:
 
 ```yaml
 ---
@@ -77,6 +77,11 @@ owner: <person or role accountable>
 last-reviewed: YYYY-MM-DD
 ---
 ```
+
+Two exceptions, both deliberate. **ADRs** carry their own decision lifecycle instead
+(`Proposed | Approved | Superseded by NNNN | Deprecated` — see `templates/adr.md`); an
+ADR is a dated record of a decision, so it never goes `stale`, it gets superseded. And
+the `README.md` in each subdirectory is part of the kit, not a project record.
 
 `status: stale` is a legitimate and useful state. Marking a document stale is better
 than leaving a confident, wrong document in place — but the marking must be accompanied

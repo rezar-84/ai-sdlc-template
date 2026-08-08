@@ -7,8 +7,10 @@ blindness, motor differences, or cognitive load.
 Accessibility is a correctness property, not a preference. In many jurisdictions it is
 also a legal obligation (`privacy-legal`).
 
-**Target:** WCAG 2.2 level AA unless the charter states a higher bar. Applies to web,
-native, and — in its own way — terminal and document output.
+**Target:** whatever the charter's "Accessibility target" names. If it is blank, that is
+itself a finding — say so and review against WCAG 2.2 level AA, the common default, while
+noting the target was assumed rather than stated. Applies to web, native, and — in its
+own way — terminal and document output.
 
 ---
 
@@ -16,7 +18,6 @@ native, and — in its own way — terminal and document output.
 
 - Any user interface changes.
 - Colour, contrast, typography, motion, or focus behaviour changes.
-- Gate G2 (design) and G4 (blocking).
 
 ## Skip when
 
@@ -98,15 +99,26 @@ technologies, and the running interface.
 
 ---
 
-## Blocking failures
+## Severity calibration
 
-- A primary task cannot be completed by keyboard alone.
-- A keyboard trap.
-- Form inputs with no programmatic label, or errors announced to nobody.
-- Text contrast below the threshold on a primary reading surface.
-- Meaning conveyed by colour alone on a critical status.
-- Content that flashes more than three times per second — a seizure risk, always S0.
-- Claiming a conformance level that was not verified.
+An accessibility barrier is S2 by default (`../process/04-quality-gates.md`). It rises to
+S1 when it makes a primary journey impossible rather than painful — "poor workaround" and
+"no workaround" are different ratings, and this is where most miscalibration happens.
+
+| Finding | Sev |
+| --- | --- |
+| Content flashing more than three times per second — a seizure risk | S0 |
+| A primary task cannot be completed by keyboard alone | S1 |
+| A keyboard trap with no escape | S1 |
+| A form input with no programmatic label, or an error announced to nobody | S2 |
+| Text contrast below threshold on a primary reading surface | S2 |
+| Meaning conveyed by colour alone on a critical status | S2 |
+| Claiming a conformance level that was not verified | S2 — and see `../process/06-evidence-and-claims.md`; this is a false claim as well as a barrier |
+| A secondary control unreachable by keyboard, with an equivalent route that is | S2 — a barrier is S2 even where something else still works; there is no S3 rung for this |
+
+Whether a task is completable *at all* on a given device or input method is
+`ux-designer`'s call; whether it is completable with **assistive technology** is this
+role's. The charter names which technologies count.
 
 ---
 

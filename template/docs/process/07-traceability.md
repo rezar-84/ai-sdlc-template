@@ -16,6 +16,11 @@ The prefix is declared in `project/charter.md` (2–4 uppercase letters). Number
 sequential, never reused, never renumbered. Once an ID appears anywhere — branch,
 commit, review, worklog — it is permanent, even if the work is dropped.
 
+**The next ID** is the highest number that appears anywhere under `project/` — including
+`Dropped` rows, the worklog archive, and review filenames — plus one. Do not take it from
+the last row of the active backlog table; dropped and archived items are exactly the ones
+that have already been moved out of it.
+
 Every branch, commit, review file, and worklog entry carries its ID. That single string
 is the join key across all four records.
 
@@ -43,9 +48,57 @@ the backlog's description cell. Do that a dozen times and the table has multi-pa
 cells, the status column is unscannable, and the document that was supposed to answer
 "what is left?" in five seconds cannot answer it at all.
 
-A backlog row is: **ID · one-line description · owner role · dependencies · tier ·
-status.** Anything more goes in the worklog entry, which the row implicitly points to
-via its ID.
+Anything beyond the row's six columns goes in the worklog entry, which the row
+implicitly points to via its ID.
+
+---
+
+## The backlog row
+
+The authoritative column order. It is a positional markdown table, so the order is part
+of the specification.
+
+```
+| ID | Task | Tier | Owner role | Depends on | Status |
+```
+
+Every section of `project/backlog.md` carries these six, in this order, and may add
+section-specific columns **to the right** (Blocked adds who can unblock; Done adds a
+completion date). A row keeps all six wherever it sits — an item does not stop having an
+owner or a tier because it finished.
+
+| Column | Rule |
+| --- | --- |
+| **ID** | `{{PREFIX}}-###`. Sequential, never reused, never renumbered. |
+| **Task** | **One line.** What will be true afterwards. If it needs two sentences, it is two items. |
+| **Tier** | 1 / 2 / 3 per "Risk tiers" in `AGENTS.md`. Assigned at FRAME, before planning. |
+| **Owner role** | The role accountable, from the charter's active roster. |
+| **Depends on** | Other IDs, or a named human input ("owner: brand assets"). Blank if none. |
+| **Status** | One of the eight values below. No others, no synonyms. |
+
+### Status values
+
+| Status | Meaning |
+| --- | --- |
+| **Ready** | Passes the Definition of Ready (`03-ready-and-done.md`). Anyone could pick it up. |
+| **Blocked** | Cannot start. The blocker is named in Depends-on, and it is a real identified thing, not "needs more thought". |
+| **In progress** | Actively being built. One or two at a time, not fifteen. |
+| **In review** | Built, awaiting role review — or holding a *Block* verdict that is being fixed. A Block does not send an item back to `Blocked`; that status means work never started. |
+| **Parked** | Complete as far as an agent can take it; waiting on a named human for an approval or a waiver. See "Waiting on a human" in `00-operating-model.md`. |
+| **Done** | Meets the Definition of Done, worklog entry written. Nothing is `Done` without a worklog entry. |
+| **Deferred** | Valid, not now. Say when it becomes relevant again. |
+| **Dropped** | Will not be done. One-line reason, and the row stays. |
+
+### Writing a good one-line task
+
+| Poor | Better |
+| --- | --- |
+| Improve the dashboard | Show last successful sync time per report on the dashboard |
+| Fix the auth bug | Deny report access when a membership has been revoked |
+| SEO work | Add reciprocal language alternates to all published pages |
+| Refactor | Extract the entitlement check out of the route handler into the service layer |
+
+The test: could someone else tell whether it is finished, without asking you?
 
 ---
 
@@ -78,8 +131,8 @@ Every artifact in `project/` carries `last-reviewed: YYYY-MM-DD`.
 - An agent reading a document older than the charter's staleness threshold treats it as
   a **hypothesis**, verifies the parts it depends on against the code, and reports the
   drift it finds.
-- Document drift is a real defect and belongs in review findings, usually S3, or S2 when
-  the document would actively mislead someone into a mistake.
+- Document drift is a real defect and belongs in review findings, rated on the ladder in
+  `04-quality-gates.md` like anything else.
 
 ---
 
@@ -110,5 +163,5 @@ made "quickly" without an ID — from which point nothing downstream can be foun
 - **Archive, do not truncate.** When the worklog gets long, move older entries to
   `project/worklog-archive/YYYY.md` and leave a pointer. Same for completed backlog
   items: a `Done` archive section keeps the active table short.
-- **Review the registers at every gate.** Backlog, assumptions, and risks are read and
-  reconciled at each gate transition, not only when someone remembers.
+- **Review the registers at CLOSE.** Backlog, assumptions, and risks are read and
+  reconciled at the end of every work item, not only when someone remembers.

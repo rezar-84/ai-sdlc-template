@@ -28,7 +28,8 @@ Drop it into any project. From then on, an agent that reads `AGENTS.md` will:
   pipeline, a mobile app, a library, or a docs-only repo. Roles that do not apply are
   switched off in the charter, not awkwardly forced.
 - **No ceremony tax.** A one-line copy fix does not trigger twelve role reviews. Risk
-  tiers (see `docs/process/02-role-reviews.md`) scale the process to the change.
+  tiers (defined in `AGENTS.md`) scale both the process and the *reading* to the change —
+  a Tier 3 fix has a reading list of one charter section.
 
 ## Install into a project
 
@@ -36,10 +37,10 @@ Drop it into any project. From then on, an agent that reads `AGENTS.md` will:
 ./install.sh /path/to/your-project ACME          # ACME = the work-item ID prefix
 ```
 
-The installer copies `AGENTS.md` to the project root and `docs/` into the project,
-substitutes `{{PROJECT_NAME}}` and `{{PREFIX}}`, adds a `CLAUDE.md` pointer if none
-exists, and **never overwrites an existing file** — re-running it is safe and only fills
-in what is missing.
+The installer copies `AGENTS.md` to the project root, `docs/` into the project, and the
+four slash commands into `.claude/commands/`; substitutes `{{PROJECT_NAME}}` and
+`{{PREFIX}}` in all of them; adds a `CLAUDE.md` pointer if none exists; and **never
+overwrites an existing file** — re-running it is safe and only fills in what is missing.
 
 If the project already uses `docs/` for something else:
 
@@ -49,31 +50,28 @@ If the project already uses `docs/` for something else:
 
 …then adjust the `docs/` paths named in `AGENTS.md` (they are listed in one place).
 
-Manual install is just a copy, if you prefer:
+Manual install is a copy plus a find-and-replace — the substitution is not optional, and
+skipping it leaves `{{PREFIX}}-###` as a literal path in the docs the agent follows:
 
 ```sh
-cp template/AGENTS.md  /path/to/your-project/AGENTS.md
-cp -r template/docs    /path/to/your-project/docs
+cp    template/AGENTS.md          /path/to/your-project/AGENTS.md
+cp -r template/docs               /path/to/your-project/docs
+cp -r optional/claude-commands    /path/to/your-project/.claude/commands
+cd /path/to/your-project
+grep -rl '{{' docs AGENTS.md .claude | xargs sed -i 's/{{PREFIX}}/ACME/g; s/{{PROJECT_NAME}}/your-project/g'
 ```
 
 Then, in the target project:
 
 1. Fill in `docs/project/charter.md`. This is the only file you *must* complete before
    the kit is usable — it declares the project name, ID prefix, active roles, stack,
-   check commands, and risk defaults. An agent that guesses a check command because the
-   charter was blank will produce confidently false "verified" claims.
-2. Replace any remaining `{{DOUBLE_BRACE}}` placeholders (the charter lists them).
-3. Fill in `AGENTS.md` §8 — the project-specific rules, forbidden shortcuts, and the
-   surfaces where a named human must approve.
-4. Optionally add the slash commands:
-   ```sh
-   mkdir -p /path/to/your-project/.claude/commands
-   cp optional/claude-commands/*.md /path/to/your-project/.claude/commands/
-   ```
-   giving `/sdlc-plan`, `/sdlc-review`, `/sdlc-verify`, `/sdlc-log`.
+   check commands, constraints, and risk defaults. An agent that guesses a check command
+   because the charter was blank will produce confidently false "verified" claims.
+2. Confirm nothing was missed: `grep -rn '{{' docs AGENTS.md .claude` should be empty.
+3. Fill in the "Project overrides" section of `AGENTS.md` — the project-specific rules,
+   forbidden shortcuts, and the surfaces where a named human must approve.
 
-Nothing else needs to be true for the kit to work. There is no build step, no
-dependency, and no runtime.
+That is all. There is no build step, no dependency, and no runtime.
 
 ## Layout
 
@@ -83,21 +81,23 @@ template/
   docs/
     README.md                map of the kit + cold-start reading order for an agent
     process/                 HOW we work. Portable. Same in every project. Rarely edited.
-      00-operating-model.md      the loop, and how an agent decides what applies
-      01-lifecycle-gates.md      G0..G6 phases, entry/exit criteria, artifacts
-      02-role-reviews.md         risk tiers, who reviews what, verdicts, quorum
+      00-operating-model.md      the loop, the modes, and what to do when a human is needed
+      01-lifecycle-gates.md      appendix: G0..G6, for standing up a new project only
+      02-role-reviews.md         who reviews what, at which stage, and what a verdict means
       03-ready-and-done.md       Definition of Ready / Definition of Done
       04-quality-gates.md        test strategy, CI gate order, bug severity ladder
       05-change-control.md       branches, commits, PRs, approvals, ADRs, rollback
       06-evidence-and-claims.md  the no-fabrication doctrine; provenance; assumptions
-      07-traceability.md         IDs, what gets logged where, staleness rules
+      07-traceability.md         IDs, the backlog row spec, what gets logged where
     roles/                   WHO reviews. One playbook per professional perspective.
       README.md + 12 role playbooks
     templates/               Blank artifacts to copy when a project needs one.
     project/                 WHERE this project's filled-in reality lives.
-      charter.md  backlog.md  worklog.md  assumptions-and-risks.md  adr/  reviews/
+      charter.md  backlog.md  worklog.md  assumptions-and-risks.md
+      adr/  reviews/  plans/  postmortems/  worklog-archive/
 optional/
   claude-commands/           Claude Code slash commands that drive the loop
+VERSION                      the kit version, stamped into installed AGENTS.md
 ```
 
 ## The three kinds of file
@@ -116,10 +116,19 @@ process docs, so they go stale silently. Do not merge the directories.
 
 ## Upgrading the kit later
 
-`docs/process/` and `docs/roles/` are meant to be replaceable wholesale: re-copy them
-from a newer version of this template and your project records are untouched. Keep
-project-specific rules in `AGENTS.md` (the "Project overrides" section) and in
-`docs/project/`, never inside `process/` or `roles/`.
+```sh
+./install.sh /path/to/your-project ACME --upgrade
+```
+
+`docs/process/` and `docs/roles/` are replaceable wholesale — `--upgrade` overwrites
+exactly those two directories and nothing else. `docs/project/`, `AGENTS.md`, and
+`.claude/commands/` are never touched, because they may carry your edits; the installer
+prints a `diff` command for `AGENTS.md` so you can merge by hand if a release changed it.
+
+This only works if you keep project-specific rules where they belong: in `AGENTS.md`
+("Project overrides") and in `docs/project/`, never inside `process/` or `roles/`. The
+installed `AGENTS.md` carries the kit version it came from, in an HTML comment near the
+top; `VERSION` here is the current one.
 
 ## Conventions used in the docs
 

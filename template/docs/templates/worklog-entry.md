@@ -2,7 +2,11 @@
 
 ## {{PREFIX}}-### — <title>
 
-**Date:** YYYY-MM-DD **Tier:** 1|2|3 **Status:** Done | Partial | Reverted
+**Date:** YYYY-MM-DD **Tier:** 1|2|3
+**Status:** Done | Partial | Parked | Reverted
+_(`Done` and `Parked` must match the backlog row. `Partial` and `Reverted` describe this
+entry only; the row stays open at the loop step actually reached — `In progress` before
+VERIFY, `In review` after — and this entry says which and why.)_
 **Branch/commits:** `<branch>` / `<range>`
 
 ### What changed
@@ -23,9 +27,17 @@ _(Actual commands and actual results. Not "tests pass".)_
 <real output, or a faithful summary: "142 passed, 0 failed, 3 skipped">
 ```
 
-- [x] format / lint / typecheck — _(result)_
-- [x] unit — _(result)_
-- [ ] integration — **not run** — _(why)_
+_(One line for each of the ten check stages in `../process/04-quality-gates.md`, in that
+order — all of them, including the ones that did not run. The charter's Commands table
+supplies the command for each; its `Install` and `Run locally` rows are not stages and are
+not reported here. A stage missing from this record is indistinguishable from one that
+passed. Use the six words from `../process/06-evidence-and-claims.md`: Verified ·
+Reported · Assumed · Unknown · Not run · Absent.)_
+
+- [x] `checks.lint` — Verified — _(result)_
+- [ ] `checks.integration` — **Not run** — _(why, and what would be needed)_
+- [ ] `checks.e2e` — **Absent** — _(the charter names no command; this is a QA finding,
+  not a neutral fact)_
 - [x] manual — _(what you actually did, in what environment, in what states)_
 
 ### Not done
@@ -50,6 +62,16 @@ was written, say why.)_
 
 _(From `assumptions-and-risks.md`. What breaks if any of them is wrong.)_
 
+### Plan
+
+_(Tier 1: link the file in `project/plans/`. Tier 2: the plan itself belongs here — the
+approach, the alternatives rejected and why, and what you deliberately did not do. This
+is the only durable home a Tier 2 plan gets, and `07-traceability.md` requires the chain
+`ID → plan` to be walkable.)_
+
 ### Reviews
 
-_(Roles engaged and verdicts; link to `project/reviews/{{PREFIX}}-###-*.md`.)_
+_(Every role engaged, its verdict, and its findings. Tier 1: link
+`project/reviews/{{PREFIX}}-###-*.md`. Tier 2: the verdicts go here, in full — Tier 2
+writes no review file, so this section is the record `03-ready-and-done.md` means when it
+requires verdicts to be recorded.)_

@@ -1,32 +1,26 @@
 # Review records
 
-One file per review: `{{PREFIX}}-###-design.md` or `{{PREFIX}}-###-ship.md`, from
-`../../templates/role-review.md`.
+One file per **Tier 1** review: `{{PREFIX}}-###-design.md` or `{{PREFIX}}-###-ship.md`,
+from `../../templates/role-review.md`. Nothing else lands here.
 
 ## What lands here
 
-| Tier | Design review | Ship review |
-| --- | --- | --- |
-| 1 | Required — file | Required — file |
-| 2 | Required — may be summarised in the response and worklog | Required — may be summarised |
-| 3 | Usually none | Usually none |
+| Tier | Design review | Ship review | Lands here? |
+| --- | --- | --- | --- |
+| 1 | Required | Required | **Yes — a file each.** They are the audit trail behind the two human approvals. |
+| 2 | Required | Required | No. The verdicts go in the worklog entry's **Reviews** section. |
+| 3 | One role, one line | Skipped | No. Same worklog section. |
 
-Tier 1 reviews **must** be files: they are the audit trail behind the two human
-approvals.
+Add a row to the Index below for every file you create here.
 
 ## What makes a record worth keeping
 
-Each role block states **what was checked**, not only what was found. A review that
-found nothing is valuable if it says where it looked; it is worthless if it says
-"looks good".
+Each role block states **what was checked**, not only what was found. A review that found
+nothing is valuable if it says where it looked; it is worthless if it says "looks good".
 
-Findings carry a location, a consequence, and a fix. Verdicts are *Pass* / *Pass with
-conditions* / *Block*.
-
-**An agent may not waive its own blocker.** A waiver needs a named human, a written
-reason, and a tracked follow-up — all three recorded in the file.
-
-Full rules: `../../process/02-role-reviews.md`.
+Everything else — the evidence rule, verdicts, severity, waivers, and the named
+anti-patterns — is in `../../process/02-role-reviews.md`. Read it before writing one of
+these, not after.
 
 ## Index
 

@@ -6,7 +6,7 @@ last-reviewed: YYYY-MM-DD
 
 # Plan — {{PREFIX}}-### <title>
 
-**Tier:** 1 | 2 | 3 **Gate:** G_ **Depends on:** _(IDs, or none)_
+**Tier:** 1 | 2 | 3 **Depends on:** _(IDs, or none)_
 
 ## Problem
 

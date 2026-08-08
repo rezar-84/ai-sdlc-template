@@ -10,6 +10,13 @@ succeed, and declaring work finished that is not.
 A work item may not enter BUILD until all of these are true. If one fails, the item is
 `Blocked` with the reason recorded — not started optimistically.
 
+The first four are checkable at **FRAME**, before there is a plan, and
+`00-operating-model.md` checks them there. The rest depend on the plan and are checked at
+**BUILD** entry. Checking the whole list at FRAME would block every item that has not been
+planned yet, which is all of them.
+
+**Checkable at FRAME:**
+
 - [ ] **It has an ID** and a row in `project/backlog.md`.
 - [ ] **The outcome is stated in one sentence** — what will be true afterwards that is
       not true now. Not "improve the dashboard" but "the dashboard shows the last
@@ -17,16 +24,21 @@ A work item may not enter BUILD until all of these are true. If one fails, the i
 - [ ] **Acceptance criteria are testable**, including at least one negative case (what
       must *not* happen, or what must be refused).
 - [ ] **The risk tier is assigned.**
-- [ ] **Dependencies are identified and satisfied**, or the item is explicitly a
-      partial that stops at the dependency boundary.
 - [ ] **Unknowns are resolved or bounded.** An unresolved unknown is either answered by
       a human, made irrelevant by a stated assumption, or the item is blocked. It is
       never silently guessed.
+
+**Checkable at BUILD entry, once the plan exists:**
+
+- [ ] **Dependencies are identified and satisfied**, or the item is explicitly a
+      partial that stops at the dependency boundary.
 - [ ] **The affected artifacts are known** — which `project/` docs this will falsify.
 - [ ] **Design/plan exists** at the depth the tier requires, and has passed design
       review for Tier 1–2.
-- [ ] **It is small enough to finish.** If it cannot plausibly reach Done in one working
-      session, split it into items that can, each independently valuable.
+- [ ] **It is small enough to finish in one pass.** The test: it has a single stated
+      outcome, and you can name every file you expect to touch. If it has two outcomes,
+      or the file list is "we'll see", it is two or more items — split it, each
+      independently valuable.
 
 ---
 
@@ -53,15 +65,14 @@ becomes a tracked follow-up named in the worklog entry — never an unstated gap
 
 ### Review
 - [ ] Required role reviews complete for the tier, with verdicts recorded.
-- [ ] No open S0/S1. S2 fixed or waived in writing by a named human with a follow-up ID.
-- [ ] Human approvals obtained where `AGENTS.md` §8 requires them.
+- [ ] No open S0, S1, or S2 — except an S2 waived per `04-quality-gates.md`.
+- [ ] Human approvals obtained where `AGENTS.md`, "Project overrides", requires them.
 
 ### Documentation
-- [ ] Worklog entry appended: what changed, what was verified and how, what was
-      deferred, what was discovered.
+- [ ] Worklog entry appended, every section of `templates/worklog-entry.md` filled in.
 - [ ] Backlog status updated; follow-ups created with IDs.
-- [ ] Every `project/` artifact the change falsified is updated, or marked `stale` with
-      a backlog item.
+- [ ] Every `project/` artifact the change falsified is updated or marked `stale`
+      (`07-traceability.md`).
 - [ ] ADR written for any material decision; superseded ADRs marked, not edited.
 - [ ] `assumptions-and-risks.md` reconciled — resolved entries closed, new ones added.
 
@@ -81,8 +92,7 @@ Rarely written down, and it should be. An item may be closed without being done 
 
 - the underlying need disappeared (record why);
 - it was superseded by another item (link it);
-- it was blocked for longer than the charter's staleness threshold and nobody needs it.
+- it has sat `Blocked` long enough that nobody is waiting for it any more — say since
+  when, using the date in the Blocked table.
 
-Move it to a `Dropped` status with a one-line reason. Do not silently delete backlog
-rows — the record that something was considered and rejected is worth keeping, and
-deleting it guarantees someone proposes it again.
+Move it to `Dropped` with a one-line reason. The row stays (`07-traceability.md`).

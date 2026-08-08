@@ -30,6 +30,16 @@ Every review states what it checked, including when it found nothing:
 A review that cannot say what it checked did not happen. Write "not reviewed — no access
 to X" rather than implying coverage you do not have.
 
+### When an input does not exist
+
+A role's **Reads** list names artifacts a project may not have created yet. A missing
+input is never a reason to review from imagination, and never a silent gap. Report it in
+the `Not checked` line as **Absent** (`06-evidence-and-claims.md`), name what you could
+not therefore check, and raise it as a finding owned by whichever role owns that artifact
+— usually S3, or higher where the missing artifact is the thing that would have caught a
+real risk. "There is no threat model, so nobody has enumerated who can reach this" is a
+security finding, not a formality.
+
 ---
 
 ## Stages
@@ -73,11 +83,19 @@ nothing else.
 
 ## Verdicts
 
-| Verdict | Meaning | Consequence |
+A role does not decide on its own authority whether a finding blocks. It rates each
+finding on the severity ladder in `04-quality-gates.md`, and the ladder decides the
+verdict. This is the only place blocking is defined; a role playbook that seems to say
+otherwise is wrong, and the ladder wins.
+
+| Verdict | When | Consequence |
 | --- | --- | --- |
-| **Pass** | No findings above S3 within this role's remit. | Proceed. |
-| **Pass with conditions** | Proceed now; named follow-ups are tracked with IDs and owners. | Conditions become backlog items before merge, not "later". |
-| **Block** | An S0/S1 finding, or an S2 on a release-critical surface. | Work stops. |
+| **Pass** | Nothing found, or only S4 findings. | Proceed. |
+| **Pass with conditions** | Worst finding is S3. | Each S3 becomes a backlog item with an ID and an owner before merge, not "later". |
+| **Block** | Any S0, S1, or S2 finding. | Work stops. An S2 — and only an S2 — may be released by a named human's written waiver with a tracked follow-up (`04-quality-gates.md`). S0 and S1 are never waivable. |
+
+The same three words are used for the review's overall outcome: it is the most severe
+verdict any single role returned.
 
 ### On a Block
 
@@ -121,8 +139,9 @@ than not reviewing — it launders the problem into a document that looks like d
 One file per review: `project/reviews/{{PREFIX}}-###-<design|ship>.md`, from
 `templates/role-review.md`. Findings carry S0–S4 severity per `04-quality-gates.md`.
 
-For Tier 2, the same content can live in the response and be summarised in the worklog
-entry. For Tier 1 it must be a file — it is the audit trail for the approval.
+**Tier 1 only.** For Tier 2 the same content goes in the response and, durably, in the
+worklog entry's **Reviews** section — no file. For Tier 3 it is one line in that section.
+Add a row to the index in `project/reviews/README.md` for each file you create.
 
 ---
 

@@ -16,8 +16,8 @@ wrong.
 One branch per work item. If a branch grows a second unrelated purpose, split it — a
 mixed branch cannot be reviewed properly or reverted cleanly.
 
-Never commit directly to the default branch unless the charter explicitly permits it for
-this project.
+Never commit directly to the default branch unless the charter's Environments section
+records "Direct commits to it: allowed". A blank there means not allowed.
 
 ---
 
@@ -74,7 +74,7 @@ approved on trust, which defeats the purpose.
 | Tier 3 | Self-merge permitted if all checks pass. |
 | Tier 2 | One reviewer. |
 | Tier 1 | **Two human approvers**, at least one with domain ownership of the affected surface. |
-| Anything the charter names in `AGENTS.md` §8 | As named there, regardless of tier. |
+| Anything named under "Human approval required for" in `AGENTS.md` | As named there, regardless of tier. |
 
 An agent may prepare, propose, and justify a change. An agent does not approve its own
 Tier 1 work, and does not count as either of the two approvers.
@@ -97,7 +97,7 @@ obvious option.
 **Do not write one for:** naming, formatting, or anything a lint rule can express.
 
 Rules:
-- Numbered sequentially, never renumbered: `project/adr/0007-slug.md`.
+- Numbered sequentially, never renumbered: `project/adr/<NNNN>-<slug>.md`.
 - Status: `Proposed` → `Approved` → (`Superseded by NNNN` | `Deprecated`).
 - **Never edit the decision of an approved ADR.** Write a new one that supersedes it and
   link both directions. The record of what was decided *and later abandoned* is the most

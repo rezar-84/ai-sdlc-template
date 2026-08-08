@@ -10,8 +10,10 @@ last-reviewed: YYYY-MM-DD
 > is the only file that tells an agent what this project is, what it is built with, and
 > which parts of the process apply.
 >
-> Placeholders used across the installed docs: `{{PROJECT_NAME}}`, `{{PREFIX}}`,
-> `{{OWNER_ROLE}}`. Replace them everywhere after filling this in.
+> Two placeholders are used across the installed docs — the project name and the work
+> item prefix — and `install.sh` substitutes both. If you installed by hand, replace them
+> everywhere: grepping `docs/`, `AGENTS.md`, and `.claude/` for a doubled curly brace
+> must return nothing before you rely on any of it.
 
 ## Identity
 
@@ -22,12 +24,12 @@ last-reviewed: YYYY-MM-DD
 | **Work item prefix** | `{{PREFIX}}` _(2–4 uppercase letters, e.g. `ACME`)_ |
 | **Repository** | _(url or path)_ |
 | **Accountable human** | _(name — the person who approves Tier 1 work)_ |
-| **Current gate** | G_ _(see `../process/01-lifecycle-gates.md`)_ |
 
 ## Stack
 
-The authoritative declaration. Every process document refers to these indirectly, so
-that the process itself stays portable.
+**Authoritative.** Every process document refers to these indirectly, so that the process
+itself stays portable, and `architecture.md` links here rather than restating them — one
+table, so it cannot drift.
 
 | Concern | This project uses |
 | --- | --- |
@@ -40,13 +42,29 @@ that the process itself stays portable.
 | CI | |
 | Test tooling | |
 
-Detail and the reasoning live in `architecture.md` and the ADRs. This table is for
+The reasoning lives in the ADRs; the shape lives in `architecture.md`. This table is for
 lookup.
+
+## Constraints
+
+What the design has to live within. The architect role checks every proposal against
+this table, so an empty row reads as "unconstrained" — write "none known" if that is
+genuinely true.
+
+| | |
+| --- | --- |
+| **Team / who maintains this** | _(size, skills, whether anyone is on call)_ |
+| **Operational capacity** | _(what the team can realistically run and monitor)_ |
+| **Budget ceiling** | _(hosting, licences, third-party services)_ |
+| **Latency / throughput** | _(what the system must meet, or "not specified")_ |
+| **Existing platform commitments** | _(what cannot be replaced, and why)_ |
+| **Timeline** | _(fixed dates and what drives them)_ |
 
 ## Commands
 
-Exact commands, runnable from the repository root. An agent uses these verbatim; a wrong
-entry here produces confidently wrong "verified" claims.
+**Authoritative.** Exact commands, runnable from the repository root. An agent uses these
+verbatim; a wrong entry here produces confidently wrong "verified" claims. `test-plan.md`
+links here rather than repeating them.
 
 | Stage | Command |
 | --- | --- |
@@ -57,52 +75,76 @@ entry here produces confidently wrong "verified" claims.
 | `checks.typecheck` | |
 | `checks.unit` | |
 | `checks.integration` | |
+| `checks.contract` | _(if anything consumes your interface, or you consume someone else's)_ |
 | `checks.build` | |
 | `checks.scan` | |
 | `checks.a11y` | |
 | `checks.e2e` | |
 
-Mark absent stages **absent** rather than leaving them blank — a blank reads as an
-oversight, an explicit "absent" is a QA finding with a reason.
+Write **absent** in the Command cell for a stage this project does not have, with the
+reason. A blank cell is not "absent" — it is "nobody has filled this in", and an agent
+must treat it as *Unknown* and say so rather than proceeding as though the stage were
+absent (`../process/06-evidence-and-claims.md`).
 
 ## Environments
+
+**Authoritative.** `test-plan.md` and `release-runbook.md` link here rather than
+repeating this table.
 
 | Environment | Purpose | Deployed from | Who may deploy |
 | --- | --- | --- | --- |
 | | | | |
 
+| | |
+| --- | --- |
+| **Default branch** | _(name)_ |
+| **Direct commits to it** | _(allowed / not allowed — `../process/05-change-control.md` forbids them unless this says otherwise)_ |
+
 ## Active roles
 
-Tick the roles that apply. Deactivating a role is a decision — record the reason.
+**Every unticked row below is unreviewed by default.** The four at the top are always on.
+For the rest, the "Active if" column says what makes the role apply — tick it if that is
+true of this project, and if you leave it unticked, say why in the last column. A blank
+reason on an unticked row means nobody decided; it does not mean the role does not apply.
 
-| Role | Active | Reason if inactive |
-| --- | --- | --- |
-| product-manager | ☑ | always |
-| architect | ☑ | always |
-| security | ☑ | always |
-| qa | ☑ | always |
-| ux-designer | ☐ | |
-| brand-designer | ☐ | |
-| copywriter | ☐ | |
-| accessibility | ☐ | |
-| seo | ☐ | |
-| cro-analyst | ☐ | |
-| devops-sre | ☐ | |
-| privacy-legal | ☐ | |
+| Role | Active | Active if | Reason if inactive |
+| --- | --- | --- | --- |
+| product-manager | ☑ | always | |
+| architect | ☑ | always | |
+| security | ☑ | always | |
+| qa | ☑ | always | |
+| ux-designer | ☐ | there is any interface, including a CLI | |
+| brand-designer | ☐ | there is a visual interface | |
+| copywriter | ☐ | there is any user-visible text | |
+| accessibility | ☐ | there is any interface | |
+| seo | ☐ | content is publicly discoverable | |
+| cro-analyst | ☐ | there is a conversion or activation goal | |
+| devops-sre | ☐ | it deploys or runs somewhere | |
+| privacy-legal | ☐ | personal data, tracking, or public claims exist | |
 
 **Project-specific role checks** — additions to a role's playbook for this project only.
-Put them here, never by editing files in `../roles/`, so the kit stays upgradeable.
+Put them here, never by editing files in `../roles/`, so the kit stays upgradeable and
+`--upgrade` cannot overwrite them.
 
 | Role | Additional check |
 | --- | --- |
 | | |
+
+**Project-specific roles** — a perspective this project needs that the twelve do not
+cover (data engineer, localisation lead, firmware, ML evaluation, support). Define it
+here, in the shape of a role playbook: mission, engage when, reads, what it checks.
+
+| Role | Mission | Engage when | Checks |
+| --- | --- | --- | --- |
+| | | | |
 
 ## Risk defaults
 
 | | |
 | --- | --- |
 | **Always Tier 1 here** | _(the surfaces that are high-risk in this project specifically)_ |
-| **Human approval required for** | _(list — mirrors `AGENTS.md` §8)_ |
+| **Never Tier 1 here** | _(surfaces from the `AGENTS.md` Tier 1 list that genuinely do not apply — e.g. "no PII: this project holds no personal data, see Data categories held". Without this, "when in doubt, tier up" makes almost everything Tier 1.)_ |
+| **Human approval required for** | _(list — mirrors the "Human approval required for" line in `AGENTS.md`, "Project overrides")_ |
 | **Approvers** | _(names for Tier 1's two approvals)_ |
 | **Staleness threshold** | _(e.g. 90 days — after this, a `project/` doc is treated as a hypothesis)_ |
 
@@ -111,9 +153,11 @@ Put them here, never by editing files in `../roles/`, so the kit stays upgradeab
 | | |
 | --- | --- |
 | **Accessibility target** | _(e.g. WCAG 2.2 AA, or "not applicable — no interface")_ |
+| **Assistive technologies supported** | _(the screen reader / browser pairs actually tested against, or "none tested" — which is a gap, not a neutral state)_ |
 | **Supported platforms / browsers / sizes** | |
 | **Languages & writing directions** | |
 | **Performance budgets** | _(or "none set" — which is a known gap, not a neutral state)_ |
+| **Primary outcome** | _(the one user action success is measured by: sign-up, activation, task completion, purchase… `cro-analyst` optimises for exactly this)_ |
 | **Jurisdictions / regimes** | _(for `privacy-legal`)_ |
 | **Data categories held** | _(or "none" — and say how you know)_ |
 

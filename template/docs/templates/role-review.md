@@ -43,12 +43,16 @@ see `../process/02-role-reviews.md`. Do not include a role you did not actually 
 
 ## Outcome
 
-**Overall:** Proceed | Proceed with conditions | Blocked
+**Overall:** Pass | Pass with conditions | Block
+
+_(The most severe verdict any single role returned. Not an average, and not a judgement
+of your own about whether the findings are worth stopping for.)_
 
 **Blocking findings:** _(list, or none)_
 
 **Waivers:** _(An S2 waiver requires a named human, a written reason, and a follow-up ID.
-An agent may not waive its own blocker. If there are none, write "none".)_
+S0 and S1 are not waivable. An agent may not waive its own blocker — see
+`../process/02-role-reviews.md`. If there are none, write "none".)_
 
 | Finding | Waived by | Reason | Follow-up |
 | --- | --- | --- | --- |

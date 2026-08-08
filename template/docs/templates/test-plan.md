@@ -11,7 +11,10 @@ last-reviewed: YYYY-MM-DD
 
 ## Commands
 
-| Stage | Command | Runs in CI | Notes |
+The commands live in `charter.md` → Commands, which is the one place an agent reads them
+from. Record here only what the charter has no column for:
+
+| Stage | Runs in CI | When it runs, if not every change | Notes |
 | --- | --- | --- | --- |
 | Format | | | |
 | Lint | | | |
@@ -22,15 +25,19 @@ last-reviewed: YYYY-MM-DD
 | Dependency/secret scan | | | |
 | Accessibility | | | |
 | End-to-end | | | |
+| Contract _(if anything consumes your interface)_ | | | |
 
-Mark stages this project does not have as **absent**, not blank — an absent stage is a
-QA finding to be justified, not a neutral fact.
+A stage the charter marks **absent** is a QA finding to be justified here, not a neutral
+fact.
 
-## Environments
+## Test data
 
-| Environment | Purpose | Data | Who can deploy |
-| --- | --- | --- | --- |
-| | | _(synthetic / anonymised / production copy — and if production data, why that is permitted)_ | |
+Environments themselves are declared in `charter.md` → Environments. What matters for
+testing is the data in them:
+
+| Environment | Data | Why that is permitted |
+| --- | --- | --- |
+| | _(synthetic / anonymised / production copy)_ | _(required if production data)_ |
 
 ## What is covered
 

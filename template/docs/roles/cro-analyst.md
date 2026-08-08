@@ -14,7 +14,6 @@ sign-up, activation, task completion, retention, submission, upgrade, referral.
 - A conversion path, funnel step, form, pricing surface, onboarding flow, or call to
   action changes.
 - Analytics, events, or experiment infrastructure changes.
-- Gate G1 (defining success), G4, and G6 (did it work).
 
 ## Skip when
 
@@ -87,14 +86,20 @@ baselines), current funnel data if the charter names a source, and the flow itse
 
 ---
 
-## Blocking failures
+## Severity calibration
 
-- A conversion action that silently fails — the user sees success, nothing is recorded.
-  (**S1**.)
-- Fabricated social proof, testimonials, or statistics used as persuasion.
-- Manipulative patterns as listed above.
-- Tracking that fires before or despite consent where consent is required.
-- Shipping a change to a measured surface with no baseline and no instrumentation.
+| Finding | Sev |
+| --- | --- |
+| A conversion action that silently fails — the user sees success, nothing is recorded | S1 |
+| A manipulative pattern as listed above | S2 |
+| A change to a measured surface shipped with no baseline and no instrumentation | S2 |
+| Friction added to the primary journey with no stated reason | S3 |
+| An event fired with an inconsistent name or payload | S3 |
+
+Two findings that look like this role's belong elsewhere: **fabricated social proof,
+testimonials, or statistics** is `copywriter`'s (invented claim shown to users), and
+**tracking that fires before or despite consent** is `privacy-legal`'s. Hand them over
+with the location; do not rate them here as well.
 
 ---
 

@@ -1,5 +1,6 @@
 ---
 description: Run a multi-role review of the current changes (or a named artifact)
+argument-hint: "[optional: a path, commit range, plan file, or work item ID]"
 ---
 
 Run a role review per `docs/process/02-role-reviews.md` on:
@@ -23,19 +24,18 @@ branch.)
    - **Not checked:** what this review does not cover. Never imply coverage you lack.
    - **Findings:** severity (S0–S4 per `docs/process/04-quality-gates.md`), location as
      `file:line`, what is wrong, what goes wrong because of it, and what would fix it.
-   - **Verdict:** Pass / Pass with conditions / Block.
+   - **Verdict:** derived from the worst severity, per the table in `02-role-reviews.md`.
+     You rate the finding; the ladder decides the verdict.
 
 4. **Look hardest at what the change did not touch but should have** — the missing
    migration, the untouched test, the second code path with the same bug, the document
    the change just made wrong.
 
-5. **Avoid the anti-patterns** listed at the end of `02-role-reviews.md`: rubber
-   stamping, generic advice not grounded in this diff, severity inflation or deflation,
-   findings without locations, and padding to look thorough. Three real findings beat
-   fifteen invented ones.
+5. **Avoid the anti-patterns** listed at the end of `02-role-reviews.md`, which you
+   should have open while reviewing.
 
 6. **Record** to `docs/project/reviews/{{PREFIX}}-###-<design|ship>.md` using
    `docs/templates/role-review.md` for Tier 1; summarise in the response for Tier 2.
 
-You may not waive your own blocker. On a Block, stop and escalate with the finding, the
-options, and a recommendation.
+On a Block, stop and escalate with the finding, the options, and a recommendation
+(`02-role-reviews.md`, "On a Block").

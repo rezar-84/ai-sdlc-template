@@ -1,12 +1,18 @@
-# 01 — Lifecycle gates
+# 01 — Lifecycle gates *(appendix: standing up a project)*
 
-Seven gates from idea to operation. **They are not a waterfall.** They apply per
-increment: a feature can be at G3 while the next one is at G1. A whole project passes
-through them once at the start; every change after that passes through a compressed
-version of the same sequence.
+> **Read this only when bootstrapping.** Seven gates carry a *new or newly adopted
+> project* from idea to operation, once. They answer "what has to exist before this
+> project is real?"
+>
+> **Ongoing work does not use gates.** Every change after bootstrap runs the loop in
+> `00-operating-model.md`, and roles are selected by change surface and tier per
+> `02-role-reviews.md` — not by gate. Two sequencing models running at once is how a
+> process starts giving two answers to the same question, so the kit only has one: the
+> loop. This document is the exception that applies once.
 
-A gate is *passed* when its exit criteria are met and recorded — not when time has
-elapsed.
+A gate is *passed* when its exit criteria are met and the artifacts it names exist. There
+is no separate gate log; the artifacts are the record. The charter's **Artifacts in use**
+checklist is where you see how far bootstrap has got.
 
 ---
 
@@ -78,8 +84,9 @@ instead of specifying observable behaviour including failure states.
 `project/design-system.md`, `project/threat-model.md`, `project/content-seo-plan.md`,
 ADRs.
 
-**Exit:** architect, security, and design role reviews pass or pass with recorded
-conditions. Every "we'll figure that out later" is a logged assumption with an owner.
+**Exit:** the architect, security, and — where there is an interface — ux-designer and
+brand-designer reviews return *Pass* or *Pass with conditions* (`02-role-reviews.md`).
+Every "we'll figure that out later" is a logged assumption with an owner.
 
 **Common failure:** a design that never states its failure modes — what the system does
 when the dependency is down, the input is hostile, or the list is empty.
@@ -121,8 +128,8 @@ updates the design document, so it becomes actively misleading. Update it or mar
 **Artifacts:** `project/test-plan.md` updated with what is actually covered,
 `project/reviews/*-ship.md`, verification notes in the worklog.
 
-**Exit:** no open S0 or S1. S2 either fixed or waived in writing by a named human with a
-reason and a tracked follow-up.
+**Exit:** no open S0, S1, or S2 findings, except an S2 waived in writing by a named human
+per the severity ladder in `04-quality-gates.md`.
 
 **Common failure:** verifying the happy path and calling it done; treating "it compiles"
 as verification.
@@ -159,9 +166,9 @@ no reverse path.
 - Feed findings back into the backlog as real items, not vague intentions.
 - Re-review documents whose `last-reviewed` date has aged past the charter's threshold.
 
-**Exit:** none — this gate is continuous. It closes only when the project is retired,
-which itself deserves a documented decommissioning plan (data export, redirects,
-credential revocation, dependency notification).
+**Exit:** none — this gate is continuous. It closes only when the project is retired.
+Retirement is a Tier 1 change like any other and runs the loop: its plan covers data
+export, redirects, credential revocation, and notifying whatever depends on it.
 
 **Common failure:** shipping and never checking whether the success metric moved, so the
 next decision is made on the same guesswork as the last one.
@@ -170,14 +177,17 @@ next decision is made on the same guesswork as the last one.
 
 ## Gate summary
 
-| Gate | Question it answers | Blocking role reviews |
+| Gate | Question it answers | Roles engaged at least once |
 | --- | --- | --- |
 | G0 Discovery | What is really the problem? | product-manager |
-| G1 Definition | What are we building and how will we know it worked? | product-manager, copywriter (if messaging), privacy-legal (if regulated) |
-| G2 Design | How will it work? | architect, security, ux-designer, brand-designer, seo |
-| G3 Build | Is it built as designed? | qa (continuous) |
-| G4 Verification | Does it do what we said, and refuse what we forbade? | qa, security, accessibility, cro-analyst |
+| G1 Definition | What are we building and how will we know it worked? | product-manager; copywriter if there is messaging; privacy-legal if regulated |
+| G2 Design | How will it work? | architect, security; ux-designer and brand-designer if there is an interface; seo if content is public |
+| G3 Build | Is it built as designed? | qa, on each work item via the loop |
+| G4 Verification | Does it do what we said, and refuse what we forbade? | qa, security; accessibility if there is an interface; cro-analyst if there is a conversion goal |
 | G5 Release | Can we ship and un-ship safely? | devops-sre, security |
 | G6 Operate | Did it work? | cro-analyst, product-manager |
 
-Roles not marked blocking may still review; they simply cannot hold the gate.
+These are the roles bootstrap must not finish without hearing from. Whether any given
+finding stops the gate is decided the same way as everywhere else: by the severity of the
+finding (`04-quality-gates.md`), not by which column a role appears in. Only roles the
+charter marks active apply; a role switched off in the charter does not hold a gate.

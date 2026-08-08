@@ -106,16 +106,25 @@ data categories), the data inventory, and the change.
 
 ---
 
-## Blocking failures
+## Severity calibration
 
-- Collecting or sharing personal data with no stated basis or notice.
-- Tracking that fires before or despite refused consent, where consent is required.
-- Special-category or children's data handled without its heightened requirements.
-- Using a third-party asset without a licence permitting this use.
-- Publishing an unsubstantiated factual claim about the business, its results, or its
-  credentials.
-- A privacy notice or terms document that contradicts what the system does.
-- A deletion promise the system cannot honour.
+This role owns **consent** and **licensing** wherever they appear, including on surfaces
+another role is reviewing.
+
+| Finding | Sev |
+| --- | --- |
+| Special-category or children's data handled without its heightened requirements | S0 |
+| Personal data collected or shared with no stated basis and no notice | S1 |
+| Tracking that fires before, or despite, refused consent where consent is required | S1 |
+| A deletion promise the system cannot honour | S1 |
+| A third-party asset — font, image, code, data — used without a licence permitting this use | S1 |
+| A privacy notice or terms document that contradicts what the system actually does | S2 |
+| An unsubstantiated factual claim about the business, its results, or its credentials | S2 — S1 where a regulator or a court would read it as a representation |
+| Retention longer than the stated schedule, with no reason recorded | S3 |
+
+The last row but one overlaps `copywriter`, deliberately: that role rates invented claims
+as a truthfulness defect, this one rates them as legal exposure. Record it once, under
+whichever consequence is worse, and reference it from the other.
 
 ---
 

@@ -82,13 +82,23 @@ document, token file, existing production surfaces), and the actual rendered res
 
 ---
 
-## Blocking failures
+## Severity calibration
 
-- Unlicensed or unauthorised use of a logo, typeface, photograph, or another company's
-  visual assets.
-- Misuse of the brand's own identity in a way its owner has not approved.
-- A theme or writing direction the project claims to support that is visibly broken.
-- Hardcoded visual values that fork the design system in a way that will spread.
+Much of this role's judgement needs the thing rendered. If you cannot render it, say
+**"not checked — could not render"** and rate nothing. A guess about how a page looks is
+a fabrication like any other (`../process/06-evidence-and-claims.md`).
+
+| Finding | Sev |
+| --- | --- |
+| Unlicensed or unauthorised use of a logo, typeface, photograph, or another company's visual assets | S1 — hand to `privacy-legal`, which owns licensing |
+| Misuse of the brand's own identity in a way its owner has not approved | S2 |
+| A theme or writing direction the charter says is supported, visibly broken | S2 |
+| Hardcoded visual values that fork the design system in a way that will spread | S3 — S2 once the fork is copied a second time |
+| Inconsistent spacing, weight, or radius against the token scale | S4 |
+
+The checkable part of this role, and the part to lead with: **grep the diff for hardcoded
+colours, spacing, shadows, and font sizes** that should be tokens. That finding needs no
+renderer and is the one most likely to be real.
 
 ---
 

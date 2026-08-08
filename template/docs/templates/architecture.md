@@ -12,23 +12,21 @@ last-reviewed: YYYY-MM-DD
 
 ## Stack
 
-The single declaration of what this project is built with. Everything else in the docs
-refers to "the project's <thing>" rather than naming it, so the process stays portable.
+**What** the project is built with is declared once, in `charter.md` → Stack. Do not copy
+that table here; a second copy is a second thing to update and the one that will be
+wrong. This section records only **why**, and the choices the charter has no row for.
 
-| Concern | Choice | ADR |
-| --- | --- | --- |
-| Language(s) / runtime | | |
-| Package manager | | |
-| Application framework | | |
-| Data store(s) | | |
-| Cache / queue | | |
-| Authentication | | |
-| Hosting / runtime environment | | |
-| Build & CI | | |
-| Test tooling | | |
-| Observability | | |
+| Concern | Choice | Why this, not the obvious alternative | ADR |
+| --- | --- | --- | --- |
+| _(from the charter's Stack table — one row per choice worth explaining)_ | | | |
+| Cache / queue | | | |
+| Observability | | | |
 
 ## Constraints that shaped this
+
+The constraints themselves live in `charter.md` → Constraints. Record here how each one
+actually bent the design — a constraint that changed nothing did not shape anything, and
+saying so is also useful.
 
 _(Team size and skills, operational capacity, budget, latency and availability targets,
 data residency, existing commitments, regulatory requirements. An architecture is only

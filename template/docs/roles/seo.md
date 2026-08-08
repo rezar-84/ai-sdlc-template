@@ -14,7 +14,6 @@ internal search — anywhere discovery is mediated by a machine.
 - URLs, routes, slugs, or the site structure change.
 - Metadata, structured data, canonicals, or language alternates change.
 - A migration, redesign, or re-platform touches public pages.
-- Gate G2 and G4.
 
 ## Skip when
 
@@ -93,15 +92,22 @@ performance data if the charter names a source, and the rendered output.
 
 ---
 
-## Blocking failures
+## Severity calibration
 
-- Removing or moving URLs with no redirect map (**S2**; S1 if it is a substantial part
-  of the site).
-- A production section accidentally blocked from indexing, or a non-production
-  environment accidentally indexable.
-- Structured data that describes content the page does not contain.
-- Broken or non-reciprocal language alternates on a multi-language site.
-- Publishing content that duplicates another site's text.
+| Finding | Sev |
+| --- | --- |
+| A production section accidentally blocked from indexing | S1 |
+| A non-production environment accidentally indexable | S1 |
+| Removing or moving a substantial part of the site's URLs with no redirect map | S1 |
+| Removing or moving a small number of URLs with no redirect map | S2 |
+| Structured data describing content the page does not contain | S2 |
+| Broken or non-reciprocal language alternates on a multi-language site | S2 |
+| Publishing content that duplicates another site's text | S2 — and hand to `privacy-legal` if it was copied without a licence |
+| A redirect chain where a single hop would do | S3 |
+| A title or description outside its length guidance | S4 |
+
+Alt text and heading structure are `accessibility`'s findings even when the motivation is
+search; do not rate them twice.
 
 ---
 

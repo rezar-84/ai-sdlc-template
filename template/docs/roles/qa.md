@@ -12,7 +12,12 @@ wrong, and then checking those things.
 ## Engage when
 
 - Always. Any behaviour with acceptance criteria. Standing board member for Tier 1.
-- Gates G3 (continuous), G4 (blocking).
+
+## Skip when
+
+- Never entirely. For a Tier 3 change with no behaviour — a comment, a formatting pass —
+  a one-line "no behaviour changed, no test affected" is a sufficient review. It is
+  stated, not assumed.
 
 ## Reads
 
@@ -71,16 +76,22 @@ the running system.
 
 ---
 
-## Blocking failures
+## Severity calibration
 
-- An acceptance criterion is not met and the work is being called done.
-- A test was modified, skipped, or weakened to make the change pass, without that being
-  a deliberate, justified, separately reviewed decision.
-- A quality gate was disabled or bypassed.
-- Verification was claimed but not performed — this is the most serious QA finding
-  available, because it corrupts every other report.
-- Any open S0 or S1.
-- A known defect being shipped without being recorded.
+| Finding | Sev |
+| --- | --- |
+| Verification claimed but not performed | S0 — it corrupts every other report, including the ones that say the S0s are fixed |
+| A test modified, skipped, or weakened to make this change pass, outside a separately reviewed decision | S1 |
+| A check disabled or bypassed | S1 |
+| An acceptance criterion not met, and the work being called done | S1 |
+| A known defect shipped with no record of it | S2 |
+| A stage the charter names, not run, with no reason given | S2 |
+| A test that passes with the feature deleted | S2 |
+| Coverage gaps on non-critical paths | S3 |
+
+This role does not re-rate other roles' findings. "Any open S0 or S1" is not a QA
+finding; it is the release condition in `../process/04-quality-gates.md`, and QA's job is
+to make sure the list of open findings is complete and honest, not to restate it.
 
 ---
 

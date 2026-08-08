@@ -12,9 +12,12 @@ last-reviewed: YYYY-MM-DD
 
 ## Environments
 
-| Environment | Purpose | URL / target | Deployed from | Who may deploy |
-| --- | --- | --- | --- | --- |
-| | | | _(branch/tag)_ | |
+Purpose, source branch, and who may deploy are declared in `charter.md` → Environments.
+Add only the deploy-time specifics here:
+
+| Environment | URL / target | Deploy command or pipeline | Smoke check after deploy |
+| --- | --- | --- | --- |
+| | | | |
 
 ## Pre-flight
 

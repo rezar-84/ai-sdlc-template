@@ -93,14 +93,24 @@ strings in the change.
 
 ---
 
-## Blocking failures
+## Severity calibration
 
-- An unverifiable or invented factual claim shown to users (**S2 minimum**; S1 if
-  legally or financially consequential).
-- Machine-translated or agent-authored copy published as final in a language with no
-  qualified reviewer.
-- An error message that gives the user no way to proceed.
-- Placeholder or test text reaching a user-facing surface.
+This role owns **truth in user-visible text**. Every other role that spots an invented
+claim hands it here rather than rating it separately.
+
+| Finding | Sev |
+| --- | --- |
+| An invented or unverifiable factual claim shown to users, where being wrong is legally or financially consequential | S1 |
+| Any other invented or unverifiable factual claim shown to users | S2 |
+| Placeholder or test text reaching a user-facing surface | S2 |
+| Machine-translated or agent-authored copy published as final in a language with no qualified reviewer | S2 |
+| An error message whose wording gives the user no way to proceed | S2 |
+| Terminology inconsistent with the project's own glossary | S3 |
+| Wording that could be shorter or clearer | S4 |
+
+The last row is the one to be disciplined about: prose preferences are S4, and a review
+that produces fifteen of them has produced nothing. Raise a wording nit only where it
+changes what the reader will do.
 
 ---
 

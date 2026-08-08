@@ -24,18 +24,20 @@ Do not produce, in any artifact:
 - **Status** — that a test passed, a check ran, a deploy succeeded, a file exists, a
   document says something. Verify each of these before stating it.
 
-If the artifact needs one of these and you do not have it, write:
+If the artifact needs one of these and you do not have it, write this exact marker —
+same wording everywhere, so that one grep finds every unverified claim in the repository:
 
 ```
-_(unverified — needs {{OWNER_ROLE}} confirmation: <exactly what is needed and from whom>)_
+_(unverified — needs confirmation: <what is needed, and from whom>)_
 ```
 
 …and add a row to `project/assumptions-and-risks.md`. A visible gap is a working
 product with a known hole. An invented value is a broken product that looks finished —
 and it may be a legal problem, not just a quality one.
 
-**Publishing an unverified claim about the business is S2** (see `04-quality-gates.md`).
-Publishing an invented one is a defect the reviewing role must block.
+**Publishing an unverified claim about the business is S2**, rising to S1 where being
+wrong is legally or financially consequential (`04-quality-gates.md`, and the calibration
+table in `../roles/copywriter.md`).
 
 ---
 
@@ -71,6 +73,7 @@ confidence propagates.
 | **Assumed** | You are proceeding on it and it is written in the assumptions register. |
 | **Unknown** | You do not know. This is a complete and acceptable answer. |
 | **Not run** | The check exists but you did not execute it. Say why. |
+| **Absent** | There is no such check, artifact, or input in this project. Distinct from *Not run* — nothing was skipped, there was nothing to skip. An absent check is a finding for the role that owns it, not a neutral fact. |
 
 Never write "should work", "presumably passes", or "I've made sure that…" for something
 you did not observe. If you did not run the tests, the sentence is "tests not run".
@@ -108,7 +111,7 @@ confirm it, and its status.
 Rules:
 - An assumption used in shipped work is **stated in the worklog entry** for that work,
   not only in the register.
-- Assumptions are reviewed at every gate. A stale assumption nobody has confirmed is a
+- Assumptions are reviewed at CLOSE. A stale assumption nobody has confirmed is a
   risk that has been quietly accepted.
 - When an assumption is confirmed or refuted, close the row and note what changed as a
   result. A refuted assumption almost always means something already built is wrong —
