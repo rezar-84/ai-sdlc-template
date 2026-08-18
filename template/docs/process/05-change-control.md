@@ -19,6 +19,10 @@ mixed branch cannot be reviewed properly or reverted cleanly.
 Never commit directly to the default branch unless the charter's Environments section
 records "Direct commits to it: allowed". A blank there means not allowed.
 
+If the charter's "Managed platform" table says a platform syncs or builds only the
+default branch, follow what that table records — it may legitimately narrow or override
+the branch rules above. See "Managed platforms" below.
+
 ---
 
 ## Commits
@@ -127,6 +131,35 @@ and to the next deploy.
 **Irreversible operations** (data deletion, destructive migration, external
 notifications, payments) require explicit human authorisation on the specific action.
 Authorisation for one such action does not carry to the next.
+
+---
+
+## Managed platforms
+
+Some projects are co-owned by a managed platform — an AI app builder or cloud IDE that
+also edits, syncs, generates files in, or deploys the repository. The charter's
+"Managed platform" table declares which one and what it owns. Where that table conflicts
+with this document, the table wins: breaking the platform's sync or configuration is a
+real outage, not a process victory.
+
+Whenever the charter declares a platform:
+
+- **Never hand-edit, move, or delete platform-owned files** (the charter lists them).
+  If one must change, change it through the platform itself, or verify the edit against
+  the platform's documented behaviour first and record that in the worklog.
+- **Never rewrite history the platform has seen.** No force-push, rebase, or deletion of
+  any branch the platform syncs — a diverged sync can silently drop the platform's
+  commits or yours.
+- **Assume another agent edits this repository too.** Sync before starting, keep changes
+  small, and expect upstream commits you did not make. Do not revert or "fix" the
+  platform's commits without a human decision — that is a Tier 1 stop-and-ask.
+- **Deploys happen the platform's way.** If the platform publishes the default branch
+  automatically, then merging *is* deploying — give the merge the ceremony of a release,
+  and the release runbook documents the platform's publish and rollback affordances
+  rather than a deploy command.
+- **Keep the two contracts pointed at each other.** If the platform's own agent reads an
+  instruction file or knowledge base, it should point at `AGENTS.md` rather than
+  restate it, so the platform's agent and this process cannot drift apart.
 
 ---
 

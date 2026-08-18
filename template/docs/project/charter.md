@@ -100,6 +100,22 @@ repeating this table.
 | **Default branch** | _(name)_ |
 | **Direct commits to it** | _(allowed / not allowed — `../process/05-change-control.md` forbids them unless this says otherwise)_ |
 
+### Managed platform
+
+**Authoritative.** Fill this in if an AI app builder or cloud IDE — e.g. Lovable,
+Replit, Bolt, Firebase Studio — also edits, syncs, generates files in, or deploys this
+repository. Write "none" if this is a plain git repository. Where this table conflicts
+with a process document, this table wins (`../process/05-change-control.md`, "Managed
+platforms").
+
+| | |
+| --- | --- |
+| **Platform** | _(e.g. Lovable / Replit / none)_ |
+| **Sync model** | _(e.g. "two-way GitHub sync on the default branch; the platform's agent also commits" — or "git only")_ |
+| **Platform-owned files** | _(files the platform generates or requires and an agent must never hand-edit, move, or delete — e.g. `.replit`, `replit.nix`, platform config directories, lockfiles it regenerates)_ |
+| **Platform instruction file** | _(where the platform's own agent reads its instructions — e.g. `replit.md`, Lovable project knowledge — and whether it points at `AGENTS.md` so the two contracts cannot diverge)_ |
+| **Deploys** | _(e.g. "published from the platform UI" — if so, the release runbook documents the platform's publish and rollback affordances, not a deploy command)_ |
+
 ## Active roles
 
 **Every unticked row below is unreviewed by default.** The four at the top are always on.

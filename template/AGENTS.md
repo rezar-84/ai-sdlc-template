@@ -170,6 +170,10 @@ contract. Full rules: `docs/process/02-role-reviews.md`.
   reverse, or that a future reader would otherwise have to reverse-engineer. Supersede
   ADRs rather than editing their decision.
 - Do not bypass a failing security, migration, accessibility, or data-integrity check.
+- **If the charter declares a managed platform** (an AI app builder or cloud IDE that
+  also edits, syncs, or deploys this repository), its "Managed platform" table overrides
+  this section where they conflict. Never hand-edit the platform's own files, never
+  rewrite history it syncs, and treat a merge it auto-deploys as a release.
 
 Detail: `docs/process/05-change-control.md`.
 

@@ -30,7 +30,7 @@ project facts here.
 | `02-role-reviews.md` | Who reviews what, at which stage, with what verdict, and what happens on a Block? |
 | `03-ready-and-done.md` | When is a task ready to start? When is it actually finished? |
 | `04-quality-gates.md` | What must be tested, in what order do checks run, how are bugs severity-rated? |
-| `05-change-control.md` | Branches, commits, PRs, approvals, ADRs, releases, rollback. |
+| `05-change-control.md` | Branches, commits, PRs, approvals, ADRs, releases, rollback, managed platforms. |
 | `06-evidence-and-claims.md` | What may be stated as fact, what needs a source, how unknowns are recorded. |
 | `07-traceability.md` | ID scheme, what gets logged where, how staleness is detected. |
 
@@ -86,3 +86,19 @@ the `README.md` in each subdirectory is part of the kit, not a project record.
 `status: stale` is a legitimate and useful state. Marking a document stale is better
 than leaving a confident, wrong document in place — but the marking must be accompanied
 by a backlog item to fix it.
+
+## `.claude/` — commands and skills
+
+Outside this tree, but installed with it. `.claude/commands/` holds the four `/sdlc-*`
+slash commands that drive the loop when you type them: `/sdlc-plan`, `/sdlc-review`,
+`/sdlc-verify`, `/sdlc-log`.
+
+`.claude/skills/` holds the skills chosen for this project. They are model-invoked: an
+agent loads one when the situation its description names appears — a request with no work
+item, a claim about to be made, a release, an incident. They point back into `process/` and
+`roles/` rather than restating them, so a skill cannot drift away from the standard it
+enforces. Which ones are present depends on what this project is; `sdlc-intake`,
+`sdlc-evidence-check`, `sdlc-charter-audit`, and `sdlc-adr` are installed everywhere.
+
+Project-specific rules never go in either place — they go in `AGENTS.md` under "Project
+overrides", or in `project/charter.md`, so that re-installing the kit cannot overwrite them.
