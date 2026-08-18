@@ -19,20 +19,24 @@ set -euo pipefail
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION="$(cat "$SRC/VERSION")"
 TARGET=""
+PROJECT_NAME=""
 PREFIX=""
 DOCS_DIR=""
 DOCS_DIR_GIVEN=0
 UPGRADE=0
 ASSUME_YES=0
 WANT_SKILLS=1
+CREATE_TARGET=0
 
 usage() {
   cat >&2 <<EOF
-usage: $0 [target-project-dir] [PREFIX] [--docs-dir <name>] [-y] [--upgrade]
+usage: $0 <target-project-dir> [PREFIX] [--docs-dir <name>] [-y] [--upgrade]
 
-  target dir    defaults to the current directory when a terminal is attached
+  target dir    the project to install into -- required, and never this directory.
+                Omit it only when a terminal is attached, and setup will ask for it.
   PREFIX        2-4 uppercase letters for work item IDs, e.g. ACME
   --docs-dir    install docs under a different name (default: docs)
+  --create      create the target directory if it does not exist
   -y, --yes     no questions: take every default (also implied when stdin is not a
                 terminal, so CI and piped runs never hang)
   --no-skills   do not install anything into .claude/skills/
@@ -50,6 +54,7 @@ while [ $# -gt 0 ]; do
     --upgrade)  UPGRADE=1; shift ;;
     -y|--yes|--non-interactive) ASSUME_YES=1; shift ;;
     --no-skills) WANT_SKILLS=0; shift ;;
+    --create)    CREATE_TARGET=1; shift ;;
     -h|--help)  usage ;;
     -*)         echo "unknown option: $1" >&2; usage ;;
     *)
@@ -68,13 +73,58 @@ if [ "$ASSUME_YES" -eq 0 ] && [ "$UPGRADE" -eq 0 ] && [ -t 0 ]; then
   INTERACTIVE=1
 fi
 
-if [ -z "$TARGET" ]; then
-  if [ "$INTERACTIVE" -eq 1 ]; then TARGET="."; else usage; fi
-fi
-[ -d "$TARGET" ] || { echo "no such directory: $TARGET" >&2; exit 1; }
+# Resolve a destination, or explain why it cannot be one. This runs for the target given
+# on the command line and again for the one typed into setup, so neither route can skip a
+# check. On failure it prints the reason and returns 1 -- the caller decides whether that
+# is fatal (argument) or worth re-asking (setup).
+resolve_target() {
+  local t="$1"
 
-TARGET="$(cd "$TARGET" && pwd)"
-PROJECT_NAME="$(basename "$TARGET")"
+  if [ -z "$t" ]; then
+    echo "  a destination is required." >&2
+    return 1
+  fi
+
+  if [ ! -d "$t" ]; then
+    if [ "$CREATE_TARGET" -eq 1 ]; then
+      mkdir -p "$t" || return 1
+      echo "  created $t"
+    else
+      echo "  no such directory: $t" >&2
+      return 1
+    fi
+  fi
+
+  t="$(cd "$t" && pwd)"
+
+  # The kit installs into *another* project. Installing into itself scatters a project's
+  # AGENTS.md, CLAUDE.md, docs/ and .claude/ across the template it was copied from.
+  if [ "$t" = "$SRC" ]; then
+    echo "  refusing: that is the kit's own directory ($SRC)." >&2
+    echo "  Give the project you want to install into: $0 /path/to/your-project" >&2
+    return 1
+  fi
+  case "$t/" in
+    "$SRC"/*)
+      echo "  refusing: $t is inside the kit ($SRC)." >&2
+      echo "  Give the project you want to install into: $0 /path/to/your-project" >&2
+      return 1 ;;
+  esac
+  if [ -f "$t/install.sh" ] && [ -f "$t/VERSION" ] && [ -f "$t/template/AGENTS.md" ]; then
+    echo "  refusing: $t is a copy of this kit, not a project to install into." >&2
+    return 1
+  fi
+
+  TARGET="$t"
+  PROJECT_NAME="$(basename "$TARGET")"
+  return 0
+}
+
+if [ -n "$TARGET" ]; then
+  resolve_target "$TARGET" || exit 1
+elif [ "$INTERACTIVE" -eq 0 ]; then
+  usage
+fi
 [ -n "$DOCS_DIR" ] || DOCS_DIR="docs"
 
 # ---------------------------------------------------------------- output helpers
@@ -206,6 +256,7 @@ fill_row() {
   local f="$1" label="$2" value="$3"
   [ -n "$value" ] || return 0
   [ -f "$f" ] || return 0
+  value="${value//|/\\|}"   # a raw pipe would end the table cell early
   LBL="$label" VAL="$value" awk '
     BEGIN { lbl = "| " ENVIRON["LBL"] " |"; done = 0 }
     !done && index($0, lbl) == 1 { print lbl " " ENVIRON["VAL"] " |"; done = 1; next }
@@ -414,21 +465,25 @@ detect_stack() {
 
 # Managed platforms (AI app builders / cloud IDEs) that co-own a repository. Detection
 # is best-effort and read-only -- it seeds the charter's Managed platform row and the
-# advice printed at the end.
+# advice printed at the end. Runs only once the destination is known.
 PLATFORMS=""
-if [ -e "$TARGET/.replit" ] || [ -e "$TARGET/replit.nix" ] || [ -e "$TARGET/replit.md" ]; then
-  PLATFORMS="$PLATFORMS Replit"
-fi
-if [ -d "$TARGET/.lovable" ] || grep -qs 'lovable' "$TARGET/package.json"; then
-  PLATFORMS="$PLATFORMS Lovable"
-fi
-if [ -d "$TARGET/.bolt" ]; then PLATFORMS="$PLATFORMS Bolt"; fi
-if [ -d "$TARGET/.idx" ]; then PLATFORMS="$PLATFORMS Firebase-Studio"; fi
-if [ -e "$TARGET/glitch.json" ]; then PLATFORMS="$PLATFORMS Glitch"; fi
-if [ -e "$TARGET/sandbox.config.json" ] || [ -d "$TARGET/.codesandbox" ]; then
-  PLATFORMS="$PLATFORMS CodeSandbox"
-fi
-PLATFORMS="${PLATFORMS# }"
+detect_platforms() {
+  PLATFORMS=""
+  if [ -e "$TARGET/.replit" ] || [ -e "$TARGET/replit.nix" ] || [ -e "$TARGET/replit.md" ]; then
+    PLATFORMS="$PLATFORMS Replit"
+  fi
+  if [ -d "$TARGET/.lovable" ] || grep -qs 'lovable' "$TARGET/package.json"; then
+    PLATFORMS="$PLATFORMS Lovable"
+  fi
+  if [ -d "$TARGET/.bolt" ]; then PLATFORMS="$PLATFORMS Bolt"; fi
+  if [ -d "$TARGET/.idx" ]; then PLATFORMS="$PLATFORMS Firebase-Studio"; fi
+  if [ -e "$TARGET/glitch.json" ]; then PLATFORMS="$PLATFORMS Glitch"; fi
+  if [ -e "$TARGET/sandbox.config.json" ] || [ -d "$TARGET/.codesandbox" ]; then
+    PLATFORMS="$PLATFORMS CodeSandbox"
+  fi
+  PLATFORMS="${PLATFORMS# }"
+  return 0
+}
 
 # ---------------------------------------------------------------- skill catalogue
 # Skills live in optional/skills/<name>/SKILL.md and are model-invoked: they fire when
@@ -497,9 +552,11 @@ recover_prefix() {
   grep -m1 -oP '^\| \*\*Work item prefix\*\* \| `\K[A-Z]{2,4}' "$charter" 2>/dev/null || true
 }
 
+# Letters only, to match what the charter asks for -- a derived default that the
+# validator below would reject is an infinite loop waiting to happen.
 derive_prefix() {
   local p
-  p="$(printf '%s' "$PROJECT_NAME" | tr -cd '[:alnum:]' | tr '[:lower:]' '[:upper:]')"
+  p="$(printf '%s' "$PROJECT_NAME" | tr -cd '[:alpha:]' | tr '[:lower:]' '[:upper:]')"
   p="${p:0:4}"
   [ "${#p}" -ge 2 ] || p="PRJ"
   printf '%s' "$p"
@@ -518,23 +575,68 @@ default_ptype() {
   if [ -n "$DET_HOST" ]; then printf '3'; else printf '4'; fi
 }
 
+# The destination is the one answer with no sensible default: guessing it is how a kit
+# ends up installed over itself. Asked first, re-asked until it resolves, and never
+# skippable by `s` or `S`.
+ask_target() {
+  local ans="" mk=""
+  [ -n "$TARGET" ] && return 0
+  while :; do
+    printf '  Which project directory should this be installed into? %s[required]%s ' "$C_D" "$C_R"
+    IFS= read -r ans || ans=""
+    case "$ans" in
+      "")      note "type a path, e.g. ~/Projects/my-app"; continue ;;
+      "~"|"~/"*) ans="$HOME${ans#\~}" ;;
+    esac
+    if [ ! -d "$ans" ]; then
+      printf '  %s does not exist. Create it? %s[Y/n]%s ' "$ans" "$C_D" "$C_R"
+      IFS= read -r mk || mk="y"
+      case "$mk" in n|N|no) continue ;; esac
+      CREATE_TARGET=1
+    fi
+    if resolve_target "$ans"; then
+      printf '  %s-> %s%s\n' "$C_D" "$TARGET" "$C_R"
+      return 0
+    fi
+  done
+}
+
 wizard() {
   local ans=""
-  detect_stack
+  SKIP_ALL=0
+  SKIP_SECTION=0
 
   if [ "$INTERACTIVE" -eq 1 ]; then
     printf '\n%sAI SDLC kit v%s -- guided setup%s\n' "$C_B" "$VERSION" "$C_R"
     printf '%s  Enter = the value in brackets   -  = leave blank\n' "$C_D"
-    printf '  s     = defaults for the rest of a section   S = defaults for everything%s\n' "$C_R"
+    printf '  s     = defaults for the rest of a section   S = defaults for everything\n' "$C_R"
+    printf '  Nothing is written until the summary at the end is confirmed.%s\n' "$C_R"
   fi
 
   # -- project ---------------------------------------------------------------
   section "1/7  Project"
+  ask_target
+  detect_platforms
+  detect_stack
   ask PROJECT_NAME "Project name" "$PROJECT_NAME"
   ask WHAT_IS      "What is it, in one sentence" "" "One line a stranger would understand. Goes in the charter."
   local found_docs; found_docs="$(find_existing_docs)"
   [ -n "$found_docs" ] && PREFIX="${PREFIX:-$(recover_prefix "$found_docs")}"
   ask PREFIX       "Work item prefix" "${PREFIX:-$(derive_prefix)}" "2-4 uppercase letters. Every branch, commit and worklog entry carries it."
+  local tries=0
+  while :; do
+    PREFIX="$(printf '%s' "$PREFIX" | tr -cd '[:alpha:]' | tr '[:lower:]' '[:upper:]')"
+    PREFIX="${PREFIX:0:4}"
+    case "${#PREFIX}" in 2|3|4) break ;; esac
+    tries=$((tries + 1))
+    if [ "$INTERACTIVE" -eq 0 ] || [ "$SKIP_ALL" -eq 1 ] || [ "$SKIP_SECTION" -eq 1 ] || [ "$tries" -ge 3 ]; then
+      PREFIX="$(derive_prefix)"
+      note "using $PREFIX"
+      break
+    fi
+    note "2-4 letters only, e.g. ACME"
+    ask PREFIX "Work item prefix" "$(derive_prefix)"
+  done
   ask OWNER        "Accountable human" "$(git_cfg config user.name)" "The person who approves Tier 1 work."
   ask REPO_URL     "Repository" "$(git_cfg remote get-url origin)"
 
@@ -738,14 +840,28 @@ wizard() {
     printf '  into        %s\n' "$TARGET"
     printf '  project     %s (%s)\n' "$PROJECT_NAME" "$PREFIX"
     printf '  docs        %s/\n' "$DOCS_DIR"
+    printf '  stack       %s\n' "${S_LANG:-not recorded}${S_FW:+ / $S_FW}"
     printf '  roles on    %s\n' "$(active_roles_summary)"
     printf '  commands    %s\n' "$([ "$WANT_COMMANDS" = y ] && echo "4 installed" || echo "none")"
     printf '  skills      %s\n' "${SKILLS:-none}"
+    [ "$PLATFORM" != "none" ] && printf '  platform    %s\n' "$PLATFORM"
+    printf '  tailors     %s/project/charter.md and the AGENTS.md overrides\n' "$DOCS_DIR"
+    printf '  %sexisting files are never overwritten%s\n' "$C_D" "$C_R"
+    # The one prompt that must not guess: an unrecognised keystroke re-asks, and running
+    # out of input aborts rather than writing 60 files nobody confirmed.
     local go=""
-    printf '  Write these files? %s[Y/n]%s ' "$C_D" "$C_R"
-    IFS= read -r go || go="y"
-    case "$go" in n|N|no) echo "  Nothing was written."; exit 0 ;; esac
+    while :; do
+      printf '  Write these files? %s[Y = write, r = go back through the questions, n = quit]%s ' "$C_D" "$C_R"
+      IFS= read -r go || { echo; echo "  no answer -- nothing was written."; exit 0; }
+      case "$go" in
+        ""|y|Y|yes) break ;;
+        n|N|no)     echo "  Nothing was written."; exit 0 ;;
+        r|R)        echo "  Going back through the questions -- your answers are the defaults."; return 1 ;;
+        *)          note "answer y, r, or n" ;;
+      esac
+    done
   fi
+  return 0
 }
 
 active_roles_summary() {
@@ -852,7 +968,7 @@ fi
 
 # ---------------------------------------------------------------- install mode
 
-wizard
+while :; do wizard && break; done
 
 if [ "$INTERACTIVE" -eq 0 ]; then
   # Nobody answered anything, so nothing may be declared on their behalf: the charter

@@ -47,6 +47,16 @@ with a default, **Enter** to take it:
 | `s` | take the defaults for the rest of this section |
 | `S` | take the defaults for the rest of the setup |
 
+The first question is where to install. It has no default and is never guessed: the
+installer refuses its own directory (and anything inside it), so running `./install.sh`
+from the kit cannot scatter a project's `AGENTS.md`, `docs/` and `.claude/` over the
+template. A destination that does not exist yet can be created on the spot — or pass
+`--create` for the same thing without questions.
+
+Nothing is written until the summary at the end, where `Enter` writes, `r` goes back
+through the questions with your answers as the defaults, and `n` quits having changed
+nothing.
+
 It asks who and what the project is, what you are building (one menu, defaulted from what
 is actually in the repository), and six yes/no facts — interface, visual interface, public
 discoverability, deployment, personal data, conversion goal. Those six decide which of the
@@ -73,8 +83,10 @@ For scripts, CI, or a plain copy with no questions:
 ```
 
 `-y` (also implied when stdin is not a terminal) takes every default, tailors nothing, and
-installs only the skills that do not depend on an answer. Other flags: `--docs-dir <name>`
-to install the docs under a different directory, `--no-skills`, and `--upgrade`.
+installs only the skills that do not depend on an answer. The target directory is required
+in this mode — without a terminal there is nobody to ask. Other flags: `--docs-dir <name>`
+to install the docs under a different directory, `--create`, `--no-skills`, and
+`--upgrade`.
 
 `--docs-dir` is for a project whose `docs/` already means something else. The installed
 skills follow the new name automatically; the `docs/` paths named in `AGENTS.md` and in the
