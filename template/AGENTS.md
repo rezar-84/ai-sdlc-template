@@ -84,7 +84,7 @@ reviewable change, so the documents that define those things are not optional:
 | --- | --- | --- | --- |
 | **3** | Nothing. One role at most, usually none. | 0 | **~15k** |
 | **2** | `00-operating-model.md` · `03-ready-and-done.md` · `05-change-control.md` · `templates/plan.md` | ~5k | **~23k** with two roles, **~26k** with four |
-| **1** | The Tier 2 list · `templates/adr.md` · `templates/role-review.md` · every role the charter marks active | ~7k | **~26k** on the default four-role roster; **~38k** with all twelve |
+| **1** | The Tier 2 list · `templates/adr.md` · `templates/role-review.md` · every role the charter marks active | ~7k | **~26k** on the default four-role roster; **~41k** with all thirteen |
 
 No reading list makes Tier 1 and Tier 2 cheap: a plan, a multi-role review, a full check
 run and a complete worklog entry need the documents that define them. What the list buys

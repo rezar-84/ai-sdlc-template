@@ -137,6 +137,7 @@ reason on an unticked row means nobody decided; it does not mean the role does n
 | cro-analyst | ☐ | there is a conversion or activation goal | |
 | devops-sre | ☐ | it deploys or runs somewhere | |
 | privacy-legal | ☐ | personal data, tracking, or public claims exist | |
+| localisation | ☐ | it ships in more than one language | |
 
 **Project-specific role checks** — additions to a role's playbook for this project only.
 Put them here, never by editing files in `../roles/`, so the kit stays upgradeable and
@@ -146,8 +147,8 @@ Put them here, never by editing files in `../roles/`, so the kit stays upgradeab
 | --- | --- |
 | | |
 
-**Project-specific roles** — a perspective this project needs that the twelve do not
-cover (data engineer, localisation lead, firmware, ML evaluation, support). Define it
+**Project-specific roles** — a perspective this project needs that the thirteen do not
+cover (data engineer, firmware, ML evaluation, support, community). Define it
 here, in the shape of a role playbook: mission, engage when, reads, what it checks.
 
 | Role | Mission | Engage when | Checks |
@@ -171,11 +172,26 @@ here, in the shape of a role playbook: mission, engage when, reads, what it chec
 | **Accessibility target** | _(e.g. WCAG 2.2 AA, or "not applicable — no interface")_ |
 | **Assistive technologies supported** | _(the screen reader / browser pairs actually tested against, or "none tested" — which is a gap, not a neutral state)_ |
 | **Supported platforms / browsers / sizes** | |
-| **Languages & writing directions** | |
 | **Performance budgets** | _(or "none set" — which is a known gap, not a neutral state)_ |
 | **Primary outcome** | _(the one user action success is measured by: sign-up, activation, task completion, purchase… `cro-analyst` optimises for exactly this)_ |
 | **Jurisdictions / regimes** | _(for `privacy-legal`)_ |
 | **Data categories held** | _(or "none" — and say how you know)_ |
+
+### Languages & localisation
+
+**Authoritative.** `../process/08-content-and-translation.md` and the `localisation` role
+both read this table. Writing direction is a property of the languages listed, not a
+separate opinion — a project that ships `fa`, `ar`, `he` or `ur` is bidirectional whether
+or not anyone planned for it.
+
+| | |
+| --- | --- |
+| **Ships in** | _(every language users can see, e.g. `en, fa` — or "one language")_ |
+| **Source language** | _(the one strings are authored in; every other language is a translation of it)_ |
+| **Writing directions** | _(derived from the languages above: left-to-right, right-to-left, or both)_ |
+| **Message catalogue** | _(where translatable strings live, e.g. `locales/` — or "none: strings are in the code", which is a finding)_ |
+| **Translation workflow** | _(who translates, whether machine translation is used, and the named human who reviews it before users see it)_ |
+| **Terminology / glossary** | _(where the agreed term for a product concept in each language is decided, and who decides it)_ |
 
 ## Sources of truth
 

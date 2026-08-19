@@ -1,2 +1,5 @@
 # Nothing generated lives here; this file exists so the intent is explicit.
 .DS_Store
+# install.py is run in place, so Python leaves bytecode next to it.
+__pycache__/
+*.pyc

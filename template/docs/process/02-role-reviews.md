@@ -67,6 +67,7 @@ actually touches — rather than reviewing with every role every time.
 | Visual language, tokens, layout, imagery, brand expression | brand-designer |
 | Any user-visible text | copywriter |
 | Publicly discoverable content, URLs, metadata, structure | seo |
+| Any user-visible text in a project that ships in more than one language | localisation |
 | A conversion path, funnel step, form, pricing, or CTA | cro-analyst |
 | Authentication, authorisation, secrets, input handling, sessions, isolation | security |
 | Build, deploy, infra, config, observability, backups | devops-sre |
@@ -154,5 +155,5 @@ Add a row to the index in `project/reviews/README.md` for each file you create.
 | **Severity inflation** | Everything is S1, so nothing is. | Reserve S0/S1 for actual data loss, security, or total unavailability. |
 | **Severity deflation** | A cross-tenant leak logged as S3 because it is "unlikely". | Severity is by consequence, not by likelihood. |
 | **Self-waiver** | "Blocked on X — proceeding as X is low risk." | Escalate. Only a human waives. |
-| **Review theatre** | Twelve role sections on a typo fix. | Select roles by surface and tier. |
+| **Review theatre** | Thirteen role sections on a typo fix. | Select roles by surface and tier. |
 | **Finding without location** | "Some error handling is missing." | Name the file and line. |

@@ -27,7 +27,7 @@ Drop it into any project. From then on, an agent that reads `AGENTS.md` will:
 - **No domain assumptions.** Works for a marketing site, an internal CLI, a data
   pipeline, a mobile app, a library, or a docs-only repo. Roles that do not apply are
   switched off in the charter, not awkwardly forced.
-- **No ceremony tax.** A one-line copy fix does not trigger twelve role reviews. Risk
+- **No ceremony tax.** A one-line copy fix does not trigger thirteen role reviews. Risk
   tiers (defined in `AGENTS.md`) scale both the process and the *reading* to the change —
   a Tier 3 fix has a reading list of one charter section.
 
@@ -37,8 +37,8 @@ Drop it into any project. From then on, an agent that reads `AGENTS.md` will:
 ./install.sh /path/to/your-project
 ```
 
-Run in a terminal, that opens a short guided setup — seven small sections, every question
-with a default, **Enter** to take it:
+Run in a terminal, that opens a guided setup — ten short sections, every question with a
+default, **Enter** to take it:
 
 | Key | Does |
 | --- | --- |
@@ -46,6 +46,9 @@ with a default, **Enter** to take it:
 | `-` | leave the field blank |
 | `s` | take the defaults for the rest of this section |
 | `S` | take the defaults for the rest of the setup |
+| `b` | go back to the previous question |
+| `?` | why this question is being asked |
+| `q` | quit without writing anything |
 
 The first question is where to install. It has no default and is never guessed: the
 installer refuses its own directory (and anything inside it), so running `./install.sh`
@@ -53,22 +56,27 @@ from the kit cannot scatter a project's `AGENTS.md`, `docs/` and `.claude/` over
 template. A destination that does not exist yet can be created on the spot — or pass
 `--create` for the same thing without questions.
 
-Nothing is written until the summary at the end, where `Enter` writes, `r` goes back
-through the questions with your answers as the defaults, and `n` quits having changed
-nothing.
+It asks who and what the project is, then what you are building — **choose every type that
+applies**, `1,3` for an app that is also an API — defaulted from what is actually in the
+repository. That selection derives six yes/no facts (interface, visual interface, public
+discoverability, deployment, personal data, conversion goal) which decide which of the
+thirteen roles review your work and which skills get installed. It then shows the stack,
+the check commands, and the architecture it read out of the repository for you to confirm,
+asks about languages if the project has an interface or public content, and takes approvers
+and risk defaults.
 
-It asks who and what the project is, what you are building (one menu, defaulted from what
-is actually in the repository), and six yes/no facts — interface, visual interface, public
-discoverability, deployment, personal data, conversion goal. Those six decide which of the
-twelve roles review your work and which skills get installed. It then shows the stack and
-the check commands it read out of the repository for you to confirm, asks for approvers and
-risk defaults, and prints a summary before writing anything.
+Nothing is written until the **review screen**: every answer listed and numbered, `Enter`
+to write, a number to change that one answer, `q` to quit.
 
 What it writes into the installed files:
 
 - `docs/project/charter.md` — identity, stack, commands, default branch, approvers,
-  staleness, managed platform, accessibility target, and the **active roles table**, ticked
-  and unticked with the reason each row came from.
+  staleness, managed platform, accessibility target, languages and localisation, and the
+  **active roles table**, ticked and unticked with the reason each row came from.
+- `docs/project/architecture.md` — instantiated, not left blank: the component inventory
+  (monorepo packages, compose services) and the external dependencies it found in your
+  dependency list, each row marked `_(detected at install)_` for you to confirm, plus the
+  three things you told it that no file could say.
 - `AGENTS.md` — the "Human approval required for" and "Forbidden in this project" lines of
   the Project overrides section.
 
@@ -87,6 +95,9 @@ installs only the skills that do not depend on an answer. The target directory i
 in this mode — without a terminal there is nobody to ask. Other flags: `--docs-dir <name>`
 to install the docs under a different directory, `--create`, `--no-skills`, and
 `--upgrade`.
+
+The installer is `install.py` (Python 3.6+, standard library only); `install.sh` is a
+wrapper that runs it. Nothing the kit *installs* needs Python — only the installer does.
 
 `--docs-dir` is for a project whose `docs/` already means something else. The installed
 skills follow the new name automatically; the `docs/` paths named in `AGENTS.md` and in the
@@ -120,11 +131,12 @@ Then, in the target project:
 2. Confirm nothing was missed: `grep -rn '{{' docs AGENTS.md .claude` should be empty.
 3. Fill in the rest of the "Project overrides" section of `AGENTS.md`.
 
-That is all. There is no build step, no dependency, and no runtime.
+That is all. The installed kit is plain Markdown: no build step, no dependency, and
+nothing to run.
 
 ## Skills
 
-`optional/skills/` is a catalogue of twelve skills that make the process fire on its own.
+`optional/skills/` is a catalogue of fourteen skills that make the process fire on its own.
 The slash commands wait to be typed; skills are model-invoked — the agent loads one when the
 situation its description names actually appears.
 
@@ -141,6 +153,8 @@ situation its description names actually appears.
 | `sdlc-threat-model` | auth, uploads, payments, or an external interface appears | data is held, or it deploys |
 | `sdlc-release` | shipping to a real environment | it deploys |
 | `sdlc-postmortem` | something broke, or a release was reverted | it deploys |
+| `sdlc-i18n-audit` | strings, screens, or locales change | it ships in 2+ languages |
+| `sdlc-translation-review` | content appears in a non-source language | it ships in 2+ languages |
 | `sdlc-managed-platform` | editing platform config, history, or deploys | a platform co-owns the repo |
 
 Setup evaluates that list against your six answers and installs only what applies — an
@@ -188,8 +202,9 @@ template/
       05-change-control.md       branches, commits, PRs, approvals, ADRs, rollback
       06-evidence-and-claims.md  the no-fabrication doctrine; provenance; assumptions
       07-traceability.md         IDs, the backlog row spec, what gets logged where
+      08-content-and-translation.md  source language, machine translation, RTL, per-locale checks
     roles/                   WHO reviews. One playbook per professional perspective.
-      README.md + 12 role playbooks
+      README.md + 13 role playbooks
     templates/               Blank artifacts to copy when a project needs one.
     project/                 WHERE this project's filled-in reality lives.
       charter.md  backlog.md  worklog.md  assumptions-and-risks.md
@@ -197,6 +212,8 @@ template/
 optional/
   claude-commands/           Claude Code slash commands that drive the loop
   skills/                    model-invoked skills, installed per project need
+  locales/                   translations of the installer's own prompts
+install.py                   the installer; install.sh is a wrapper around it
 VERSION                      the kit version, stamped into installed AGENTS.md
 ```
 

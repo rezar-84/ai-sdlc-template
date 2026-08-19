@@ -1,6 +1,6 @@
 # Skills
 
-Twelve skills that make the process fire on its own. The four `/sdlc-*` slash commands in
+Fourteen skills that make the process fire on its own. The four `/sdlc-*` slash commands in
 `../claude-commands/` wait to be typed; these are **model-invoked** — the agent reads the
 `description` in each `SKILL.md` frontmatter and loads the skill when the situation it
 describes appears. The two are complements, not duplicates: the commands drive the loop,
@@ -24,6 +24,8 @@ window.
 | `sdlc-threat-model` | personal data is held, or it deploys somewhere |
 | `sdlc-release` | it deploys somewhere you operate |
 | `sdlc-postmortem` | it deploys somewhere you operate |
+| `sdlc-i18n-audit` | it ships in more than one language |
+| `sdlc-translation-review` | it ships in more than one language |
 | `sdlc-managed-platform` | a platform co-owns the repository |
 
 Install a skill later by copying its directory:

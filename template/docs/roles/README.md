@@ -1,6 +1,6 @@
 # Role playbooks
 
-Twelve professional perspectives. You adopt one at a time, read the real artifact
+Thirteen professional perspectives. You adopt one at a time, read the real artifact
 through that role's concerns only, and produce findings with locations and consequences.
 
 Read `../process/02-role-reviews.md` first — it defines stages, verdicts, severity, and
@@ -22,6 +22,7 @@ what makes a review real rather than performative.
 | [qa](qa.md) | Does it do what was specified, and refuse what was forbidden? | Always |
 | [accessibility](accessibility.md) | Can everyone use it, including with assistive technology? | If there is an interface |
 | [privacy-legal](privacy-legal.md) | Are we allowed to do this with this data and say this in public? | If personal data, tracking, or public claims exist |
+| [localisation](localisation.md) | Is this right in every language it ships in, not only the one it was written in? | If it ships in more than one language |
 
 Set the active roster in `../project/charter.md`. Deactivating a role is a decision:
 record why. "This is an internal CLI with no interface" is a good reason to deactivate
@@ -54,8 +55,8 @@ Add project-specific checks to the **charter**, under the role's name — never 
 these files. That keeps `roles/` re-installable from a newer version of the kit without
 losing your project's additions.
 
-If a project genuinely needs a role that is not here (data engineer, localisation lead,
-hardware/firmware, ML evaluation, support), define it in the charter's
+If a project genuinely needs a role that is not here (data engineer, hardware/firmware,
+ML evaluation, support, community), define it in the charter's
 **Project-specific roles** table — the same place project-specific checks live. Keeping
 both in one file means one place to look, and nothing project-shaped inside `roles/`
 to lose at the next upgrade.
