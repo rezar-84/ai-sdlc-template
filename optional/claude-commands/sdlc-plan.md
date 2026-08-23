@@ -7,27 +7,27 @@ Run the FRAME → PLAN → DESIGN REVIEW steps of the loop in `AGENTS.md` for:
 
 $ARGUMENTS
 
-Follow `docs/process/00-operating-model.md`. Specifically:
+Follow `{{DOCS_DIR}}/process/00-operating-model.md`. Specifically:
 
-1. **Read** `docs/project/charter.md` first — nothing else is reliable without it. If it
+1. **Read** `{{DOCS_DIR}}/project/charter.md` first — nothing else is reliable without it. If it
    is blank, fill in what you can establish from the repository (stack, commands,
    default branch) and **ask the user** for what you cannot: accountable human,
    approvers, jurisdictions, data categories, budgets. Do not invent them, and do not
    proceed past FRAME on a Tier 1 item with those blank — park it
-   (`docs/process/00-operating-model.md`, "Waiting on a human"). Then read
-   `docs/project/assumptions-and-risks.md`.
+   (`{{DOCS_DIR}}/process/00-operating-model.md`, "Waiting on a human"). Then read
+   `{{DOCS_DIR}}/project/assumptions-and-risks.md`.
 
 2. **Frame.** Restate the request in one sentence. If your restatement could plausibly
    mean something different from what was asked, ask now. Assign the next
-   `{{PREFIX}}-###` — the highest number used anywhere in `docs/project/`, including
+   `{{PREFIX}}-###` — the highest number used anywhere in `{{DOCS_DIR}}/project/`, including
    `Dropped` rows, plus one; numbers are never reused. Classify the risk tier per "Risk
-   tiers" in `AGENTS.md`, and add a terse row to `docs/project/backlog.md`. Check the
-   Definition of Ready items knowable at FRAME (`docs/process/03-ready-and-done.md`) —
+   tiers" in `AGENTS.md`, and add a terse row to `{{DOCS_DIR}}/project/backlog.md`. Check the
+   Definition of Ready items knowable at FRAME (`{{DOCS_DIR}}/process/03-ready-and-done.md`) —
    if one fails, record the blocker rather than guessing past it.
 
 3. **Plan.** Read the existing implementation before proposing anything; most bad plans
    are written against an imagined codebase. Then produce a plan from
-   `docs/templates/plan.md` — Tier 1 as a file in `docs/project/plans/`, Tier 2 inline,
+   `{{DOCS_DIR}}/templates/plan.md` — Tier 1 as a file in `{{DOCS_DIR}}/project/plans/`, Tier 2 inline,
    Tier 3 as a sentence. Include the alternatives you rejected and the reason each lost,
    the failure modes, the rollback, and what you are deliberately not doing.
 

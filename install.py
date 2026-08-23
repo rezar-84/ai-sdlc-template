@@ -18,16 +18,19 @@ existing file unless --upgrade is given, and --upgrade only ever refreshes the p
 standards -- project records are never rewritten.
 """
 
+import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parent
 VERSION = (SRC / "VERSION").read_text(encoding="utf-8").strip()
+MANIFEST_REL = Path(".ai-sdlc") / "manifest.json"
 
 # Writing direction is derived from the language tag, never asked: a project that lists
 # `fa` is right-to-left whether or not anyone remembered to say so.
@@ -90,8 +93,11 @@ EN = {
     "q.c_lint": "checks.lint",
     "q.c_typecheck": "checks.typecheck",
     "q.c_unit": "checks.unit",
+    "q.c_integration": "checks.integration",
+    "q.c_contract": "checks.contract",
     "q.c_build": "checks.build",
     "q.c_scan": "checks.scan",
+    "q.c_a11y": "checks.a11y",
     "q.c_e2e": "checks.e2e",
     "q.shape": "How is it deployed?",
     "h.shape": "Goes into architecture.md as the Shape section. Detection can list the parts, not how they run.",
@@ -265,9 +271,9 @@ USAGE = """usage: install.sh <target-project-dir> [PREFIX] [options]
   --no-skills        do not install anything into .claude/skills/
   --dry-run          list what would be written, write nothing
   --lang <code>      language for this setup's own prompts (default: en)
-  --upgrade          refresh docs/process/, docs/roles/ and any already-installed skill
-                     from this version of the kit. Overwrites exactly those. Never
-                     touches docs/project/, AGENTS.md or .claude/commands/.
+  --upgrade          refresh manifest-owned docs/process/, docs/roles/ and installed
+                     skills. Stops on local edits, backs up changes, removes obsolete
+                     managed files, and never touches project records or AGENTS.md.
 """
 
 
@@ -548,21 +554,39 @@ def detect(root):
             d.cmds["run"] = "%s run dev" % pm
         elif "start" in scripts:
             d.cmds["run"] = "%s start" % pm
-        for script, key in (("format", "format"), ("lint", "lint"), ("build", "build"),
-                            ("typecheck", "typecheck"), ("e2e", "e2e")):
-            if script in scripts:
-                d.cmds[key] = "%s run %s" % (pm, script)
-        if "typecheck" not in d.cmds and repo.has("tsconfig.json"):
-            d.cmds["typecheck"] = "npx tsc --noEmit"
-        if "test" in scripts:
-            d.cmds["unit"] = "%s test" % pm
+        script_candidates = {
+            "format": ("format:check", "check:format", "format"),
+            "lint": ("lint",),
+            "typecheck": ("typecheck", "type-check", "check:types"),
+            "unit": ("test:unit", "unit", "test"),
+            "integration": ("test:integration", "integration"),
+            "contract": ("test:contract", "contract"),
+            "build": ("build",),
+            "scan": ("security", "scan", "audit"),
+            "a11y": ("test:a11y", "a11y", "accessibility"),
+            "e2e": ("test:e2e", "e2e"),
+        }
+        for key, candidates in script_candidates.items():
+            for script in candidates:
+                if script in scripts:
+                    d.cmds[key] = "%s run %s" % (pm, script)
+                    break
+        if "typecheck" not in d.cmds and repo.has("tsconfig.json") and dep("typescript"):
+            d.cmds["typecheck"] = {"npm": "npm exec tsc -- --noEmit",
+                                   "pnpm": "pnpm exec tsc --noEmit",
+                                   "yarn": "yarn tsc --noEmit",
+                                   "bun": "bunx tsc --noEmit"}[pm]
         if "e2e" not in d.cmds and dep("@playwright/test"):
-            d.cmds["e2e"] = "npx playwright test"
-        d.cmds["install"] = {"npm": "npm install", "pnpm": "pnpm install",
+            d.cmds["e2e"] = {"npm": "npm exec playwright test",
+                              "pnpm": "pnpm exec playwright test",
+                              "yarn": "yarn playwright test",
+                              "bun": "bunx playwright test"}[pm]
+        d.cmds["install"] = {"npm": "npm ci" if repo.has("package-lock.json") else "npm install",
+                             "pnpm": "pnpm install --frozen-lockfile" if repo.has("pnpm-lock.yaml") else "pnpm install",
                              "yarn": "yarn install", "bun": "bun install"}[pm]
-        if pm == "npm":
+        if "scan" not in d.cmds and pm == "npm":
             d.cmds["scan"] = "npm audit --audit-level=high"
-        elif pm == "pnpm":
+        elif "scan" not in d.cmds and pm == "pnpm":
             d.cmds["scan"] = "pnpm audit --audit-level high"
 
     # -- python ----------------------------------------------------------------
@@ -589,7 +613,7 @@ def detect(root):
             d.cmds.setdefault("unit", "pytest")
         if repo.pydep("ruff"):
             d.cmds.setdefault("lint", "ruff check .")
-            d.cmds.setdefault("format", "ruff format .")
+            d.cmds.setdefault("format", "ruff format --check .")
         if repo.pydep("mypy"):
             d.cmds.setdefault("typecheck", "mypy .")
 
@@ -601,7 +625,8 @@ def detect(root):
         d.cmds.setdefault("install", "go mod download")
         d.cmds.setdefault("unit", "go test ./...")
         d.cmds.setdefault("build", "go build ./...")
-        d.cmds.setdefault("format", "gofmt -l .")
+        d.cmds.setdefault("format", "test -z \"$(find . -name '*.go' -not -path "
+                          "'./vendor/*' -exec gofmt -l {} +)\"")
         d.cmds.setdefault("lint", "go vet ./...")
     if repo.has("Cargo.toml"):
         add(d.lang, "Rust")
@@ -611,7 +636,7 @@ def detect(root):
         d.cmds.setdefault("unit", "cargo test")
         d.cmds.setdefault("build", "cargo build --release")
         d.cmds.setdefault("format", "cargo fmt --check")
-        d.cmds.setdefault("lint", "cargo clippy")
+        d.cmds.setdefault("lint", "cargo clippy --all-targets --all-features -- -D warnings")
     if repo.has("composer.json"):
         add(d.lang, "PHP")
         add(d.pm, "Composer")
@@ -1213,7 +1238,10 @@ STACK_FIELDS = (("s_lang", "q.lang", "lang"), ("s_pm", "q.pm", "pm"),
 CMD_FIELDS = (("c_install", "q.c_install", "install"), ("c_run", "q.c_run", "run"),
               ("c_format", "q.c_format", "format"), ("c_lint", "q.c_lint", "lint"),
               ("c_typecheck", "q.c_typecheck", "typecheck"), ("c_unit", "q.c_unit", "unit"),
+              ("c_integration", "q.c_integration", "integration"),
+              ("c_contract", "q.c_contract", "contract"),
               ("c_build", "q.c_build", "build"), ("c_scan", "q.c_scan", "scan"),
+              ("c_a11y", "q.c_a11y", "a11y"),
               ("c_e2e", "q.c_e2e", "e2e"))
 
 
@@ -1480,12 +1508,9 @@ def resolve_target(path, options, term):
     p = Path(os.path.expanduser(path))
     if not p.is_dir():
         if options.create:
-            try:
-                p.mkdir(parents=True)
-            except OSError as exc:
-                term.err(str(exc))
-                return None
-            term.say("  " + t("created", path=str(p)))
+            # Creation is deferred until after the review screen. This keeps quit and
+            # --dry-run genuinely free of filesystem side effects.
+            term.say("  would create %s after review" % p)
         else:
             term.err(t("err.no_dir", path=str(p)))
             return None
@@ -1507,14 +1532,121 @@ def resolve_target(path, options, term):
 
 # ---------------------------------------------------------------- text writers
 
+def plain_text(value):
+    """Keep user-provided values inside one Markdown/YAML field."""
+    value = " ".join(str(value or "").replace("\r", "\n").splitlines())
+    return value.replace("{{", "{ {").replace("}}", "} }")
+
+
 def substitute(text, ctx):
     for key, value in ctx.items():
         text = text.replace("{{%s}}" % key, value)
     return text
 
 
+def sha256_text(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def sha256_file(path):
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except (IOError, OSError):
+        return ""
+
+
+def ensure_inside(root, path):
+    """Reject a destination whose existing symlink chain escapes the selected project."""
+    root = Path(root).resolve()
+    path = Path(path)
+    resolved = path.resolve()
+    try:
+        inside = os.path.commonpath([str(root), str(resolved)]) == str(root)
+    except (AttributeError, ValueError):
+        inside = str(resolved).startswith(str(root) + os.sep) or resolved == root
+    if not inside:
+        raise RuntimeError("destination escapes project through a symlink: %s" % path)
+    return path
+
+
+def atomic_write_bytes(path, data):
+    """Write bytes without exposing a partially-written destination."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".%s." % path.name, dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, str(path))
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def atomic_write_text(path, text):
+    atomic_write_bytes(path, text.encode("utf-8"))
+
+
+def managed_source_texts(target, docs, ctx):
+    """Return portable kit-owned destination paths and their rendered content."""
+    planned = {}
+    for sub in ("process", "roles"):
+        base = SRC / "template" / "docs" / sub
+        for src in sorted(base.rglob("*")):
+            if src.is_file():
+                rel = Path(docs) / sub / src.relative_to(base)
+                planned[str(rel)] = substitute(src.read_text(encoding="utf-8"), ctx)
+    skills_root = Path(target) / ".claude" / "skills"
+    if skills_root.is_dir():
+        for base in sorted((SRC / "optional" / "skills").iterdir()):
+            if not base.is_dir() or not (skills_root / base.name).is_dir():
+                continue
+            for src in sorted(base.rglob("*")):
+                if src.is_file():
+                    rel = Path(".claude") / "skills" / base.name / src.relative_to(base)
+                    planned[str(rel)] = substitute(src.read_text(encoding="utf-8"), ctx)
+    return planned
+
+
+def load_manifest(target):
+    path = Path(target) / MANIFEST_REL
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("files"), dict):
+            return data
+    except (IOError, OSError, ValueError):
+        pass
+    return None
+
+
+def write_manifest(target, docs, files):
+    payload = {
+        "schema": 1,
+        "kit_version": VERSION,
+        "docs_dir": docs,
+        "files": dict(sorted(files.items())),
+    }
+    atomic_write_text(ensure_inside(target, Path(target) / MANIFEST_REL),
+                      json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def is_managed_rel(rel, docs):
+    path = Path(rel)
+    if path.is_absolute() or ".." in path.parts:
+        return False
+    prefixes = ((str(docs), "process"), (str(docs), "roles"), (".claude", "skills"))
+    return any(path.parts[:2] == prefix for prefix in prefixes)
+
+
 def _cell(value):
-    return (value or "").replace("|", "\\|")
+    return plain_text(value).replace("|", "\\|")
 
 
 def fill_row(text, label, value):
@@ -1555,7 +1687,7 @@ def fill_field(text, label, value):
                 out.append(line)
             continue
         if not done and line.startswith(label):
-            out.append("%s %s" % (label, value))
+            out.append("%s %s" % (label, plain_text(value)))
             done, skipping = True, True
             continue
         out.append(line)
@@ -1604,7 +1736,8 @@ class Installer(object):
         self.updated = 0
         self.fresh = set()
         self.ctx = {
-            "PROJECT_NAME": w.a.get("name") or (w.target.name if w.target else ""),
+            "PROJECT_NAME": plain_text(w.a.get("name") or
+                                       (w.target.name if w.target else "")),
             "PREFIX": w.a.get("prefix") or w.o.prefix or "",
             "DOCS_DIR": self.docs,
             "KIT_VERSION": VERSION,
@@ -1619,7 +1752,7 @@ class Installer(object):
             return str(dest)
 
     def install_file(self, src, dest):
-        dest = Path(dest)
+        dest = ensure_inside(self.target, dest)
         if dest.exists():
             self.skipped += 1
             print("  skip (exists)  %s" % self.rel(dest))
@@ -1628,35 +1761,32 @@ class Installer(object):
             self.added += 1
             print("  would add      %s" % self.rel(dest))
             return True
-        dest.parent.mkdir(parents=True, exist_ok=True)
         text = Path(src).read_text(encoding="utf-8")
-        dest.write_text(substitute(text, self.ctx), encoding="utf-8")
+        atomic_write_text(dest, substitute(text, self.ctx))
         self.added += 1
         self.fresh.add(self.rel(dest))
         print("  add            %s" % self.rel(dest))
         return True
 
     def upgrade_file(self, src, dest):
-        dest = Path(dest)
+        dest = ensure_inside(self.target, dest)
         if self.o.dry_run:
             self.updated += 1
             print("  would update   %s" % self.rel(dest))
             return
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(substitute(Path(src).read_text(encoding="utf-8"), self.ctx),
-                        encoding="utf-8")
+        atomic_write_text(dest, substitute(Path(src).read_text(encoding="utf-8"), self.ctx))
         self.updated += 1
         print("  update         %s" % self.rel(dest))
 
     def edit(self, relpath, transform):
         """Only ever applied to a file this run created."""
-        path = self.target / relpath
+        path = ensure_inside(self.target, self.target / relpath)
         if self.o.dry_run or not path.exists():
             return False
         text = path.read_text(encoding="utf-8")
         new = transform(text)
         if new != text:
-            path.write_text(new, encoding="utf-8")
+            atomic_write_text(path, new)
             return True
         return False
 
@@ -1666,6 +1796,21 @@ class Installer(object):
         print("")
         print("Installing AI SDLC kit v%s into %s" % (VERSION, self.target))
         print("")
+        candidates = [self.target / "AGENTS.md", self.target / "CLAUDE.md",
+                      self.target / MANIFEST_REL]
+        candidates.extend(self.target / self.docs / path.relative_to(SRC / "template" / "docs")
+                          for path in (SRC / "template" / "docs").rglob("*") if path.is_file())
+        if w.a.get("commands", True):
+            candidates.extend(self.target / ".claude" / "commands" / path.name
+                              for path in (SRC / "optional" / "claude-commands").glob("*.md"))
+        for name in w.chosen_skills():
+            base = SRC / "optional" / "skills" / name
+            candidates.extend(self.target / ".claude" / "skills" / name / path.relative_to(base)
+                              for path in base.rglob("*") if path.is_file())
+        for candidate in candidates:
+            ensure_inside(self.target, candidate)
+        if not self.o.dry_run:
+            self.target.mkdir(parents=True, exist_ok=True)
         self.install_file(SRC / "template" / "AGENTS.md", self.target / "AGENTS.md")
         for path in sorted((SRC / "template" / "docs").rglob("*")):
             if path.is_file():
@@ -1681,10 +1826,10 @@ class Installer(object):
                 if path.is_file():
                     self.install_file(path, self.target / ".claude" / "skills" / name
                                       / path.relative_to(base))
-        claude_md = self.target / "CLAUDE.md"
+        claude_md = ensure_inside(self.target, self.target / "CLAUDE.md")
         if not claude_md.exists() and not self.o.dry_run:
-            claude_md.write_text("# Project instructions\n\nRead and follow `AGENTS.md` "
-                                 "in this directory.\n", encoding="utf-8")
+            atomic_write_text(claude_md, "# Project instructions\n\nRead and follow "
+                              "`AGENTS.md` in this directory.\n")
             print("  add            CLAUDE.md (pointer to AGENTS.md)")
         return skills
 
@@ -1707,10 +1852,23 @@ class Installer(object):
             self.edit(charter_rel, lambda text: tick_artifact(text, "architecture"))
         return touched
 
+    def record_manifest(self):
+        """Record only portable files that exactly match this kit's rendered source."""
+        if self.o.dry_run or (self.target / MANIFEST_REL).exists():
+            return
+        planned = managed_source_texts(self.target, self.docs, self.ctx)
+        owned = {}
+        for rel, expected in planned.items():
+            path = self.target / rel
+            if path.is_file() and sha256_file(path) == sha256_text(expected):
+                owned[rel] = sha256_file(path)
+        write_manifest(self.target, self.docs, owned)
+        print("  add            %s (%d managed files)" % (MANIFEST_REL, len(owned)))
+
     def charter(self, text):
         w, a = self.w, self.w.a
         if a.get("owner"):
-            text = fill_line(text, "owner:", "owner: %s" % a["owner"])
+            text = fill_line(text, "owner:", "owner: %s" % json.dumps(plain_text(a["owner"])))
         text = fill_line(text, "last-reviewed:", "last-reviewed: %s" % today())
 
         text = fill_row(text, "**What it is**", a.get("what"))
@@ -1725,8 +1883,9 @@ class Installer(object):
             text = fill_row(text, label, a.get(sid))
         for sid, label in zip([c[0] for c in CMD_FIELDS],
                               ("Install", "Run locally", "`checks.format`", "`checks.lint`",
-                               "`checks.typecheck`", "`checks.unit`", "`checks.build`",
-                               "`checks.scan`", "`checks.e2e`")):
+                               "`checks.typecheck`", "`checks.unit`", "`checks.integration`",
+                               "`checks.contract`", "`checks.build`", "`checks.scan`",
+                               "`checks.a11y`", "`checks.e2e`")):
             text = fill_row(text, label, a.get(sid))
 
         text = fill_row(text, "**Default branch**", a.get("branch"))
@@ -1798,7 +1957,7 @@ class Installer(object):
         w, d = self.w, self.w.det
         if self.o.dry_run:
             return False
-        dest = self.target / rel
+        dest = ensure_inside(self.target, self.target / rel)
         if dest.exists():
             return False
         if not (d.components or d.services or d.integrations or d.mono_tool
@@ -1846,18 +2005,19 @@ class Installer(object):
         if w.a.get("shape"):
             text = text.replace("```\n" + ("\n".join(sketch) if sketch else "<sketch>") + "\n```",
                                 "```\n" + ("\n".join(sketch) if sketch else "<sketch>")
-                                + "\n```\n\n" + w.a["shape"] + " _(stated at install)_", 1)
+                                + "\n```\n\n" + plain_text(w.a["shape"])
+                                + " _(stated at install)_", 1)
         if w.a.get("critical"):
             text = text.replace("## Constraints that shaped this\n",
                                 "## Constraints that shaped this\n\n**Must not fail or lose "
-                                "data:** %s _(stated at install)_\n" % w.a["critical"], 1)
+                                "data:** %s _(stated at install)_\n"
+                                % plain_text(w.a["critical"]), 1)
         if w.a.get("expensive"):
             text = text.replace("## Known limitations\n",
                                 "## Known limitations\n\n**Expensive to reverse:** %s "
                                 "_(stated at install — worth an ADR)_\n"
-                                % w.a["expensive"], 1)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(text, encoding="utf-8")
+                                % plain_text(w.a["expensive"]), 1)
+        atomic_write_text(dest, text)
         print("  add            %s" % rel)
         self.added += 1
         return True
@@ -1866,7 +2026,12 @@ class Installer(object):
 # ---------------------------------------------------------------- upgrade mode
 
 def find_docs(target, preferred):
-    for name in (preferred, "docs", "sdlc-docs"):
+    names = [preferred]
+    manifest = load_manifest(target)
+    if manifest and isinstance(manifest.get("docs_dir"), str):
+        names.append(manifest["docs_dir"])
+    names.extend(("docs", "sdlc-docs"))
+    for name in names:
         if (target / name / "process" / "00-operating-model.md").exists():
             return name
     return ""
@@ -1900,25 +2065,104 @@ def upgrade(target, o):
     w.chosen_skills = lambda: []
     inst = Installer(w)
 
+    previous = load_manifest(target)
+    previous_files = previous.get("files", {}) if previous else {}
+    planned = managed_source_texts(target, docs, inst.ctx)
+    try:
+        for rel in list(planned) + list(previous_files) + [str(MANIFEST_REL)]:
+            if rel != str(MANIFEST_REL) and not is_managed_rel(rel, docs):
+                raise RuntimeError("manifest contains an unmanaged path: %s" % rel)
+            ensure_inside(target, target / rel)
+    except RuntimeError as exc:
+        sys.stderr.write("error: %s\n" % exc)
+        return 1
+
+    modified = []
+    if previous:
+        for rel, old_hash in previous_files.items():
+            if sha256_file(target / rel) != old_hash:
+                modified.append(rel)
+    if modified:
+        sys.stderr.write("error: upgrade stopped; kit-owned files were modified or removed:\n")
+        for rel in modified:
+            sys.stderr.write("       %s\n" % rel)
+        sys.stderr.write("       Move project rules to AGENTS.md/project docs, restore these "
+                         "files, or merge the new kit manually.\n")
+        return 1
+
+    obsolete = sorted(set(previous_files) - set(planned))
+    changed = sorted(rel for rel, content in planned.items()
+                     if sha256_file(target / rel) != sha256_text(content))
+
+    if o.dry_run:
+        for rel in changed:
+            print("  would update   %s" % rel)
+        for rel in obsolete:
+            print("  would remove   %s" % rel)
+        print("Dry run: %d files would be updated, %d obsolete managed files removed."
+              % (len(changed), len(obsolete)))
+        return 0
+
     print("Upgrading AI SDLC kit in %s to v%s" % (target, VERSION))
     print("  (%s/process/, %s/roles/ and already-installed skills -- project records "
           "untouched)" % (docs, docs))
     print("")
-    for sub in ("process", "roles"):
-        base = SRC / "template" / "docs" / sub
-        for path in sorted(base.rglob("*")):
-            if path.is_file():
-                inst.upgrade_file(path, target / docs / sub / path.relative_to(base))
-    skills_root = target / ".claude" / "skills"
-    if (SRC / "optional" / "skills").is_dir() and skills_root.is_dir():
-        for base in sorted((SRC / "optional" / "skills").iterdir()):
-            if not base.is_dir() or not (skills_root / base.name).is_dir():
-                continue
-            for path in sorted(base.rglob("*")):
-                if path.is_file():
-                    inst.upgrade_file(path, skills_root / base.name / path.relative_to(base))
+    if not previous:
+        print("  warning        legacy install has no manifest; backing up portable files "
+              "before the first managed upgrade")
+
+    affected = changed + obsolete
+    originals = {}
+    for rel in affected:
+        path = target / rel
+        originals[rel] = path.read_bytes() if path.is_file() else None
+    manifest_path = target / MANIFEST_REL
+    old_manifest = manifest_path.read_bytes() if manifest_path.is_file() else None
+
+    existing = [rel for rel in affected if originals[rel] is not None]
+    if existing:
+        stem = "v%s-to-v%s" % ((previous or {}).get("kit_version", "legacy"), VERSION)
+        backup_dir = target / ".ai-sdlc" / "backups" / stem
+        suffix = 2
+        while backup_dir.exists():
+            backup_dir = target / ".ai-sdlc" / "backups" / (stem + "-%d" % suffix)
+            suffix += 1
+        for rel in existing:
+            dest = backup_dir / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(target / rel), str(dest))
+        print("  backup         %s (%d files)" % (backup_dir.relative_to(target), len(existing)))
+
+    try:
+        for rel in changed:
+            atomic_write_text(target / rel, planned[rel])
+            inst.updated += 1
+            print("  update         %s" % rel)
+        for rel in obsolete:
+            path = target / rel
+            if path.exists():
+                path.unlink()
+                print("  remove         %s (obsolete managed file)" % rel)
+        hashes = dict((rel, sha256_text(content)) for rel, content in planned.items())
+        write_manifest(target, docs, hashes)
+    except Exception as exc:
+        for rel, data in originals.items():
+            path = target / rel
+            if data is None:
+                if path.exists():
+                    path.unlink()
+            else:
+                atomic_write_bytes(path, data)
+        if old_manifest is None:
+            if manifest_path.exists():
+                manifest_path.unlink()
+        else:
+            atomic_write_bytes(manifest_path, old_manifest)
+        sys.stderr.write("error: upgrade failed and managed files were restored: %s\n" % exc)
+        return 1
     print("")
-    print("Done: %d updated." % inst.updated)
+    print("Done: %d updated, %d obsolete managed files removed." %
+          (inst.updated, len(obsolete)))
     print("")
     print("AGENTS.md and .claude/commands/ were NOT touched -- they may carry project edits.")
     print("Diff them against the kit if this version changed them:")
@@ -2065,8 +2309,13 @@ def main(argv):
         w.a.setdefault("docsdir", find_docs(w.target, o.docs_dir) or o.docs_dir)
 
     inst = Installer(w)
-    skills = inst.run()
-    tailored = inst.tailor()
+    try:
+        skills = inst.run()
+        tailored = inst.tailor()
+        inst.record_manifest()
+    except (IOError, OSError, RuntimeError) as exc:
+        sys.stderr.write("error: installation failed: %s\n" % exc)
+        return 1
     report(w, inst, skills, tailored)
     return 0
 
@@ -2076,5 +2325,6 @@ if __name__ == "__main__":
         sys.exit(main(sys.argv[1:]))
     except KeyboardInterrupt:
         print("")
-        print("  interrupted -- nothing was written.")
+        print("  interrupted -- review-stage quits write nothing; if copying had started,"
+              " the installation may be partial and is safe to re-run.")
         sys.exit(130)

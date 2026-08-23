@@ -3,13 +3,13 @@ description: Run the project's full check sequence and report real results
 argument-hint: "[optional: a stage, path, or work item ID to scope the run]"
 ---
 
-Run the VERIFY step of the loop per `docs/process/04-quality-gates.md`, scoped to:
+Run the VERIFY step of the loop per `{{DOCS_DIR}}/process/04-quality-gates.md`, scoped to:
 
 $ARGUMENTS
 
 (If no argument is given, run the full sequence against the current working tree.)
 
-1. **Read the commands** from `docs/project/charter.md` → Commands. Use them verbatim.
+1. **Read the commands** from `{{DOCS_DIR}}/project/charter.md` → Commands. Use them verbatim.
    Do not invent a command or infer one from the ecosystem — a guessed command that
    happens to exit zero produces a confidently false verification.
 
@@ -17,7 +17,7 @@ $ARGUMENTS
    typecheck, unit, integration, contract, build, dependency/secret scan, accessibility,
    end-to-end.
 
-3. **Report each stage** in the vocabulary of `docs/process/06-evidence-and-claims.md`,
+3. **Report each stage** in the vocabulary of `{{DOCS_DIR}}/process/06-evidence-and-claims.md`,
    with no synonyms:
    - **Verified**, and whether it passed or failed, with the real summary (counts,
      duration). Never describe a failing suite as "mostly passing" — paste the output.

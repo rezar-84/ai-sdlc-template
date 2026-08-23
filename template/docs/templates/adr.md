@@ -1,3 +1,9 @@
+---
+status: proposed
+owner: _(named decider)_
+last-reviewed: YYYY-MM-DD
+---
+
 # ADR NNNN — <decision in a noun phrase>
 
 - **Status:** Proposed | Approved | Superseded by NNNN | Deprecated

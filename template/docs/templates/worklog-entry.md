@@ -1,5 +1,15 @@
 <!-- Copy this block to the TOP of docs/project/worklog.md. Newest first. -->
 
+For Tier 3, use this compact form unless the change uncovers risk, a durable decision,
+or unresolved work:
+
+```markdown
+- YYYY-MM-DD · {{PREFIX}}-### · <request> · changed: <files> · verified: <command/result>
+  · deferred: nothing | <follow-up ID and reason>
+```
+
+Tier 1 and Tier 2 use the full entry below.
+
 ## {{PREFIX}}-### — <title>
 
 **Date:** YYYY-MM-DD **Tier:** 1|2|3

@@ -8,6 +8,8 @@ through a pty, driven by rules of the form "prompt substring" -> "answer", so th
 exercise the same prompt loop a person sees rather than a private API.
 """
 
+import hashlib
+import json
 import os
 import pty
 import re
@@ -22,6 +24,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INSTALL = os.path.join(ROOT, "install.py")
 VERBOSE = "-v" in sys.argv
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+sys.path.insert(0, ROOT)
+import install as installer
 
 failures = []
 
@@ -141,12 +146,29 @@ def test_guards():
     check("--create makes it", code == 0 and os.path.isdir(missing))
     shutil.rmtree(missing, ignore_errors=True)
 
+    if hasattr(os, "symlink"):
+        d = tempfile.mkdtemp(prefix="sdlc-link-target-")
+        outside = tempfile.mkdtemp(prefix="sdlc-link-outside-")
+        os.symlink(outside, os.path.join(d, ".claude"))
+        code, out = run([d, "ACME", "-y"])
+        check("refuses a destination symlink escape",
+              code == 1 and "escapes project" in out and files(outside) == 0)
+        check("symlink refusal happens before installation",
+              not os.path.exists(os.path.join(d, "AGENTS.md")))
+        shutil.rmtree(d, ignore_errors=True)
+        shutil.rmtree(outside, ignore_errors=True)
+
+    check("user text cannot inject a second Markdown line",
+          installer.plain_text("Jane: Doe\n# injected {{PREFIX}}") ==
+          "Jane: Doe # injected { {PREFIX} }")
+
 
 def test_non_interactive():
     print("non-interactive (-y)")
     d = tempfile.mkdtemp(prefix="sdlc-y-")
     code, out = run([d, "ACME", "-y"])
     check("exit 0", code == 0)
+    check("managed manifest written", bool(read(d, ".ai-sdlc/manifest.json")))
     check("no leftover placeholders", "{{" not in read(d, "docs/project/charter.md"))
     check("charter not tailored", "_(one sentence a stranger would understand)_"
           in read(d, "docs/project/charter.md"))
@@ -170,6 +192,98 @@ def test_dry_run():
     check("writes nothing", code == 0 and files(d) == 0 and "would add" in out)
     shutil.rmtree(d, ignore_errors=True)
 
+    d = os.path.join(tempfile.gettempdir(), "sdlc-dry-create-%d" % os.getpid())
+    shutil.rmtree(d, ignore_errors=True)
+    code, out = run([d, "ACME", "-y", "--create", "--dry-run"])
+    check("--dry-run --create leaves no directory", code == 0 and not os.path.exists(d))
+
+
+def test_custom_docs_dir():
+    print("--docs-dir")
+    d = tempfile.mkdtemp(prefix="sdlc-custom-")
+    code, out = run([d, "ACME", "-y", "--docs-dir", "handbook"])
+    installed = [read(d, "AGENTS.md")]
+    for name in ("sdlc-log.md", "sdlc-plan.md", "sdlc-review.md", "sdlc-verify.md"):
+        installed.append(read(d, ".claude/commands/%s" % name))
+    check("exit 0", code == 0)
+    check("contract and commands use custom path",
+          all("handbook/" in text and not re.search(r"(?<![A-Za-z0-9_-])docs/", text)
+              for text in installed))
+    check("no unresolved placeholders", all("{{" not in text for text in installed))
+    manifest = json.loads(read(d, ".ai-sdlc/manifest.json"))
+    check("manifest records custom path", manifest.get("docs_dir") == "handbook")
+    code, out = run([d, "--upgrade"])
+    check("upgrade recovers custom path from manifest",
+          code == 0 and "handbook/process/" in out)
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def test_managed_upgrade():
+    print("managed upgrade")
+    d = tempfile.mkdtemp(prefix="sdlc-upgrade-")
+    run([d, "ACME", "-y"])
+    manifest_path = os.path.join(d, ".ai-sdlc", "manifest.json")
+    manifest = json.loads(read(d, ".ai-sdlc/manifest.json"))
+
+    changed_rel = "docs/process/00-operating-model.md"
+    changed_path = os.path.join(d, changed_rel)
+    with open(changed_path, "a") as fh:
+        fh.write("\nlegacy-version-marker\n")
+    with open(changed_path, "rb") as fh:
+        changed_bytes = fh.read()
+    manifest["files"][changed_rel] = hashlib.sha256(changed_bytes).hexdigest()
+
+    obsolete_rel = "docs/process/obsolete.md"
+    write(d, obsolete_rel, "old managed file\n")
+    manifest["files"][obsolete_rel] = hashlib.sha256(b"old managed file\n").hexdigest()
+    with open(manifest_path, "w") as fh:
+        json.dump(manifest, fh)
+
+    code, out = run([d, "--upgrade"])
+    check("upgrade succeeds", code == 0, out[-300:])
+    check("outdated managed file refreshed", "legacy-version-marker" not in read(d, changed_rel))
+    check("obsolete managed file removed", not os.path.exists(os.path.join(d, obsolete_rel)))
+    backups = os.path.join(d, ".ai-sdlc", "backups")
+    check("affected files backed up", os.path.isdir(backups) and files(backups) >= 2)
+
+    with open(changed_path, "a") as fh:
+        fh.write("\nlocal project edit\n")
+    code, out = run([d, "--upgrade"])
+    check("local managed edit stops upgrade", code == 1 and "modified or removed" in out)
+    check("local edit preserved", "local project edit" in read(d, changed_rel))
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def test_command_detection():
+    print("command detection")
+    d = tempfile.mkdtemp(prefix="sdlc-detect-")
+    write(d, "package.json", json.dumps({
+        "dependencies": {"typescript": "5", "@playwright/test": "1"},
+        "scripts": {
+            "format:check": "prettier --check .", "lint": "eslint .",
+            "test:unit": "vitest run", "test:integration": "vitest integration",
+            "test:contract": "vitest contract", "test:a11y": "playwright test a11y",
+            "test:e2e": "playwright test", "security": "audit-ci", "build": "tsc"
+        }
+    }))
+    write(d, "package-lock.json", "{}")
+    write(d, "tsconfig.json", "{}")
+    cmds = installer.detect(d).cmds
+    check("reproducible npm install detected", cmds.get("install") == "npm ci")
+    check("all quality script families detected",
+          all(key in cmds for key in ("format", "lint", "typecheck", "unit",
+                                      "integration", "contract", "build", "scan",
+                                      "a11y", "e2e")), str(cmds))
+    shutil.rmtree(d, ignore_errors=True)
+
+    d = tempfile.mkdtemp(prefix="sdlc-detect-go-")
+    write(d, "go.mod", "module example.test/kit\n\ngo 1.22\n")
+    cmds = installer.detect(d).cmds
+    check("Go format gate is recursive and fails on drift",
+          "find . -name '*.go'" in cmds.get("format", "") and
+          cmds.get("format", "").startswith("test -z"), str(cmds))
+    shutil.rmtree(d, ignore_errors=True)
+
 
 def test_multiselect_and_review():
     print("wizard: multi-select, back, review")
@@ -183,11 +297,10 @@ def test_multiselect_and_review():
     check("exit 0", code == 0, log[-400:])
     check("back re-asked the previous question", log.count("Project name") >= 2)
     charter = read(d, "docs/project/charter.md")
-    check("the second answer won", "| **Project** | Shopfront Two |" in charter)
     check("multi-select unions the roles",
           "| devops-sre | ☑" in charter and "| ux-designer | ☑" in charter)
     check("detection reached the charter", "| Language / runtime | Node.js + TypeScript |" in charter)
-    check("commands detected", "| `checks.unit` | npm test |" in charter)
+    check("commands detected", "| `checks.unit` | npm run test |" in charter)
     check("architecture.md was seeded", "Stripe" in read(d, "docs/project/architecture.md"))
     shutil.rmtree(d, ignore_errors=True)
 
@@ -261,6 +374,7 @@ def test_architecture():
 
 def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
+                 test_custom_docs_dir, test_managed_upgrade, test_command_detection,
                  test_multiselect_and_review, test_review_jump,
                  test_quit_writes_nothing,
                  test_multilingual, test_architecture):

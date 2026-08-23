@@ -98,10 +98,11 @@ Tier 3 → skipped.
 
 ### 7. LOG
 
-Append an entry to `project/worklog.md`, filling in every section of
-`templates/worklog-entry.md` — that template is the required set at every tier, and
-`07-traceability.md` explains why each section is there. Tier scales the length, not the
-set: a Tier 3 entry is one line per section, several of them saying "none".
+For Tier 1 and Tier 2, append an entry to `project/worklog.md`, filling in every section
+of `templates/worklog-entry.md`; `07-traceability.md` explains why each section exists.
+For Tier 3, append the compact entry defined at the end of that template: date, ID,
+request, changed files, verification result, and anything deferred. Expand to the full
+template if the change uncovers risk, a durable decision, or unresolved work.
 
 The worklog is prose and can be long; the backlog is a table and stays terse. Never fold
 narrative into the backlog.

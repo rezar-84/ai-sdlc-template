@@ -93,22 +93,21 @@ For scripts, CI, or a plain copy with no questions:
 `-y` (also implied when stdin is not a terminal) takes every default, tailors nothing, and
 installs only the skills that do not depend on an answer. The target directory is required
 in this mode — without a terminal there is nobody to ask. Other flags: `--docs-dir <name>`
-to install the docs under a different directory, `--create`, `--no-skills`, and
-`--upgrade`.
+to install the docs under a different directory, `--create`, `--no-skills`, `--dry-run`,
+`--lang <code>`, and `--upgrade`.
 
 The installer is `install.py` (Python 3.6+, standard library only); `install.sh` is a
 wrapper that runs it. Nothing the kit *installs* needs Python — only the installer does.
 
 `--docs-dir` is for a project whose `docs/` already means something else. The installed
-skills follow the new name automatically; the `docs/` paths named in `AGENTS.md` and in the
-process documents do not — adjust them once, in `AGENTS.md`, where they are listed
-together.
+contract, commands, and skills all follow the chosen name automatically.
 
 The installer copies `AGENTS.md` to the project root, `docs/` into the project, the four
 slash commands into `.claude/commands/`, and the selected skills into `.claude/skills/`;
 substitutes `{{PROJECT_NAME}}`, `{{PREFIX}}`, and `{{DOCS_DIR}}` in all of them; adds a
-`CLAUDE.md` pointer if none exists; and **never overwrites an existing file** — re-running
-it is safe, reuses the docs directory it finds, and only fills in what is missing.
+`CLAUDE.md` pointer if none exists; and records checksums for portable files in
+`.ai-sdlc/manifest.json`. A normal re-run **never overwrites an existing file** — it is
+safe, reuses the docs directory it finds, and only fills in what is missing.
 
 Manual install is a copy plus a find-and-replace — the substitution is not optional, and
 skipping it leaves `{{PREFIX}}-###` as a literal path in the docs the agent follows:
@@ -214,7 +213,12 @@ optional/
   skills/                    model-invoked skills, installed per project need
   locales/                   translations of the installer's own prompts
 install.py                   the installer; install.sh is a wrapper around it
+validate.py                  source and installed-output validation
+tests/smoke.py               installer boundary and workflow tests
+.github/workflows/           continuous validation and tag-based releases
 VERSION                      the kit version, stamped into installed AGENTS.md
+LICENSE · SECURITY.md · CONTRIBUTING.md · CHANGELOG.md
+                             distribution and project governance
 ```
 
 ## The three kinds of file
@@ -237,17 +241,37 @@ process docs, so they go stale silently. Do not merge the directories.
 ./install.sh /path/to/your-project ACME --upgrade
 ```
 
-`docs/process/` and `docs/roles/` are replaceable wholesale — `--upgrade` overwrites
-exactly those two directories, plus any kit skill the project already has, and nothing
-else. `docs/project/`, `AGENTS.md`, and `.claude/commands/` are never touched, because they
-may carry your edits; the installer prints a `diff` command for `AGENTS.md` so you can merge
-by hand if a release changed it. Skills the project did not choose are not added by an
-upgrade — `ls optional/skills` shows what a newer version ships.
+`--upgrade` manages `docs/process/`, `docs/roles/`, and any kit skill the project already
+has. It verifies their recorded checksums first and stops if a managed file was locally
+modified or removed. It backs up affected files under `.ai-sdlc/backups/`, writes updates
+atomically, removes obsolete files previously owned by the manifest, and restores the old
+state if an update fails. Legacy installations receive a full portable-file backup on
+their first manifest-based upgrade.
+
+`docs/project/`, `AGENTS.md`, and `.claude/commands/` are never touched, because they may
+carry project edits; the installer prints a `diff` command for `AGENTS.md` so newer
+portable contract changes can be merged by hand. Skills the project did not choose are
+not added by an upgrade — `ls optional/skills` shows what a newer version ships.
 
 This only works if you keep project-specific rules where they belong: in `AGENTS.md`
 ("Project overrides") and in `docs/project/`, never inside `process/` or `roles/`. The
 installed `AGENTS.md` carries the kit version it came from, in an HTML comment near the
-top; `VERSION` here is the current one.
+top. The manifest records the version of the managed process, role, and skill files;
+`VERSION` here is the current one.
+
+## Validating and contributing
+
+The kit validates itself with standard-library-only commands:
+
+```sh
+python3 validate.py
+python3 tests/smoke.py
+python3 -m py_compile install.py validate.py tests/smoke.py
+```
+
+CI runs these checks on every push and pull request. Tags shaped like `v2.4.0` are checked
+against `VERSION` before release creation. See `CONTRIBUTING.md`, `SECURITY.md`,
+`CHANGELOG.md`, and `LICENSE` for project governance and distribution terms.
 
 ## Conventions used in the docs
 
