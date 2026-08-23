@@ -82,7 +82,7 @@ EN = {
     "q.lang": "Language / runtime",
     "q.pm": "Package manager",
     "q.fw": "Framework(s)",
-    "q.db": "Data store",
+    "q.db": "Data store(s)",
     "q.auth": "Auth",
     "q.host": "Hosting",
     "q.ci": "CI",
@@ -269,11 +269,14 @@ USAGE = """usage: install.sh <target-project-dir> [PREFIX] [options]
   -y, --yes          no questions: take every default (also implied when stdin is not a
                      terminal, so CI and piped runs never hang)
   --no-skills        do not install anything into .claude/skills/
+  --scaffold-tests   create a detected project test plan and machine-readable profile
+  --scaffold-ci <provider>
+                     create CI for github or gitlab from detected quality commands
   --dry-run          list what would be written, write nothing
   --lang <code>      language for this setup's own prompts (default: en)
-  --upgrade          refresh manifest-owned docs/process/, docs/roles/ and installed
-                     skills. Stops on local edits, backs up changes, removes obsolete
-                     managed files, and never touches project records or AGENTS.md.
+  --upgrade          refresh manifest-owned portable docs and installed skills. Stops
+                     on local edits, backs up changes, removes obsolete managed files,
+                     and never touches project records or AGENTS.md.
 """
 
 
@@ -286,6 +289,8 @@ class Options(object):
         self.upgrade = False
         self.assume_yes = False
         self.want_skills = True
+        self.scaffold_tests = False
+        self.scaffold_ci = ""
         self.create = False
         self.dry_run = False
         self.lang = "en"
@@ -320,6 +325,14 @@ def parse_args(argv):
             o.assume_yes = True
         elif arg == "--no-skills":
             o.want_skills = False
+        elif arg == "--scaffold-tests":
+            o.scaffold_tests = True
+        elif arg == "--scaffold-ci":
+            if i + 1 >= len(argv) or argv[i + 1] not in ("github", "gitlab"):
+                sys.stderr.write("--scaffold-ci requires github or gitlab\n")
+                usage()
+            o.scaffold_ci = argv[i + 1]
+            i += 1
         elif arg == "--create":
             o.create = True
         elif arg == "--dry-run":
@@ -417,7 +430,10 @@ class Detected(object):
         self.host = []
         self.ci = []
         self.test = []
+        self.migrations = []
+        self.adapters = []
         self.cmds = {}
+        self.command_sources = {}
         self.platforms = []
         self.mono_tool = ""
         self.components = []       # (name, kind, path)
@@ -459,6 +475,13 @@ class Repo(object):
                 self._pkg = None
         return self._pkg or {}
 
+    def json_file(self, rel):
+        try:
+            value = json.loads(self.text(rel))
+            return value if isinstance(value, dict) else {}
+        except ValueError:
+            return {}
+
     def deps(self):
         p = self.pkg()
         out = {}
@@ -491,6 +514,26 @@ class Repo(object):
             return []
 
 
+def add_markers(text, mappings, destination):
+    """Append labels for dependency/config markers found in ecosystem text."""
+    lowered = text.lower()
+    for marker, label in mappings:
+        if marker.lower() in lowered:
+            add(destination, label)
+
+
+def adapter_command(detected, adapter, key, command):
+    """Compose one stage across languages, but keep one default per adapter."""
+    sources = detected.command_sources.setdefault(key, [])
+    if adapter in sources:
+        return
+    if key in detected.cmds and detected.cmds[key] != command:
+        detected.cmds[key] = "%s && %s" % (detected.cmds[key], command)
+    else:
+        detected.cmds[key] = command
+    sources.append(adapter)
+
+
 def detect(root):
     repo = Repo(root)
     d = Detected()
@@ -502,6 +545,7 @@ def detect(root):
 
     # -- node ------------------------------------------------------------------
     if repo.has("package.json"):
+        add(d.adapters, "node")
         add(d.lang, "Node.js + TypeScript" if repo.has("tsconfig.json") else "Node.js")
         if repo.has("bun.lockb") or repo.has("bun.lock"):
             pm = "bun"
@@ -531,13 +575,21 @@ def detect(root):
         if dep("@prisma/client") or repo.has("prisma/schema.prisma"):
             provider = re.search(r'provider\s*=\s*"([a-z]+)"', repo.text("prisma/schema.prisma"))
             add(d.db, "Prisma (%s)" % provider.group(1) if provider else "Prisma")
+            add(d.migrations, "Prisma Migrate")
         for name, label in (("drizzle-orm", "Drizzle"),
                             ("@supabase/supabase-js", "Supabase (Postgres)"),
+                            ("typeorm", "TypeORM"), ("sequelize", "Sequelize"),
+                            ("@mikro-orm/core", "MikroORM"), ("knex", "Knex"),
                             ("mongoose", "MongoDB"), ("pg", "PostgreSQL"),
                             ("mysql2", "MySQL"), ("better-sqlite3", "SQLite"),
-                            ("sqlite3", "SQLite")):
+                            ("sqlite3", "SQLite"), ("mssql", "SQL Server"),
+                            ("oracledb", "Oracle")):
             if dep(name):
                 add(d.db, label)
+        if dep("drizzle-kit"):
+            add(d.migrations, "Drizzle Kit")
+        if dep("ioredis") or dep("redis"):
+            add(d.db, "Redis")
         for name, label in (("next-auth", "Auth.js / NextAuth"),
                             ("@clerk/nextjs", "Clerk"),
                             ("@supabase/supabase-js", "Supabase Auth"),
@@ -546,7 +598,9 @@ def detect(root):
             if dep(name):
                 add(d.auth, label)
         for name, label in (("vitest", "Vitest"), ("jest", "Jest"), ("mocha", "Mocha"),
-                            ("@playwright/test", "Playwright"), ("cypress", "Cypress")):
+                            ("@playwright/test", "Playwright"), ("cypress", "Cypress"),
+                            ("supertest", "Supertest"), ("@pact-foundation/pact", "Pact"),
+                            ("@testing-library/react", "Testing Library")):
             if dep(name):
                 add(d.test, label)
 
@@ -588,81 +642,217 @@ def detect(root):
             d.cmds["scan"] = "npm audit --audit-level=high"
         elif "scan" not in d.cmds and pm == "pnpm":
             d.cmds["scan"] = "pnpm audit --audit-level high"
+        for key in d.cmds:
+            add(d.command_sources.setdefault(key, []), "node")
 
     # -- python ----------------------------------------------------------------
-    if repo.has("pyproject.toml") or repo.has("requirements.txt") or repo.has("setup.py"):
+    if (repo.has("pyproject.toml") or repo.has("requirements.txt") or repo.has("setup.py")
+            or repo.has("Pipfile")):
+        add(d.adapters, "python")
         add(d.lang, "Python")
         if repo.has("uv.lock"):
             add(d.pm, "uv")
-            d.cmds.setdefault("install", "uv sync")
+            adapter_command(d, "python", "install", "uv sync")
         elif repo.has("poetry.lock"):
             add(d.pm, "Poetry")
-            d.cmds.setdefault("install", "poetry install")
+            adapter_command(d, "python", "install", "poetry install")
         elif repo.has("Pipfile"):
             add(d.pm, "pipenv")
-            d.cmds.setdefault("install", "pipenv install")
+            adapter_command(d, "python", "install", "pipenv install")
         elif repo.has("requirements.txt"):
             add(d.pm, "pip")
-            d.cmds.setdefault("install", "pip install -r requirements.txt")
+            adapter_command(d, "python", "install", "pip install -r requirements.txt")
         for name, label in (("django", "Django"), ("fastapi", "FastAPI"),
                             ("flask", "Flask")):
             if repo.pydep(name):
                 add(d.fw, label)
+        for name, label in (("sqlalchemy", "SQLAlchemy"), ("django", "Django ORM"),
+                            ("psycopg", "PostgreSQL"), ("psycopg2", "PostgreSQL"),
+                            ("asyncpg", "PostgreSQL"), ("pymysql", "MySQL"),
+                            ("mysqlclient", "MySQL"), ("pymongo", "MongoDB"),
+                            ("motor", "MongoDB"), ("redis", "Redis"),
+                            ("aiosqlite", "SQLite")):
+            if repo.pydep(name):
+                add(d.db, label)
+        if repo.pydep("alembic") or repo.has("alembic.ini"):
+            add(d.migrations, "Alembic")
+        if repo.pydep("django") and repo.has("manage.py"):
+            add(d.migrations, "Django migrations")
         if repo.pydep("pytest") or repo.has("pytest.ini"):
             add(d.test, "pytest")
-            d.cmds.setdefault("unit", "pytest")
+            adapter_command(d, "python", "unit", "pytest")
+            if repo.has("tests/integration"):
+                adapter_command(d, "python", "integration", "pytest tests/integration")
+            if repo.has("tests/contract"):
+                adapter_command(d, "python", "contract", "pytest tests/contract")
+        for name, label in (("hypothesis", "Hypothesis"), ("tox", "tox"),
+                            ("nox", "nox"), ("playwright", "Playwright")):
+            if repo.pydep(name):
+                add(d.test, label)
+        if repo.pydep("pip-audit"):
+            adapter_command(d, "python", "scan", "pip-audit")
         if repo.pydep("ruff"):
-            d.cmds.setdefault("lint", "ruff check .")
-            d.cmds.setdefault("format", "ruff format --check .")
+            adapter_command(d, "python", "lint", "ruff check .")
+            adapter_command(d, "python", "format", "ruff format --check .")
         if repo.pydep("mypy"):
-            d.cmds.setdefault("typecheck", "mypy .")
+            adapter_command(d, "python", "typecheck", "mypy .")
 
     # -- other runtimes --------------------------------------------------------
     if repo.has("go.mod"):
+        add(d.adapters, "go")
         add(d.lang, "Go")
         add(d.pm, "go modules")
         add(d.test, "go test")
-        d.cmds.setdefault("install", "go mod download")
-        d.cmds.setdefault("unit", "go test ./...")
-        d.cmds.setdefault("build", "go build ./...")
-        d.cmds.setdefault("format", "test -z \"$(find . -name '*.go' -not -path "
-                          "'./vendor/*' -exec gofmt -l {} +)\"")
-        d.cmds.setdefault("lint", "go vet ./...")
+        adapter_command(d, "go", "install", "go mod download")
+        adapter_command(d, "go", "unit", "go test ./...")
+        adapter_command(d, "go", "build", "go build ./...")
+        adapter_command(d, "go", "format", "test -z \"$(find . -name '*.go' -not -path "
+                        "'./vendor/*' -exec gofmt -l {} +)\"")
+        adapter_command(d, "go", "lint", "go vet ./...")
+        go_mod = repo.text("go.mod")
+        add_markers(go_mod, (("gorm.io/gorm", "GORM"), ("github.com/jackc/pgx", "PostgreSQL"),
+                             ("github.com/lib/pq", "PostgreSQL"),
+                             ("github.com/go-sql-driver/mysql", "MySQL"),
+                             ("modernc.org/sqlite", "SQLite"),
+                             ("go.mongodb.org/mongo-driver", "MongoDB"),
+                             ("github.com/redis/go-redis", "Redis")), d.db)
+        add_markers(go_mod, (("github.com/stretchr/testify", "testify"),
+                             ("github.com/onsi/ginkgo", "Ginkgo")), d.test)
+        if repo.has("sqlc.yaml") or repo.has("sqlc.yml"):
+            add(d.db, "sqlc")
+            add(d.migrations, "sqlc-managed SQL migrations")
+        for migration_dir in ("migrations", "db/migrations"):
+            if repo.has(migration_dir):
+                add(d.migrations, "SQL migration files (%s)" % migration_dir)
     if repo.has("Cargo.toml"):
+        add(d.adapters, "rust")
         add(d.lang, "Rust")
         add(d.pm, "cargo")
         add(d.test, "cargo test")
-        d.cmds.setdefault("install", "cargo fetch")
-        d.cmds.setdefault("unit", "cargo test")
-        d.cmds.setdefault("build", "cargo build --release")
-        d.cmds.setdefault("format", "cargo fmt --check")
-        d.cmds.setdefault("lint", "cargo clippy --all-targets --all-features -- -D warnings")
+        adapter_command(d, "rust", "install", "cargo fetch")
+        adapter_command(d, "rust", "unit", "cargo test")
+        adapter_command(d, "rust", "build", "cargo build --release")
+        adapter_command(d, "rust", "format", "cargo fmt --check")
+        adapter_command(d, "rust", "lint", "cargo clippy --all-targets --all-features -- -D warnings")
+        cargo = repo.text("Cargo.toml")
+        add_markers(cargo, (("diesel", "Diesel"), ("sqlx", "SQLx"),
+                            ("sea-orm", "SeaORM"), ("mongodb", "MongoDB"),
+                            ("redis", "Redis")), d.db)
+        add_markers(cargo, (("proptest", "proptest"), ("rstest", "rstest"),
+                            ("mockall", "mockall")), d.test)
+        if repo.has("migrations"):
+            add(d.migrations, "Rust migration directory")
     if repo.has("composer.json"):
+        add(d.adapters, "php")
         add(d.lang, "PHP")
         add(d.pm, "Composer")
-        d.cmds.setdefault("install", "composer install")
-        if "laravel/framework" in repo.text("composer.json"):
+        adapter_command(d, "php", "install", "composer install --no-interaction --prefer-dist")
+        composer = repo.json_file("composer.json")
+        php_deps = {}
+        for section in ("require", "require-dev"):
+            if isinstance(composer.get(section), dict):
+                php_deps.update(composer[section])
+        if "laravel/framework" in php_deps:
             add(d.fw, "Laravel")
+            add(d.db, "Eloquent ORM")
+            add(d.migrations, "Laravel migrations")
+        if "doctrine/orm" in php_deps:
+            add(d.db, "Doctrine ORM")
+        for name, label in (("ext-pdo_pgsql", "PostgreSQL"), ("ext-pgsql", "PostgreSQL"),
+                            ("ext-pdo_mysql", "MySQL/MariaDB"),
+                            ("ext-mongodb", "MongoDB"), ("predis/predis", "Redis")):
+            if name in php_deps:
+                add(d.db, label)
+        for name, label in (("pestphp/pest", "Pest"), ("phpunit/phpunit", "PHPUnit"),
+                            ("behat/behat", "Behat"),
+                            ("laravel/dusk", "Laravel Dusk")):
+            if name in php_deps:
+                add(d.test, label)
+        php_scripts = composer.get("scripts", {})
+        if isinstance(php_scripts, dict):
+            for script, key in (("test", "unit"), ("test:unit", "unit"),
+                                ("test:integration", "integration"),
+                                ("test:contract", "contract"), ("test:e2e", "e2e"),
+                                ("lint", "lint")):
+                if script in php_scripts:
+                    adapter_command(d, "php", key, "composer %s" % script)
+        if "php" not in d.command_sources.get("unit", []) and "pestphp/pest" in php_deps:
+            adapter_command(d, "php", "unit", "vendor/bin/pest")
+        elif "php" not in d.command_sources.get("unit", []) and "phpunit/phpunit" in php_deps:
+            adapter_command(d, "php", "unit", "vendor/bin/phpunit")
     if repo.has("Gemfile"):
+        add(d.adapters, "ruby")
         add(d.lang, "Ruby")
         add(d.pm, "Bundler")
-        d.cmds.setdefault("install", "bundle install")
-        if "rails" in repo.text("Gemfile"):
+        adapter_command(d, "ruby", "install", "bundle install")
+        gemfile = repo.text("Gemfile")
+        if re.search(r"\bgem\s+['\"]rails['\"]", gemfile):
             add(d.fw, "Rails")
+            add(d.db, "Active Record")
+            add(d.migrations, "Rails migrations")
+        add_markers(gemfile, (("gem 'pg'", "PostgreSQL"), ("gem \"pg\"", "PostgreSQL"),
+                              ("gem 'mysql2'", "MySQL"), ("gem \"mysql2\"", "MySQL"),
+                              ("gem 'sqlite3'", "SQLite"), ("gem \"sqlite3\"", "SQLite"),
+                              ("mongoid", "MongoDB"), ("redis", "Redis")), d.db)
+        add_markers(gemfile, (("rspec", "RSpec"), ("minitest", "Minitest"),
+                              ("cucumber", "Cucumber"), ("capybara", "Capybara")), d.test)
+        if "RSpec" in d.test:
+            adapter_command(d, "ruby", "unit", "bundle exec rspec")
+        elif "Minitest" in d.test:
+            adapter_command(d, "ruby", "unit", "bundle exec rake test")
     if repo.has("pom.xml"):
+        add(d.adapters, "jvm-maven")
         add(d.lang, "Java")
         add(d.pm, "Maven")
-        d.cmds.setdefault("unit", "mvn test")
+        adapter_command(d, "jvm-maven", "install", "mvn dependency:go-offline")
+        adapter_command(d, "jvm-maven", "unit", "mvn test")
+        adapter_command(d, "jvm-maven", "build", "mvn package -DskipTests")
     if repo.has("build.gradle") or repo.has("build.gradle.kts"):
+        add(d.adapters, "jvm-gradle")
         add(d.lang, "Java / Kotlin")
         add(d.pm, "Gradle")
-        d.cmds.setdefault("unit", "./gradlew test")
-    if list(Path(root).glob("*.csproj")) or list(Path(root).glob("*.sln")):
+        adapter_command(d, "jvm-gradle", "install", "./gradlew dependencies")
+        adapter_command(d, "jvm-gradle", "unit", "./gradlew test")
+        adapter_command(d, "jvm-gradle", "build", "./gradlew assemble")
+    java_text = "\n".join(repo.text(name) for name in
+                            ("pom.xml", "build.gradle", "build.gradle.kts"))
+    if java_text.strip():
+        add_markers(java_text, (("spring-boot", "Spring Boot"),
+                                ("hibernate", "Hibernate/JPA")), d.fw)
+        add_markers(java_text, (("spring-data-jpa", "JPA"),
+                                ("hibernate-core", "Hibernate"),
+                                ("postgresql", "PostgreSQL"), ("mysql", "MySQL"),
+                                ("mariadb", "MariaDB"), ("mssql-jdbc", "SQL Server"),
+                                ("ojdbc", "Oracle"), ("mongodb", "MongoDB"),
+                                ("redis", "Redis")), d.db)
+        add_markers(java_text, (("junit", "JUnit"), ("testng", "TestNG"),
+                                ("mockito", "Mockito"), ("rest-assured", "REST Assured"),
+                                ("testcontainers", "Testcontainers")), d.test)
+        add_markers(java_text, (("flyway", "Flyway"),
+                                ("liquibase", "Liquibase")), d.migrations)
+    csproj_files = list(Path(root).glob("*.csproj"))
+    if csproj_files or list(Path(root).glob("*.sln")):
+        add(d.adapters, "dotnet")
         add(d.lang, "C# / .NET")
         add(d.pm, "NuGet")
-        d.cmds.setdefault("install", "dotnet restore")
-        d.cmds.setdefault("unit", "dotnet test")
-        d.cmds.setdefault("build", "dotnet build")
+        adapter_command(d, "dotnet", "install", "dotnet restore")
+        adapter_command(d, "dotnet", "unit", "dotnet test")
+        adapter_command(d, "dotnet", "build", "dotnet build")
+        dotnet_text = "\n".join(path.read_text(encoding="utf-8", errors="replace")
+                                 for path in csproj_files[:20])
+        add_markers(dotnet_text, (("Microsoft.EntityFrameworkCore", "Entity Framework Core"),
+                                  ("Npgsql.EntityFrameworkCore", "PostgreSQL"),
+                                  ("Pomelo.EntityFrameworkCore.MySql", "MySQL/MariaDB"),
+                                  ("Microsoft.EntityFrameworkCore.SqlServer", "SQL Server"),
+                                  ("Microsoft.EntityFrameworkCore.Sqlite", "SQLite"),
+                                  ("MongoDB.Driver", "MongoDB"),
+                                  ("StackExchange.Redis", "Redis"), ("Dapper", "Dapper")), d.db)
+        add_markers(dotnet_text, (("xunit", "xUnit"), ("NUnit", "NUnit"),
+                                  ("MSTest", "MSTest"),
+                                  ("Microsoft.AspNetCore.Mvc.Testing", "ASP.NET integration tests"),
+                                  ("Testcontainers", "Testcontainers")), d.test)
+        if "Entity Framework Core" in d.db:
+            add(d.migrations, "EF Core migrations")
 
     # -- hosting, CI, platforms ------------------------------------------------
     for f, label in (("vercel.json", "Vercel"), ("netlify.toml", "Netlify"),
@@ -1595,7 +1785,10 @@ def atomic_write_text(path, text):
 def managed_source_texts(target, docs, ctx):
     """Return portable kit-owned destination paths and their rendered content."""
     planned = {}
-    for sub in ("process", "roles"):
+    readme = SRC / "template" / "docs" / "README.md"
+    planned[str(Path(docs) / "README.md")] = substitute(
+        readme.read_text(encoding="utf-8"), ctx)
+    for sub in ("process", "roles", "templates"):
         base = SRC / "template" / "docs" / sub
         for src in sorted(base.rglob("*")):
             if src.is_file():
@@ -1641,8 +1834,10 @@ def is_managed_rel(rel, docs):
     path = Path(rel)
     if path.is_absolute() or ".." in path.parts:
         return False
-    prefixes = ((str(docs), "process"), (str(docs), "roles"), (".claude", "skills"))
-    return any(path.parts[:2] == prefix for prefix in prefixes)
+    prefixes = ((str(docs), "process"), (str(docs), "roles"),
+                (str(docs), "templates"), (".claude", "skills"))
+    return path.parts == (str(docs), "README.md") or any(
+        path.parts[:2] == prefix for prefix in prefixes)
 
 
 def _cell(value):
@@ -1768,6 +1963,22 @@ class Installer(object):
         print("  add            %s" % self.rel(dest))
         return True
 
+    def install_text(self, dest, content):
+        dest = ensure_inside(self.target, dest)
+        if dest.exists():
+            self.skipped += 1
+            print("  skip (exists)  %s" % self.rel(dest))
+            return False
+        if self.o.dry_run:
+            self.added += 1
+            print("  would add      %s" % self.rel(dest))
+            return True
+        atomic_write_text(dest, content)
+        self.added += 1
+        self.fresh.add(self.rel(dest))
+        print("  add            %s" % self.rel(dest))
+        return True
+
     def upgrade_file(self, src, dest):
         dest = ensure_inside(self.target, dest)
         if self.o.dry_run:
@@ -1807,6 +2018,16 @@ class Installer(object):
             base = SRC / "optional" / "skills" / name
             candidates.extend(self.target / ".claude" / "skills" / name / path.relative_to(base)
                               for path in base.rglob("*") if path.is_file())
+        if self.o.scaffold_tests:
+            candidates.extend((self.target / self.docs / "project" / "test-plan.md",
+                               self.target / ".ai-sdlc" / "testing-profile.json"))
+        if self.o.scaffold_ci == "github":
+            candidates.append(self.target / ".github" / "workflows" / "quality.yml")
+        elif self.o.scaffold_ci == "gitlab":
+            candidates.append(self.target / ".gitlab-ci.yml")
+        if self.o.scaffold_ci and not [key for key in self.selected_commands()
+                                       if key not in ("run",)]:
+            raise RuntimeError("cannot scaffold CI: no quality commands were detected or confirmed")
         for candidate in candidates:
             ensure_inside(self.target, candidate)
         if not self.o.dry_run:
@@ -1832,6 +2053,98 @@ class Installer(object):
                               "`AGENTS.md` in this directory.\n")
             print("  add            CLAUDE.md (pointer to AGENTS.md)")
         return skills
+
+    def selected_commands(self):
+        commands = {}
+        for sid, _, key in CMD_FIELDS:
+            raw = self.w.a[sid] if sid in self.w.a else self.w.det.cmds.get(key, "")
+            value = plain_text(raw)
+            if value:
+                commands[key] = value
+        return commands
+
+    def testing_profile(self):
+        d = self.w.det
+        return {
+            "schema": 1,
+            "generated_by": "ai-sdlc-template %s" % VERSION,
+            "confirmation_required": True,
+            "adapters": d.adapters,
+            "languages": d.lang,
+            "frameworks": d.fw,
+            "databases_and_data_layers": d.db,
+            "migration_tools": d.migrations,
+            "test_tools": d.test,
+            "commands": self.selected_commands(),
+        }
+
+    def scaffold_test_plan(self):
+        rel = "%s/project/test-plan.md" % self.docs
+        dest = self.target / rel
+        source = SRC / "template" / "docs" / "templates" / "test-plan.md"
+        text = substitute(source.read_text(encoding="utf-8"), self.ctx)
+        text = fill_line(text, "last-reviewed:", "last-reviewed: %s" % today())
+        d = self.w.det
+        rows = (
+            ("Adapters", ", ".join(d.adapters) or "none detected"),
+            ("Languages", d.csv("lang") or "unknown"),
+            ("Frameworks", d.csv("fw") or "none detected"),
+            ("Test tooling", d.csv("test") or "none detected"),
+            ("Data stores / layers", d.csv("db") or "none detected"),
+            ("Migration tooling", d.csv("migrations") or "none detected"),
+        )
+        profile = ["## Detected profile", "",
+                   "> Generated from repository markers on %s. Confirm every row; detection is"
+                   % today(),
+                   "> evidence to review, not a dependency installation or a correctness claim.", "",
+                   "| Concern | Detected |", "| --- | --- |"]
+        profile.extend("| %s | %s |" % (_cell(label), _cell(value)) for label, value in rows)
+        if d.db:
+            profile.extend(("", "### Database integration baseline", "",
+                            "- Run integration tests against the real database engine and supported version, not an in-memory substitute.",
+                            "- Start from an empty database, apply every migration forward, and exercise rollback or restore.",
+                            "- Cover transactions, constraints, concurrent writes, retry/idempotency, and deletion semantics.",
+                            "- Use synthetic data; never copy production data without explicit approval and documented controls."))
+        text = text.replace("## Commands\n", "\n".join(profile) + "\n\n## Commands\n", 1)
+        added = self.install_text(dest, text)
+        profile_dest = self.target / ".ai-sdlc" / "testing-profile.json"
+        self.install_text(profile_dest,
+                          json.dumps(self.testing_profile(), indent=2, sort_keys=True) + "\n")
+        if added:
+            charter_rel = "%s/project/charter.md" % self.docs
+            if charter_rel in self.fresh:
+                self.edit(charter_rel, lambda value: tick_artifact(value, "test-plan"))
+
+    def ci_text(self, provider):
+        commands = self.selected_commands()
+        ordered = [(key, commands[key]) for _, _, key in CMD_FIELDS
+                   if key not in ("run",) and key in commands]
+        if provider == "github":
+            lines = ["name: Project quality", "", "on:", "  workflow_dispatch:",
+                     "", "permissions:", "  contents: read", "",
+                     "jobs:", "  quality:", "    runs-on: ubuntu-latest", "    steps:",
+                     "      - uses: actions/checkout@v4"]
+            for key, command in ordered:
+                lines.extend(("      - name: %s" % key.replace("_", " ").title(),
+                              "        run: %s" % json.dumps(command)))
+            lines.extend(("", "# Manual-only by default. Confirm commands, runtime, and service versions",
+                          "# from the charter before adding push or pull_request triggers.", ""))
+            return "\n".join(lines)
+        lines = ["stages:", "  - quality", "", "quality:", "  stage: quality",
+                 "  when: manual", "  script:"]
+        for _, command in ordered:
+            lines.append("    - %s" % json.dumps(command))
+        lines.extend(("", "# Manual-only by default. Confirm commands, runtime, and service versions",
+                      "# from the charter before making this job automatic or required.", ""))
+        return "\n".join(lines)
+
+    def scaffold(self):
+        if self.o.scaffold_tests:
+            self.scaffold_test_plan()
+        if self.o.scaffold_ci:
+            dest = (self.target / ".github" / "workflows" / "quality.yml"
+                    if self.o.scaffold_ci == "github" else self.target / ".gitlab-ci.yml")
+            self.install_text(dest, self.ci_text(self.o.scaffold_ci))
 
     # -- the answers -----------------------------------------------------------
     def tailor(self):
@@ -1879,7 +2192,7 @@ class Installer(object):
 
         for sid, label in zip([s[0] for s in STACK_FIELDS],
                               ("Language / runtime", "Package manager", "Framework(s)",
-                               "Data store", "Auth", "Hosting", "CI", "Test tooling")):
+                               "Data store(s)", "Auth", "Hosting", "CI", "Test tooling")):
             text = fill_row(text, label, a.get(sid))
         for sid, label in zip([c[0] for c in CMD_FIELDS],
                               ("Install", "Run locally", "`checks.format`", "`checks.lint`",
@@ -2104,8 +2417,8 @@ def upgrade(target, o):
         return 0
 
     print("Upgrading AI SDLC kit in %s to v%s" % (target, VERSION))
-    print("  (%s/process/, %s/roles/ and already-installed skills -- project records "
-          "untouched)" % (docs, docs))
+    print("  (%s portable docs and already-installed skills -- project records untouched)"
+          % docs)
     print("")
     if not previous:
         print("  warning        legacy install has no manifest; backing up portable files "
@@ -2312,6 +2625,7 @@ def main(argv):
     try:
         skills = inst.run()
         tailored = inst.tailor()
+        inst.scaffold()
         inst.record_manifest()
     except (IOError, OSError, RuntimeError) as exc:
         sys.stderr.write("error: installation failed: %s\n" % exc)

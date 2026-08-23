@@ -25,6 +25,9 @@ Installed projects must not need Python or any dependency from this repository.
 
 Do not add a stack-specific requirement to the portable process. Stack detection may
 offer a verified default, but the guided review must allow a user to reject or edit it.
+Every adapter change needs a fixture proving its language marker, data-layer marker,
+migration tooling, test tooling, and commands. Detection must never read secrets or
+install a dependency.
 
 ## Pull requests
 

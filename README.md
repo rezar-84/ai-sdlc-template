@@ -94,13 +94,41 @@ For scripts, CI, or a plain copy with no questions:
 installs only the skills that do not depend on an answer. The target directory is required
 in this mode — without a terminal there is nobody to ask. Other flags: `--docs-dir <name>`
 to install the docs under a different directory, `--create`, `--no-skills`, `--dry-run`,
-`--lang <code>`, and `--upgrade`.
+`--lang <code>`, `--scaffold-tests`, `--scaffold-ci <github|gitlab>`, and `--upgrade`.
 
 The installer is `install.py` (Python 3.6+, standard library only); `install.sh` is a
 wrapper that runs it. Nothing the kit *installs* needs Python — only the installer does.
 
 `--docs-dir` is for a project whose `docs/` already means something else. The installed
 contract, commands, and skills all follow the chosen name automatically.
+
+## Stack adapters and scaffolding
+
+The portable process accepts any stack. The installer additionally recognises common
+project markers for Node/TypeScript, Python, Go, Rust, PHP, Ruby, Java/Kotlin with Maven
+or Gradle, and C#/.NET. Adapters detect existing frameworks, test tooling, ORMs, database
+drivers, migration tools, and quality commands; they do not install or replace them.
+
+Detected data layers include Prisma, Drizzle, TypeORM, SQLAlchemy/Alembic, Django ORM,
+GORM/sqlc, Diesel/SQLx/SeaORM, Eloquent, Doctrine, Active Record, JPA/Hibernate,
+Flyway/Liquibase, Entity Framework Core, and Dapper. Engine markers cover PostgreSQL,
+MySQL/MariaDB, SQLite, MongoDB, Redis, SQL Server, and Oracle.
+
+Two explicit flags turn detection into project-owned starting files:
+
+```sh
+./install.sh /path/to/project ACME -y --scaffold-tests
+./install.sh /path/to/project ACME -y --scaffold-ci github
+./install.sh /path/to/project ACME -y --scaffold-ci gitlab
+```
+
+`--scaffold-tests` creates `docs/project/test-plan.md` and
+`.ai-sdlc/testing-profile.json`, both marked as detected and requiring confirmation.
+`--scaffold-ci` creates `.github/workflows/quality.yml` or `.gitlab-ci.yml` from the
+project's detected/confirmed commands. It refuses an empty command set. Scaffolding never
+overwrites an existing file, never installs a dependency, and leaves runtime and service
+version confirmation to the project charter. Generated jobs are manual-only until a
+human confirms the commands and deliberately enables push or pull-request triggers.
 
 The installer copies `AGENTS.md` to the project root, `docs/` into the project, the four
 slash commands into `.claude/commands/`, and the selected skills into `.claude/skills/`;
@@ -241,9 +269,10 @@ process docs, so they go stale silently. Do not merge the directories.
 ./install.sh /path/to/your-project ACME --upgrade
 ```
 
-`--upgrade` manages `docs/process/`, `docs/roles/`, and any kit skill the project already
-has. It verifies their recorded checksums first and stops if a managed file was locally
-modified or removed. It backs up affected files under `.ai-sdlc/backups/`, writes updates
+`--upgrade` manages `docs/README.md`, `docs/process/`, `docs/roles/`, `docs/templates/`,
+and any kit skill the project already has. It verifies their recorded checksums first and
+stops if a managed file was locally modified or removed. It backs up affected files under
+`.ai-sdlc/backups/`, writes updates
 atomically, removes obsolete files previously owned by the manifest, and restores the old
 state if an update fails. Legacy installations receive a full portable-file backup on
 their first manifest-based upgrade.
@@ -269,7 +298,7 @@ python3 tests/smoke.py
 python3 -m py_compile install.py validate.py tests/smoke.py
 ```
 
-CI runs these checks on every push and pull request. Tags shaped like `v2.4.0` are checked
+CI runs these checks on every push and pull request. Tags shaped like `v2.5.0` are checked
 against `VERSION` before release creation. See `CONTRIBUTING.md`, `SECURITY.md`,
 `CHANGELOG.md`, and `LICENSE` for project governance and distribution terms.
 

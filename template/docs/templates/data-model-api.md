@@ -6,6 +6,22 @@ last-reviewed: YYYY-MM-DD
 
 # Data model & interfaces — {{PROJECT_NAME}}
 
+## Data stores and ownership
+
+List every authoritative store separately. A cache, search index, analytics warehouse,
+and queue are not automatically sources of truth.
+
+| Store / engine | Access layer | Owns which data | Source of truth? | Migration tool | Backup / restore evidence |
+| --- | --- | --- | --- | --- | --- |
+| | _(ORM, query layer, driver)_ | | yes / derived | | _(last restore exercise)_ |
+
+For projects using more than one store, state the consistency boundary explicitly:
+
+- Which operation spans stores, and what happens after a partial failure?
+- Is coordination transactional, event-driven, reconciled, or deliberately best-effort?
+- Which store wins when derived copies disagree?
+- How are retry, idempotency, replay, and schema compatibility handled?
+
 ## Entities
 
 | Entity | Represents | Owned by | Lifecycle | Personal data? |
@@ -29,10 +45,12 @@ second code path. State where the real guard is.)_
 
 ## Migrations
 
-- Naming and ordering convention.
+- Naming and ordering convention, per store.
 - Backward compatibility rule: _(expand → deploy → migrate → contract)_
-- Reverse path requirement: _(every migration, or explicitly accepted exceptions)_
+- Reverse path requirement: _(reverse migration or tested restore, with explicit exceptions)_
+- Zero-downtime behavior while old and new application versions overlap.
 - Where seed and fixture data live, and how they differ from production.
+- Backup ownership, retention, encryption, and the last successful restore exercise.
 
 ## Interfaces
 

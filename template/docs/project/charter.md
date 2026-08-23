@@ -36,7 +36,7 @@ table, so it cannot drift.
 | Language / runtime | |
 | Package manager | |
 | Framework(s) | |
-| Data store | |
+| Data store(s) | |
 | Auth | |
 | Hosting | |
 | CI | |

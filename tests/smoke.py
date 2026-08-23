@@ -168,7 +168,11 @@ def test_non_interactive():
     d = tempfile.mkdtemp(prefix="sdlc-y-")
     code, out = run([d, "ACME", "-y"])
     check("exit 0", code == 0)
-    check("managed manifest written", bool(read(d, ".ai-sdlc/manifest.json")))
+    manifest = json.loads(read(d, ".ai-sdlc/manifest.json"))
+    check("managed manifest written", bool(manifest))
+    check("portable README and templates are upgrade-managed",
+          "docs/README.md" in manifest.get("files", {}) and
+          "docs/templates/test-plan.md" in manifest.get("files", {}))
     check("no leftover placeholders", "{{" not in read(d, "docs/project/charter.md"))
     check("charter not tailored", "_(one sentence a stranger would understand)_"
           in read(d, "docs/project/charter.md"))
@@ -214,7 +218,7 @@ def test_custom_docs_dir():
     check("manifest records custom path", manifest.get("docs_dir") == "handbook")
     code, out = run([d, "--upgrade"])
     check("upgrade recovers custom path from manifest",
-          code == 0 and "handbook/process/" in out)
+          code == 0 and "handbook portable docs" in out)
     shutil.rmtree(d, ignore_errors=True)
 
 
@@ -282,6 +286,118 @@ def test_command_detection():
     check("Go format gate is recursive and fails on drift",
           "find . -name '*.go'" in cmds.get("format", "") and
           cmds.get("format", "").startswith("test -z"), str(cmds))
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def test_stack_adapters():
+    print("language/database adapters")
+    cases = [
+        ("python", {
+            "pyproject.toml": ('dependencies = ["sqlalchemy", "alembic", "psycopg", '
+                               '"pytest", "hypothesis"]\n'),
+            "alembic.ini": "[alembic]\n",
+        }, ("python", "SQLAlchemy", "PostgreSQL", "Alembic", "pytest", "Hypothesis")),
+        ("go", {
+            "go.mod": ("module example.test/app\n\nrequire (\n gorm.io/gorm v1.0.0\n"
+                       " github.com/jackc/pgx/v5 v5.0.0\n"
+                       " github.com/stretchr/testify v1.0.0\n)\n"),
+            "sqlc.yaml": "version: '2'\n",
+        }, ("go", "GORM", "PostgreSQL", "sqlc", "testify")),
+        ("rust", {
+            "Cargo.toml": ('[package]\nname="x"\nversion="0.1.0"\n[dependencies]\n'
+                           'sqlx="1"\nredis="1"\n[dev-dependencies]\nproptest="1"\n'),
+            "migrations/001.sql": "select 1;\n",
+        }, ("rust", "SQLx", "Redis", "proptest")),
+        ("php", {
+            "composer.json": json.dumps({
+                "require": {"laravel/framework": "1", "ext-pdo_pgsql": "*"},
+                "require-dev": {"pestphp/pest": "1"}, "scripts": {"test": "pest"}
+            }),
+        }, ("php", "Eloquent ORM", "PostgreSQL", "Laravel migrations", "Pest")),
+        ("ruby", {
+            "Gemfile": "gem 'rails'\ngem 'pg'\ngem 'rspec'\n",
+        }, ("ruby", "Active Record", "PostgreSQL", "Rails migrations", "RSpec")),
+        ("jvm-maven", {
+            "pom.xml": ("<project><dependencies><dependency>spring-data-jpa</dependency>"
+                        "<dependency>postgresql</dependency><dependency>flyway</dependency>"
+                        "<dependency>junit</dependency><dependency>testcontainers</dependency>"
+                        "</dependencies></project>"),
+        }, ("jvm-maven", "JPA", "PostgreSQL", "Flyway", "JUnit", "Testcontainers")),
+        ("jvm-gradle", {
+            "build.gradle.kts": ('dependencies { implementation("org.hibernate:hibernate-core") '
+                                 'testImplementation("org.testng:testng") }'),
+        }, ("jvm-gradle", "Hibernate", "TestNG")),
+        ("dotnet", {
+            "App.csproj": ("<Project><ItemGroup>"
+                           "<PackageReference Include=\"Microsoft.EntityFrameworkCore\" />"
+                           "<PackageReference Include=\"Npgsql.EntityFrameworkCore.PostgreSQL\" />"
+                           "<PackageReference Include=\"xunit\" />"
+                           "<PackageReference Include=\"Testcontainers\" />"
+                           "</ItemGroup></Project>"),
+        }, ("dotnet", "Entity Framework Core", "PostgreSQL", "EF Core migrations",
+             "xUnit", "Testcontainers")),
+    ]
+    for name, fixture_files, expected in cases:
+        d = tempfile.mkdtemp(prefix="sdlc-adapter-%s-" % name)
+        for rel, content in fixture_files.items():
+            write(d, rel, content)
+        found = installer.detect(d)
+        haystack = found.adapters + found.db + found.migrations + found.test
+        missing = [value for value in expected if value not in haystack]
+        check("%s adapter" % name, not missing, "missing=%s found=%s" % (missing, haystack))
+        shutil.rmtree(d, ignore_errors=True)
+
+    d = tempfile.mkdtemp(prefix="sdlc-adapter-polyglot-")
+    write(d, "package.json", json.dumps({"scripts": {"test": "vitest run"},
+                                          "devDependencies": {"vitest": "1"}}))
+    write(d, "requirements.txt", "pytest\nruff\npsycopg\n")
+    found = installer.detect(d)
+    check("polyglot adapters compose stage commands",
+          found.adapters == ["node", "python"] and
+          found.cmds.get("install") == "npm install && pip install -r requirements.txt" and
+          found.cmds.get("unit") == "npm run test && pytest", str(found.cmds))
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def test_scaffolding():
+    print("opt-in test and CI scaffolding")
+    d = fixture("next")
+    code, out = run([d, "APP", "-y", "--scaffold-tests", "--scaffold-ci", "github"])
+    check("GitHub scaffolding exits 0", code == 0, out[-300:])
+    test_plan = read(d, "docs/project/test-plan.md")
+    profile = json.loads(read(d, ".ai-sdlc/testing-profile.json"))
+    workflow = read(d, ".github/workflows/quality.yml")
+    check("detected test plan instantiated",
+          "## Detected profile" in test_plan and "Prisma" in test_plan)
+    check("machine-readable profile records confirmation boundary",
+          profile.get("confirmation_required") is True and "node" in profile.get("adapters", []))
+    check("charter ticks generated test plan", "☑ test-plan" in read(d, "docs/project/charter.md"))
+    check("GitHub CI uses detected commands",
+          "actions/checkout@v4" in workflow and "npm run build" in workflow and
+          "workflow_dispatch" in workflow and "  pull_request:" not in workflow)
+    code, out = run([d, "APP", "-y", "--scaffold-ci", "gitlab"])
+    check("GitLab CI adapter generated",
+          code == 0 and "npm run build" in read(d, ".gitlab-ci.yml") and
+          "when: manual" in read(d, ".gitlab-ci.yml"))
+    with open(os.path.join(d, ".gitlab-ci.yml"), "a") as fh:
+        fh.write("# project-owned marker\n")
+    code, out = run([d, "APP", "-y", "--scaffold-ci", "gitlab"])
+    check("existing CI is never overwritten",
+          code == 0 and "project-owned marker" in read(d, ".gitlab-ci.yml"))
+    shutil.rmtree(d, ignore_errors=True)
+
+    d = fixture("next")
+    before = files(d)
+    code, out = run([d, "APP", "-y", "--dry-run", "--scaffold-tests",
+                     "--scaffold-ci", "github"])
+    check("scaffolding dry run writes nothing",
+          code == 0 and files(d) == before and "would add" in out)
+    shutil.rmtree(d, ignore_errors=True)
+
+    d = tempfile.mkdtemp(prefix="sdlc-scaffold-empty-")
+    code, out = run([d, "APP", "-y", "--scaffold-ci", "github"])
+    check("CI scaffolding refuses an unknown command set",
+          code == 1 and "no quality commands" in out and files(d) == 0)
     shutil.rmtree(d, ignore_errors=True)
 
 
@@ -375,6 +491,7 @@ def test_architecture():
 def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
+                 test_stack_adapters, test_scaffolding,
                  test_multiselect_and_review, test_review_jump,
                  test_quit_writes_nothing,
                  test_multilingual, test_architecture):

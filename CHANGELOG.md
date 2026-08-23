@@ -6,6 +6,28 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 - Nothing yet.
 
+## 2.5.0 — 2026-08-23
+
+### Added
+
+- Stack adapters for Node/TypeScript, Python, Go, Rust, PHP, Ruby, Maven/Gradle, and .NET.
+- ORM, database-driver, migration-tool, and testing-tool detection across those ecosystems.
+- `--scaffold-tests` for an instantiated test plan and machine-readable testing profile.
+- `--scaffold-ci github|gitlab` for opt-in pipelines generated from confirmed commands.
+- Adapter and scaffolding fixtures covering supported language and database families.
+- Polyglot command composition so every detected language participates in each quality stage.
+- Manifest-managed template upgrades, allowing new testing and data-model guidance to
+  reach existing installations without touching project records.
+
+### Safety
+
+- Scaffolding never installs dependencies and never overwrites existing test plans,
+  profiles, or CI configuration.
+- CI generation refuses repositories with no detected or confirmed quality commands.
+- Generated CI is manual-only until a human confirms commands, runtimes, and services.
+- Generated database guidance requires real-engine integration tests, migration/restore
+  exercises, and synthetic test data.
+
 ## 2.4.0 — 2026-08-23
 
 ### Added

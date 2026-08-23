@@ -21,11 +21,11 @@ from. Record here only what the charter has no column for:
 | Typecheck | | | |
 | Unit | | | |
 | Integration | | | |
+| Contract _(if anything consumes your interface)_ | | | |
 | Build | | | |
 | Dependency/secret scan | | | |
 | Accessibility | | | |
 | End-to-end | | | |
-| Contract _(if anything consumes your interface)_ | | | |
 
 A stage the charter marks **absent** is a QA finding to be justified here, not a neutral
 fact.
