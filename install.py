@@ -31,6 +31,7 @@ from pathlib import Path
 SRC = Path(__file__).resolve().parent
 VERSION = (SRC / "VERSION").read_text(encoding="utf-8").strip()
 MANIFEST_REL = Path(".ai-sdlc") / "manifest.json"
+PROFILE_REL = Path(".ai-sdlc") / "profile.json"
 
 # Writing direction is derived from the language tag, never asked: a project that lists
 # `fa` is right-to-left whether or not anyone remembered to say so.
@@ -159,7 +160,7 @@ EN = {
 
     "hint.detected": "read from the repository -- confirm, do not assume:",
     "hint.cmds": "agents run these verbatim and report the result as evidence.\n  A wrong command here produces confidently false \"verified\" claims.",
-    "hint.facts": "These six answers decide which roles review your work:",
+    "hint.facts": "These answers decide which roles review your work:",
     "hint.skills": "Skills evaluated against your answers (installed to .claude/skills/):",
     "hint.arch": "found in the repository -- this seeds architecture.md:",
     "hint.i18n": "locales found in the repository: {locales}",
@@ -409,6 +410,72 @@ PY_INTEGRATIONS = (
     ("redis", "Redis", "cache / queue"),
 )
 
+# Domain markers. Each family answers one question — does this repository do that
+# kind of work? — and the answer becomes a project-type default, which becomes a
+# fact, which decides roles and skills. Detection is evidence, never a declaration.
+ML_NODE = (("langchain", "LangChain"), ("@langchain/core", "LangChain"),
+           ("langgraph", "LangGraph"), ("llamaindex", "LlamaIndex"),
+           ("ai", "Vercel AI SDK"), ("openai", "OpenAI API"),
+           ("@anthropic-ai/sdk", "Anthropic API"), ("ollama", "Ollama"),
+           ("@huggingface/inference", "Hugging Face"), ("promptfoo", "promptfoo"),
+           ("langfuse", "Langfuse"), ("braintrust", "Braintrust"),
+           ("@mastra/core", "Mastra"), ("llamaindex", "LlamaIndex"))
+ML_PY = (("langchain", "LangChain"), ("langgraph", "LangGraph"),
+         ("llama-index", "LlamaIndex"), ("transformers", "Transformers"),
+         ("torch", "PyTorch"), ("tensorflow", "TensorFlow"),
+         ("scikit-learn", "scikit-learn"), ("xgboost", "XGBoost"),
+         ("vllm", "vLLM"), ("litellm", "LiteLLM"), ("dspy-ai", "DSPy"),
+         ("sentence-transformers", "sentence-transformers"),
+         ("instructor", "Instructor"), ("haystack-ai", "Haystack"),
+         ("ragas", "Ragas"), ("deepeval", "DeepEval"), ("promptfoo", "promptfoo"),
+         ("mlflow", "MLflow"), ("wandb", "Weights & Biases"), ("dvc", "DVC"),
+         ("bentoml", "BentoML"), ("kubeflow", "Kubeflow"), ("langfuse", "Langfuse"))
+VECTOR_NODE = (("@pinecone-database/pinecone", "Pinecone"),
+               ("weaviate-ts-client", "Weaviate"), ("weaviate-client", "Weaviate"),
+               ("@qdrant/js-client-rest", "Qdrant"), ("chromadb", "Chroma"),
+               ("@zilliz/milvus2-sdk-node", "Milvus"), ("@lancedb/lancedb", "LanceDB"))
+VECTOR_PY = (("pinecone", "Pinecone"), ("pinecone-client", "Pinecone"),
+             ("weaviate-client", "Weaviate"), ("qdrant-client", "Qdrant"),
+             ("chromadb", "Chroma"), ("faiss-cpu", "FAISS"), ("faiss-gpu", "FAISS"),
+             ("pymilvus", "Milvus"), ("lancedb", "LanceDB"), ("pgvector", "pgvector"))
+DATA_NODE = (("@google-cloud/bigquery", "BigQuery"), ("snowflake-sdk", "Snowflake"),
+             ("duckdb", "DuckDB"), ("@dbt-labs/dbt", "dbt"))
+DATA_PY = (("apache-airflow", "Airflow"), ("dagster", "Dagster"), ("prefect", "Prefect"),
+           ("luigi", "Luigi"), ("dbt-core", "dbt"), ("sqlmesh", "SQLMesh"),
+           ("pyspark", "Spark"), ("apache-flink", "Flink"), ("apache-beam", "Beam"),
+           ("duckdb", "DuckDB"), ("polars", "Polars"),
+           ("great-expectations", "Great Expectations"), ("soda-core", "Soda"),
+           ("pandera", "Pandera"), ("snowflake-connector-python", "Snowflake"),
+           ("google-cloud-bigquery", "BigQuery"))
+DATA_FILES = (("dbt_project.yml", "dbt"), ("dagster.yaml", "Dagster"),
+              ("airflow.cfg", "Airflow"), ("dags", "Airflow DAGs"),
+              ("dbt_project.yaml", "dbt"))
+MSG_NODE = (("kafkajs", "Kafka"), ("kafka-node", "Kafka"), ("amqplib", "RabbitMQ"),
+            ("nats", "NATS"), ("@aws-sdk/client-sqs", "SQS"),
+            ("@google-cloud/pubsub", "Pub/Sub"), ("@temporalio/client", "Temporal"),
+            ("bullmq", "BullMQ"), ("bull", "Bull"), ("agenda", "Agenda"))
+MSG_PY = (("confluent-kafka", "Kafka"), ("kafka-python", "Kafka"), ("aiokafka", "Kafka"),
+          ("pika", "RabbitMQ"), ("kombu", "RabbitMQ"), ("nats-py", "NATS"),
+          ("celery", "Celery"), ("dramatiq", "Dramatiq"), ("rq", "RQ"),
+          ("temporalio", "Temporal"), ("google-cloud-pubsub", "Pub/Sub"))
+IAC_FILES = (("main.tf", "Terraform"), ("versions.tf", "Terraform"),
+             (".terraform.lock.hcl", "Terraform"), ("terraform", "Terraform"),
+             ("Pulumi.yaml", "Pulumi"), ("ansible.cfg", "Ansible"),
+             ("playbooks", "Ansible"), ("Chart.yaml", "Helm"),
+             ("kustomization.yaml", "Kustomize"), ("cdk.json", "AWS CDK"),
+             ("serverless.yml", "Serverless Framework"),
+             ("template.yaml", "AWS SAM / CloudFormation"), ("k8s", "Kubernetes manifests"),
+             ("kubernetes", "Kubernetes manifests"), ("charts", "Helm"))
+SCRAPE_NODE = (("crawlee", "Crawlee"), ("cheerio", "cheerio"), ("apify", "Apify"),
+               ("got-scraping", "got-scraping"))
+SCRAPE_PY = (("scrapy", "Scrapy"), ("beautifulsoup4", "BeautifulSoup"),
+             ("selectolax", "selectolax"), ("feedparser", "feedparser"),
+             ("apify", "Apify"), ("crawlee", "Crawlee"))
+LOAD_NODE = (("k6", "k6"), ("artillery", "Artillery"), ("autocannon", "autocannon"),
+             ("@types/k6", "k6"), ("lighthouse", "Lighthouse"))
+LOAD_PY = (("locust", "Locust"), ("pytest-benchmark", "pytest-benchmark"),
+           ("asv", "airspeed velocity"))
+
 WEB_FRAMEWORKS = ("Next.js", "Nuxt", "Astro", "Remix", "TanStack Start", "Angular",
                   "Svelte", "Vue", "React")
 API_FRAMEWORKS = ("NestJS", "Express", "Fastify", "FastAPI", "Django", "Flask",
@@ -442,7 +509,14 @@ class Detected(object):
         self.i18n_libs = []
         self.locales = []
         self.catalog = ""
-        self.types = [8]
+        self.ml = []               # models, prompts, retrieval, eval tooling
+        self.vector = []           # vector stores / indexes
+        self.dataeng = []          # orchestration, transformation, warehouses
+        self.messaging = []        # queues, brokers, workflow engines
+        self.iac = []              # infrastructure this repository provisions
+        self.scrape = []           # third-party acquisition
+        self.load = []             # benchmark / load tooling
+        self.types = [12]
 
     def csv(self, field):
         return ", ".join(getattr(self, field))
@@ -917,6 +991,32 @@ def detect(root):
         if repo.pydep(name) and service not in [s for s, _ in d.integrations]:
             d.integrations.append((service, used_for))
 
+    # -- domain markers --------------------------------------------------------
+    for table, dest in ((ML_NODE, d.ml), (VECTOR_NODE, d.vector), (DATA_NODE, d.dataeng),
+                        (MSG_NODE, d.messaging), (SCRAPE_NODE, d.scrape),
+                        (LOAD_NODE, d.load)):
+        for name, label in table:
+            if dep(name):
+                add(dest, label)
+    for table, dest in ((ML_PY, d.ml), (VECTOR_PY, d.vector), (DATA_PY, d.dataeng),
+                        (MSG_PY, d.messaging), (SCRAPE_PY, d.scrape), (LOAD_PY, d.load)):
+        for name, label in table:
+            if repo.pydep(name):
+                add(dest, label)
+    for f, label in DATA_FILES:
+        if repo.has(f):
+            add(d.dataeng, label)
+    for f, label in IAC_FILES:
+        if repo.has(f):
+            add(d.iac, label)
+    add_markers(repo.text("Gemfile"),
+                (("sidekiq", "Sidekiq"), ("resque", "Resque")), d.messaging)
+    add_markers(repo.text("go.mod"),
+                (("segmentio/kafka-go", "Kafka"), ("Shopify/sarama", "Kafka"),
+                 ("rabbitmq/amqp091-go", "RabbitMQ"), ("nats-io/nats.go", "NATS")),
+                d.messaging)
+    add_markers(repo.text("go.mod"), (("gocolly/colly", "Colly"),), d.scrape)
+
     # -- i18n ------------------------------------------------------------------
     for name, label in I18N_LIBS:
         if dep(name):
@@ -953,9 +1053,20 @@ def detect(root):
         types.append(1)
     if any(f in d.fw for f in API_FRAMEWORKS):
         types.append(3)
+    if d.dataeng:
+        types.append(6)
+    if d.ml or d.vector:
+        types.append(7)
+    if d.messaging or len(d.services) > 2 or len(
+            [c for c in d.components if c[1] == "service"]) > 1:
+        types.append(8)
+    if d.iac:
+        types.append(9)
+    if d.scrape:
+        types.append(10)
     if not types:
         if not d.lang:
-            types = [7]
+            types = [11]
         elif d.host:
             types = [3]
         else:
@@ -975,23 +1086,47 @@ PROJECT_TYPES = (
     "API / backend service (no interface of its own)",
     "CLI tool or library",
     "Mobile app",
-    "Data or ML pipeline",
+    "Data pipeline / warehouse / ETL",
+    "AI / ML system (models, RAG, agents, prompts)",
+    "Distributed system / several deployed services",
+    "Infrastructure / platform / IaC",
+    "Scraper / crawler / third-party data acquisition",
     "Documentation / research only (no shipped code)",
     "Something else / mixed",
 )
 
-# type -> (ui, visual, public, deploy, pii, conv)
+# What each type implies. Named rather than positional: a wrong flag in an
+# eleven-column tuple is invisible, and these decide who reviews the work.
 TYPE_FACTS = {
-    1: (1, 1, 0, 1, 1, 1),
-    2: (1, 1, 1, 1, 0, 1),
-    3: (0, 0, 0, 1, 1, 0),
-    4: (1, 0, 0, 0, 0, 0),
-    5: (1, 1, 0, 1, 1, 1),
-    6: (0, 0, 0, 1, 1, 0),
-    7: (0, 0, 1, 0, 0, 0),
-    8: (0, 0, 0, 0, 0, 0),
+    1:  ("ui", "visual", "deploy", "pii", "conv"),
+    2:  ("ui", "visual", "public", "deploy", "conv"),
+    3:  ("deploy", "pii"),
+    4:  ("ui",),
+    5:  ("ui", "visual", "deploy", "pii", "conv"),
+    6:  ("deploy", "pii", "data"),
+    7:  ("deploy", "pii", "ai", "data"),
+    8:  ("deploy", "pii", "dist"),
+    9:  ("deploy", "infra"),
+    10: ("deploy", "pii", "data", "acquire"),
+    11: ("public",),
+    12: (),
 }
-FACT_IDS = ("ui", "visual", "public", "deploy", "pii", "conv")
+FACT_IDS = ("ui", "visual", "public", "deploy", "pii", "conv",
+            "data", "ai", "dist", "infra", "acquire")
+
+FACT_LABELS = {
+    "ui": "interface of any kind (incl. CLI)",
+    "visual": "visual interface",
+    "public": "publicly discoverable content",
+    "deploy": "deployed / operated by you",
+    "pii": "holds personal data",
+    "conv": "conversion / activation goal",
+    "data": "owns datasets, pipelines, or a warehouse",
+    "ai": "models, prompts, or retrieval on the product path",
+    "dist": "several services, or asynchronous messaging",
+    "infra": "this repository provisions infrastructure",
+    "acquire": "fetches data from third-party sources",
+}
 
 SKILL_RULES = (
     # (name, rule, why it is on, why it is off)
@@ -1019,6 +1154,24 @@ SKILL_RULES = (
      "single language, nothing to translate"),
     ("sdlc-managed-platform", "platform", "a platform co-owns this repository",
      "plain git repository, no co-owning platform"),
+    ("sdlc-eval-gate", "ai",
+     "model, prompt, and retrieval changes need a baseline before a quality claim",
+     "no model, prompt, or retrieval surface"),
+    ("sdlc-data-contract", "data_or_acquire",
+     "something else consumes the data this project produces",
+     "no dataset, table, or event is published from here"),
+    ("sdlc-migration", "datalayer",
+     "a data layer was detected: migrations and backfills need a reversible plan",
+     "no data layer detected"),
+    ("sdlc-service-contract", "dist",
+     "contracts cross a service boundary and break other people's deploys",
+     "one deployable unit, no cross-service contract"),
+    ("sdlc-perf-budget", "workload",
+     "there is a latency, throughput, or cost budget to hold a change against",
+     "no backend, data, or model workload with a budget"),
+    ("sdlc-scrape-compliance", "acquire",
+     "third-party acquisition has legal, rate, and provenance obligations",
+     "nothing is fetched from a third-party source"),
 )
 
 
@@ -1086,6 +1239,17 @@ class Wizard(object):
     def multilingual(self):
         return bool(self.a.get("multilingual"))
 
+    def has_workload(self):
+        """A backend, data, or model workload — where a latency, throughput, or cost
+        budget is load-bearing. Front-end page speed stays with seo/ux-designer, so a
+        content site's roster does not grow."""
+        return bool(self.fact("dist") or self.fact("data") or self.fact("ai"))
+
+    def has_data_layer(self):
+        """Detected, not declared: migrations are a risk wherever one exists, and the
+        repository is better evidence for that than an answer about project type."""
+        return bool(self.det.db or self.det.migrations)
+
     def languages(self):
         raw = self.a.get("languages", "") or ""
         return [x.strip() for x in raw.replace(";", ",").split(",") if x.strip()]
@@ -1132,6 +1296,12 @@ class Wizard(object):
                 on = self.multilingual()
             elif rule == "platform":
                 on = bool(self.a.get("platform", "none") not in ("", "none"))
+            elif rule == "data_or_acquire":
+                on = bool(self.fact("data") or self.fact("acquire"))
+            elif rule == "workload":
+                on = self.has_workload()
+            elif rule == "datalayer":
+                on = self.has_data_layer()
             else:
                 on = bool(self.fact(rule))
             chosen = self.a.get("skill:" + name)
@@ -1159,6 +1329,12 @@ class Wizard(object):
             roles.append("cro-analyst")
         if self.fact("deploy"):
             roles.append("devops-sre")
+        if self.fact("data") or self.fact("acquire"):
+            roles.append("data-engineer")
+        if self.fact("ai"):
+            roles.append("ml-engineer")
+        if self.has_workload():
+            roles.append("performance-engineer")
         if self.fact("pii"):
             roles.append("privacy-legal")
         if self.multilingual():
@@ -1456,10 +1632,10 @@ def after_dest(w, value):
 
 
 def after_types(w, types):
-    for i, fid in enumerate(FACT_IDS):
+    for fid in FACT_IDS:
         if fid in w.explicit:
             continue
-        w.a[fid] = any(TYPE_FACTS[t][i] for t in types)
+        w.a[fid] = any(fid in TYPE_FACTS.get(t, ()) for t in types)
 
 
 def after_stack_ok(w, value):
@@ -1489,13 +1665,8 @@ def after_skills_ok(w, value):
 
 def show_facts(w):
     TERM.dim(t("hint.facts"))
-    for fid, label in zip(FACT_IDS, ("interface of any kind (incl. CLI)",
-                                     "visual interface",
-                                     "publicly discoverable content",
-                                     "deployed / operated by you",
-                                     "holds personal data",
-                                     "conversion / activation goal")):
-        TERM.say("    %-34s %s" % (label, "yes" if w.fact(fid) else "no"))
+    for fid in FACT_IDS:
+        TERM.say("    %-44s %s" % (FACT_LABELS[fid], "yes" if w.fact(fid) else "no"))
 
 
 def show_stack(w):
@@ -2078,6 +2249,55 @@ class Installer(object):
             "commands": self.selected_commands(),
         }
 
+    def project_profile(self):
+        """The charter is the source of truth and a human reads it. This is the same
+        shape in a form a command or a skill can branch on without parsing prose."""
+        w, d = self.w, self.w.det
+        return {
+            "schema": 1,
+            "kit_version": VERSION,
+            "generated": today(),
+            "declared": bool(w.interactive),
+            "charter": "%s/project/charter.md" % self.docs,
+            "docs_dir": self.docs,
+            "prefix": self.ctx.get("PREFIX", ""),
+            "facts": dict((fid, bool(w.fact(fid))) for fid in FACT_IDS),
+            "multilingual": w.multilingual(),
+            "languages": w.languages(),
+            "roles": w.active_roles(),
+            "skills": w.chosen_skills(),
+            "commands": self.selected_commands(),
+            "budgets": {},
+            "platform": w.a.get("platform", "") if w.a.get("platform", "none") != "none" else "",
+            "detected": {
+                "adapters": d.adapters,
+                "languages": d.lang,
+                "frameworks": d.fw,
+                "data_layers": d.db,
+                "migration_tools": d.migrations,
+                "ml": d.ml,
+                "vector_stores": d.vector,
+                "data_tooling": d.dataeng,
+                "messaging": d.messaging,
+                "infrastructure": d.iac,
+                "acquisition": d.scrape,
+                "load_tooling": d.load,
+            },
+        }
+
+    def write_profile(self):
+        """Rewritten on every run, unlike installed documents: it is derived from the
+        answers and the repository, so a stale copy is worse than no copy. It never
+        contains anything a human wrote — the charter holds that, and wins on conflict."""
+        if self.o.dry_run:
+            print("  would add      %s" % PROFILE_REL)
+            return
+        dest = ensure_inside(self.target, self.target / PROFILE_REL)
+        existed = dest.exists()
+        atomic_write_text(dest, json.dumps(self.project_profile(), indent=2,
+                                           sort_keys=True) + "\n")
+        print("  %s         %s" % ("update" if existed else "add   ", PROFILE_REL))
+
     def scaffold_test_plan(self):
         rel = "%s/project/test-plan.md" % self.docs
         dest = self.target / rel
@@ -2338,6 +2558,26 @@ class Installer(object):
 
 # ---------------------------------------------------------------- upgrade mode
 
+def refresh_profile(target):
+    """An upgrade re-stamps the kit version and nothing else: every other key records
+    what the project answered, and no upgrade has the standing to change that."""
+    path = Path(target) / PROFILE_REL
+    if not path.exists():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (IOError, OSError, ValueError):
+        return
+    if not isinstance(data, dict) or data.get("kit_version") == VERSION:
+        return
+    data["kit_version"] = VERSION
+    try:
+        atomic_write_text(path, json.dumps(data, indent=2, sort_keys=True) + "\n")
+        print("  update         %s (kit version)" % PROFILE_REL)
+    except (IOError, OSError):
+        pass
+
+
 def find_docs(target, preferred):
     names = [preferred]
     manifest = load_manifest(target)
@@ -2458,6 +2698,7 @@ def upgrade(target, o):
                 print("  remove         %s (obsolete managed file)" % rel)
         hashes = dict((rel, sha256_text(content)) for rel, content in planned.items())
         write_manifest(target, docs, hashes)
+        refresh_profile(target)
     except Exception as exc:
         for rel, data in originals.items():
             path = target / rel
@@ -2627,6 +2868,7 @@ def main(argv):
         tailored = inst.tailor()
         inst.scaffold()
         inst.record_manifest()
+        inst.write_profile()
     except (IOError, OSError, RuntimeError) as exc:
         sys.stderr.write("error: installation failed: %s\n" % exc)
         return 1
