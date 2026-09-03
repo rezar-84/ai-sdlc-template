@@ -65,7 +65,7 @@ Tier 1 is a violation of this contract, not a clever reading of it.
 
 ## 3. What to read — the whole list, by tier
 
-**Reading past your tier's list is not diligence, it is cost** — `{{DOCS_DIR}}/` is around 74,000
+**Reading past your tier's list is not diligence, it is cost** — `{{DOCS_DIR}}/` is around 78,000
 tokens, and reading it whole leaves nothing for the work. But an *incomplete* list is the
 worse failure, because it sends you back mid-task to find the rule you should have had.
 So each tier below is the whole list: if it is not named here and the task does not touch
@@ -73,27 +73,35 @@ it, you do not need it.
 
 **Tier 2 and Tier 1, always.** These changes need the complete operating context:
 
-- this file · `{{DOCS_DIR}}/project/charter.md` · `{{DOCS_DIR}}/project/backlog.md` and
+- this file · **`{{DOCS_DIR}}/CARD.md`** — the operating card: tiers, the evidence
+  vocabulary, the check sequence, the severity ladder, verdicts, and traceability, in one
+  place. It replaces reading `02`, `04`, `06`, and `07` for ordinary work.
+- `{{DOCS_DIR}}/project/charter.md` · `{{DOCS_DIR}}/project/backlog.md` and
   `{{DOCS_DIR}}/project/worklog.md`, which you write to
 - `{{DOCS_DIR}}/project/assumptions-and-risks.md`, skimmed once per session — the thing you are
   about to build may already be blocked on a decision nobody made
-- `{{DOCS_DIR}}/process/07-traceability.md` — the ID scheme and the backlog row
-- `{{DOCS_DIR}}/process/04-quality-gates.md` — the check sequence and the S0–S4 ladder every
-  finding is rated on
-- `{{DOCS_DIR}}/process/02-role-reviews.md` — which roles the change surface selects, and how a
-  severity becomes a verdict
-- `{{DOCS_DIR}}/process/06-evidence-and-claims.md` — the six words you may use about evidence,
-  and what a *Measured* number has to carry before it is a claim
 - `{{DOCS_DIR}}/templates/worklog-entry.md` — and the role playbook for each role selected
-- `{{DOCS_DIR}}/process/09-probabilistic-and-data-systems.md` — **only** when the change touches a
-  prompt, model, index, dataset, pipeline, or evaluation. Nothing in it applies to
-  deterministic code, and it is not part of the always-list for anything else.
+
+**Escalation, not routine.** Open the full document when the card's summary is not
+enough, and say in the worklog that you did:
+
+| Open | When the card is not enough about |
+| --- | --- |
+| `{{DOCS_DIR}}/process/04-quality-gates.md` | a contested severity, the test strategy, non-negotiable cases for a high-risk surface, CI expectations |
+| `{{DOCS_DIR}}/process/02-role-reviews.md` | which roles a surface selects, what happens on a Block, what makes a review real |
+| `{{DOCS_DIR}}/process/06-evidence-and-claims.md` | an unusual evidence question, provenance, the assumptions register |
+| `{{DOCS_DIR}}/process/07-traceability.md` | an ID or backlog edge case, staleness, archiving |
+| `{{DOCS_DIR}}/process/09-probabilistic-and-data-systems.md` | a prompt, model, index, dataset, pipeline, or evaluation. Nothing in it applies to deterministic code. |
+| `{{DOCS_DIR}}/process/10-multi-agent.md` | more than one agent working this repository, or fanning reviews out to subagents |
+
+The card is a summary and never an amendment: **where the card and the full document
+disagree, the document wins**, and the card is the defect.
 
 | Tier | Also open | Added | Total |
 | --- | --- | --- | --- |
 | **3** | This file's risk table · the relevant charter row(s) · the affected files' local instructions. Read a role playbook only if a role surface is touched. | usually <2k | **<3k** |
-| **2** | The always-list above (~18k) · `00-operating-model.md` · `03-ready-and-done.md` · `05-change-control.md` · `templates/plan.md` | ~8k + roles | **~29k** with two roles, **~32k** with four |
-| **1** | The Tier 2 list · `templates/adr.md` · `templates/role-review.md` · every role the charter marks active | ~1k + roles | **~33k** on the default four-role roster; **~53k** with all sixteen |
+| **2** | The always-list above (~11k) · `00-operating-model.md` · `03-ready-and-done.md` · `05-change-control.md` · `templates/plan.md` | ~8k + roles | **~22k** with two roles, **~25k** with four |
+| **1** | The Tier 2 list · `templates/adr.md` · `templates/role-review.md` · every role the charter marks active | ~1k + roles | **~26k** on the default four-role roster; **~46k** with all sixteen |
 
 Those totals are measured, not estimated, and `validate.py` fails if they drift from the
 files. The sixteen-role figure is the worst case and should be rare: a change that

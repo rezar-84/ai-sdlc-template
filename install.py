@@ -2020,9 +2020,9 @@ def atomic_write_text(path, text):
 def managed_source_texts(target, docs, ctx):
     """Return portable kit-owned destination paths and their rendered content."""
     planned = {}
-    readme = SRC / "template" / "docs" / "README.md"
-    planned[str(Path(docs) / "README.md")] = substitute(
-        readme.read_text(encoding="utf-8"), ctx)
+    for name in ("README.md", "CARD.md"):
+        src = SRC / "template" / "docs" / name
+        planned[str(Path(docs) / name)] = substitute(src.read_text(encoding="utf-8"), ctx)
     for sub in ("process", "roles", "templates"):
         base = SRC / "template" / "docs" / sub
         for src in sorted(base.rglob("*")):
@@ -2071,7 +2071,7 @@ def is_managed_rel(rel, docs):
         return False
     prefixes = ((str(docs), "process"), (str(docs), "roles"),
                 (str(docs), "templates"), (".claude", "skills"))
-    return path.parts == (str(docs), "README.md") or any(
+    return path.parts in ((str(docs), "README.md"), (str(docs), "CARD.md")) or any(
         path.parts[:2] == prefix for prefix in prefixes)
 
 

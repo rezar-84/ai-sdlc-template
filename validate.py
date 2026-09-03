@@ -126,6 +126,66 @@ def cross_references(errors):
             errors.append("project type %d has no TYPE_FACTS entry" % index)
 
 
+def card_fidelity(errors):
+    """CARD.md compresses four standards, so it can silently gain a rule none of them
+    has, or keep one after the standard changed. A summary that drifts is worse than no
+    summary: it is read instead of the thing it misrepresents."""
+    card_path = ROOT / "template" / "docs" / "CARD.md"
+    if not card_path.is_file():
+        errors.append("template/docs/CARD.md is missing")
+        return
+    card = card_path.read_text(encoding="utf-8")
+    docs = ROOT / "template" / "docs"
+
+    sources = ("process/02-role-reviews.md", "process/04-quality-gates.md",
+               "process/06-evidence-and-claims.md", "process/07-traceability.md")
+    for rel in sources:
+        if rel not in card:
+            errors.append("CARD.md summarises %s without linking to it" % rel)
+    corpus = "\n".join((docs / rel).read_text(encoding="utf-8") for rel in sources)
+
+    # Read the rules the card actually asserts, rather than checking a list of the ones
+    # it is expected to have: an allowlist cannot catch an invented rung, which is the
+    # failure this guard exists for.
+    asserted = set(re.findall(r"\*\*(S[0-9]+)\*\*", card))
+    asserted |= set(re.findall(r"^\| \*\*([A-Z][A-Za-z ]+)\*\* \|", card, re.M))
+    for term in sorted(asserted):
+        if term not in corpus:
+            errors.append("CARD.md asserts %r, which appears in none of the four "
+                          "standards it summarises" % term)
+    for term in ("Verified", "Reported", "Assumed", "Unknown", "Not run", "Absent",
+                 "Measured", "Pass with conditions", "Block", "S0", "S1", "S2", "S3", "S4"):
+        if term not in card:
+            errors.append("CARD.md no longer states %r" % term)
+    for term in ("Ready", "Blocked", "In progress", "In review", "Parked", "Done",
+                 "Deferred", "Dropped"):
+        if term not in corpus:
+            errors.append("CARD.md lists backlog status %r, absent from "
+                          "07-traceability.md" % term)
+
+    # The backlog row is positional, so the card's copy must match column for column.
+    row = re.search(r"\| ID \| Task \| Tier \| Owner role \| Depends on \| Status \|", card)
+    if not row:
+        errors.append("CARD.md no longer states the backlog row in its specified order")
+    elif not re.search(re.escape(row.group(0)),
+                       (docs / "process/07-traceability.md").read_text(encoding="utf-8")):
+        errors.append("CARD.md's backlog row disagrees with 07-traceability.md")
+
+    # Everything the routing table sends a reader to has to exist.
+    for rel in sorted(set(re.findall(r"`((?:process|roles|templates)/[a-z0-9-]+\.md)`", card))):
+        if not (docs / rel).is_file():
+            errors.append("CARD.md routes to %s, which does not exist" % rel)
+
+    always = ("CARD.md", "project/charter.md", "project/backlog.md")
+    agents = (ROOT / "template" / "AGENTS.md").read_text(encoding="utf-8")
+    for rel in always:
+        if rel not in agents:
+            errors.append("AGENTS.md's reading list no longer names %s" % rel)
+    for rel in sources:
+        if rel not in agents:
+            errors.append("AGENTS.md no longer names %s as escalation" % rel)
+
+
 def reading_budget(errors):
     """AGENTS.md quotes the size of the docs tree so an agent can bound its reading.
     The figure is load-bearing and nothing keeps it honest, so measure it. Four
@@ -215,6 +275,7 @@ def main():
         shutil.rmtree(str(target), ignore_errors=True)
 
     cross_references(errors)
+    card_fidelity(errors)
     reading_budget(errors)
 
     if errors:

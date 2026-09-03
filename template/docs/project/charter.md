@@ -120,6 +120,19 @@ platforms").
 | **Platform instruction file** | _(where the platform's own agent reads its instructions — e.g. `replit.md`, Lovable project knowledge — and whether it points at `AGENTS.md` so the two contracts cannot diverge)_ |
 | **Deploys** | _(e.g. "published from the platform UI" — if so, the release runbook documents the platform's publish and rollback affordances, not a deploy command)_ |
 
+## Concurrency
+
+**Authoritative.** Blank is *Unknown*, and an agent may not assume it is working alone.
+Write "one agent at a time" if that is the answer — it usually is, and saying so costs a
+line and saves a corrupted backlog. Rules: `../process/10-multi-agent.md`.
+
+| | |
+| --- | --- |
+| **Agents working here** | _(one at a time / several in parallel / an orchestrator with subagents)_ |
+| **Claiming a work item** | _(how an agent takes and releases a backlog row — default: set Owner and status `In progress`, committed on its own)_ |
+| **Single-writer files** | _(beyond the charter, migrations, lockfiles, and generated files, which always are)_ |
+| **May merge to the default branch** | _(yes / no — pull requests only)_ |
+
 ## Budgets
 
 **Authoritative.** The numbers a change is held against. A budget is a pair — the number

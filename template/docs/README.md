@@ -18,6 +18,16 @@ Read in this order and stop when you have enough:
 Do not bulk-read `process/` and `roles/` up front. Open a process doc when you hit the
 step it governs; open a role playbook when you are performing that role's review.
 
+## `CARD.md` — the operating card
+
+The standard compressed into one page: tiers, the evidence vocabulary, the check
+sequence, the severity ladder, verdicts, traceability, and a table saying which document
+to open next. It replaces reading `process/02`, `04`, `06`, and `07` for ordinary work —
+those stay as escalation, and **the full document wins wherever they disagree**.
+
+Read it on every Tier 1 and Tier 2 change. It is also the routing for agent tools that
+have no equivalent of Claude Code's model-invoked skills.
+
 ## `process/` — how work is done
 
 Portable standards. Identical in every project that installs this kit. Do not add
@@ -35,6 +45,7 @@ project facts here.
 | `07-traceability.md` | ID scheme, what gets logged where, how staleness is detected. |
 | `08-content-and-translation.md` | Source language, what may be machine-translated, who reviews it, and what multilingual code and layout must do. |
 | `09-probabilistic-and-data-systems.md` | How do I change a model, prompt, index, dataset, or pipeline — and what may I claim about a system whose output is a distribution? |
+| `10-multi-agent.md` | How do several agents work this repository at once without overwriting each other, and how are reviews fanned out? |
 
 ## `roles/` — who reviews
 
