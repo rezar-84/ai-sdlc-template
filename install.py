@@ -1138,6 +1138,8 @@ SKILL_RULES = (
     ("sdlc-evidence-check", "always", "fires before any 'done / passing / verified' claim", ""),
     ("sdlc-charter-audit", "always", "keeps the charter's blank and stale cells visible", ""),
     ("sdlc-adr", "always", "captures durable decisions instead of losing them", ""),
+    ("sdlc-doctor", "always",
+     "keeps blank, stale, and drifted project documents from being read as true", ""),
     ("sdlc-accessibility-audit", "ui", "there is an interface to audit",
      "no user interface in this project"),
     ("sdlc-design-review", "visual", "there is a visual interface to hold to the design system",
@@ -2333,6 +2335,8 @@ class Installer(object):
                             "- Use synthetic data; never copy production data without explicit approval and documented controls."))
         text = text.replace("## Commands\n", "\n".join(profile) + "\n\n## Commands\n", 1)
         added = self.install_text(dest, text)
+        if self.w.fact("ai") or d.ml or d.vector:
+            self.scaffold_eval_plan()
         profile_dest = self.target / ".ai-sdlc" / "testing-profile.json"
         self.install_text(profile_dest,
                           json.dumps(self.testing_profile(), indent=2, sort_keys=True) + "\n")
@@ -2340,6 +2344,27 @@ class Installer(object):
             charter_rel = "%s/project/charter.md" % self.docs
             if charter_rel in self.fresh:
                 self.edit(charter_rel, lambda value: tick_artifact(value, "test-plan"))
+
+    def scaffold_eval_plan(self):
+        """A probabilistic surface with no golden set has nothing to be measured
+        against, so the plan is the artifact that has to exist first — empty, dated,
+        and honest about being empty rather than absent and unnoticed."""
+        rel = "%s/project/eval-plan.md" % self.docs
+        source = SRC / "template" / "docs" / "templates" / "eval-plan.md"
+        text = substitute(source.read_text(encoding="utf-8"), self.ctx)
+        text = fill_line(text, "last-reviewed:", "last-reviewed: %s" % today())
+        d = self.w.det
+        found = ", ".join(d.ml + d.vector) or "none identified"
+        note = ("> Created at install on %s because model, retrieval, or evaluation "
+                "tooling was\n> detected in this repository (%s). Nothing below is "
+                "filled in: a golden set\n> nobody has written is the first task, not a "
+                "formality. Until it exists, no\n> claim about this system's quality is "
+                "sayable.\n\n" % (today(), found))
+        text = text.replace("## What is being evaluated\n", note + "## What is being evaluated\n", 1)
+        if self.install_text(self.target / rel, text):
+            charter_rel = "%s/project/charter.md" % self.docs
+            if charter_rel in self.fresh:
+                self.edit(charter_rel, lambda value: tick_artifact(value, "eval-plan"))
 
     def ci_text(self, provider):
         commands = self.selected_commands()

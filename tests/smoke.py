@@ -178,7 +178,8 @@ def test_non_interactive():
           in read(d, "docs/project/charter.md"))
     skills = sorted(os.listdir(os.path.join(d, ".claude", "skills")))
     check("only answer-independent skills", skills == ["sdlc-adr", "sdlc-charter-audit",
-                                                       "sdlc-evidence-check", "sdlc-intake"],
+                                                       "sdlc-doctor", "sdlc-evidence-check",
+                                                       "sdlc-intake"],
           str(skills))
     before = files(d)
     run([d, "ACME", "-y"])

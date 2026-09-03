@@ -97,9 +97,10 @@ by a backlog item to fix it.
 
 ## `.claude/` — commands and skills
 
-Outside this tree, but installed with it. `.claude/commands/` holds the four `/sdlc-*`
+Outside this tree, but installed with it. `.claude/commands/` holds the five `/sdlc-*`
 slash commands that drive the loop when you type them: `/sdlc-plan`, `/sdlc-review`,
-`/sdlc-verify`, `/sdlc-log`.
+`/sdlc-verify`, `/sdlc-log`, and `/sdlc-doctor` — which audits these documents rather
+than the code, for the gaps and staleness that nothing else announces.
 
 `.claude/skills/` holds the skills chosen for this project. They are model-invoked: an
 agent loads one when the situation its description names appears — a request with no work
