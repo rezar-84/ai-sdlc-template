@@ -277,6 +277,11 @@ USAGE = """usage: install.sh <target-project-dir> [PREFIX] [options]
   --scaffold-tests   create a detected project test plan and machine-readable profile
   --scaffold-ci <provider>
                      create CI for github or gitlab from detected quality commands
+  --hooks            install the opt-in Claude Code hooks: deny a commit with no work
+                     item ID, and deny an edit to a path listed in
+                     .ai-sdlc/protected.txt. Merged into .claude/settings.json without
+                     touching anything already there. Needs jq at runtime; without it
+                     the hooks allow the call and say so. Never implied by another flag.
   --profile <name>   full (default) or compact. compact installs the operating card,
                      roles, templates and project records but omits the numbered
                      process/ documents: the same rules from one source, about 8k of
@@ -312,6 +317,7 @@ class Options(object):
         self.dry_run = False
         self.harnesses = []
         self.profile = "full"
+        self.hooks = False
         self.lang = "en"
 
 
@@ -352,6 +358,8 @@ def parse_args(argv):
                 usage()
             o.scaffold_ci = argv[i + 1]
             i += 1
+        elif arg == "--hooks":
+            o.hooks = True
         elif arg == "--profile":
             if i + 1 >= len(argv) or argv[i + 1] not in ("full", "compact"):
                 sys.stderr.write("--profile requires full or compact\n")
@@ -2344,6 +2352,72 @@ class Installer(object):
         "text, re-install with `--profile full`, which adds the documents and changes\n"
         "no rule.\n")
 
+    HOOK_SPECS = (
+        ("work-item-id.sh", "PreToolUse", "Bash", "Bash(git commit*)",
+         "Checking the commit carries a work item ID"),
+        ("protected-paths.sh", "PreToolUse", "Write|Edit", None,
+         "Checking the path is not single-writer"),
+    )
+
+    def install_hooks(self):
+        """Merged into whatever settings.json is already there, never written over it:
+        the file usually carries permissions somebody tuned by hand."""
+        if not self.o.hooks:
+            return
+        dest_dir = ensure_inside(self.target, self.target / ".claude" / "hooks")
+        for name, _, _, _, _ in self.HOOK_SPECS:
+            self.install_file(SRC / "optional" / "hooks" / name, dest_dir / name)
+        self.install_file(SRC / "optional" / "hooks" / "README.md", dest_dir / "README.md")
+        protected = ensure_inside(self.target, self.target / ".ai-sdlc" / "protected.txt")
+        self.install_text(protected,
+                          "# One shell glob per line. An edit to a matching path is denied.\n"
+                          "# Seeded empty on purpose: only this project knows which files a\n"
+                          "# managed platform owns, which are generated, and which another\n"
+                          "# agent holds. Until there is a line here the hook does nothing.\n"
+                          "#\n"
+                          "# e.g.  .replit\n"
+                          "#       replit.nix\n"
+                          "#       package-lock.json\n"
+                          "#       **/generated/**\n")
+        settings = ensure_inside(self.target, self.target / ".claude" / "settings.json")
+        if self.o.dry_run:
+            print("  would merge    .claude/settings.json (hooks)")
+            return
+        data = {}
+        if settings.exists():
+            try:
+                data = json.loads(settings.read_text(encoding="utf-8"))
+            except ValueError:
+                print("  skip           .claude/settings.json is not valid JSON -- hooks "
+                      "not merged. Fix it and re-run.")
+                return
+            if not isinstance(data, dict):
+                print("  skip           .claude/settings.json is not an object -- hooks "
+                      "not merged.")
+                return
+        hooks = data.setdefault("hooks", {})
+        if not isinstance(hooks, dict):
+            print("  skip           .claude/settings.json has a non-object 'hooks' -- "
+                  "not merged.")
+            return
+        added = 0
+        for name, event, matcher, guard, status in self.HOOK_SPECS:
+            command = "sh .claude/hooks/%s" % name
+            entries = hooks.setdefault(event, [])
+            if not isinstance(entries, list):
+                continue
+            if any(command in json.dumps(entry) for entry in entries):
+                continue          # already installed; re-running must not duplicate it
+            spec = {"type": "command", "command": command, "statusMessage": status}
+            if guard:
+                spec["if"] = guard
+            entries.append({"matcher": matcher, "hooks": [spec]})
+            added += 1
+        atomic_write_text(settings, json.dumps(data, indent=2, sort_keys=True) + "\n")
+        print("  %s .claude/settings.json (%d hook%s)"
+              % ("merge         " if added else "unchanged     ", added,
+                 "" if added == 1 else "s"))
+
     def note_profile(self):
         """A reader must be able to tell a deliberate absence from a broken install."""
         if self.o.profile != "compact" or self.o.dry_run:
@@ -3078,6 +3152,7 @@ def main(argv):
         skills = inst.run()
         tailored = inst.tailor()
         inst.scaffold()
+        inst.install_hooks()
         inst.record_manifest()
         inst.write_profile()
     except (IOError, OSError, RuntimeError) as exc:

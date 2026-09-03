@@ -439,6 +439,65 @@ def test_profiles():
           out[-200:])
 
 
+def test_hooks():
+    print("opt-in enforcement hooks")
+    d = tempfile.mkdtemp(prefix="sdlc-hooks-")
+    write(d, ".claude/settings.json", '{"permissions":{"allow":["Bash(npm *)"]}}')
+    code, out = run([d, "HKT", "-y", "--hooks"])
+    check("exit 0", code == 0, out[-300:])
+    try:
+        settings = json.loads(read(d, ".claude/settings.json"))
+    except ValueError:
+        settings = {}
+    check("existing settings survive the merge",
+          settings.get("permissions", {}).get("allow") == ["Bash(npm *)"], str(settings))
+    entries = settings.get("hooks", {}).get("PreToolUse", [])
+    check("both hooks are registered", len(entries) == 2, str(entries))
+    check("the commit hook is filtered to git commit",
+          any(h.get("if") == "Bash(git commit*)"
+              for e in entries for h in e.get("hooks", [])), str(entries))
+    check("protected list is seeded but empty of rules",
+          all(l.startswith("#") or not l.strip()
+              for l in read(d, ".ai-sdlc/protected.txt").splitlines()),
+          read(d, ".ai-sdlc/protected.txt"))
+
+    # The behaviour, not just the wiring.
+    def fire(script, payload):
+        p = subprocess.Popen(["sh", os.path.join(d, ".claude", "hooks", script)],
+                             cwd=d, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT)
+        o, _ = p.communicate(json.dumps(payload).encode())
+        return o.decode("utf-8", "replace")
+
+    if shutil.which("jq"):
+        out = fire("work-item-id.sh", {"tool_input": {"command": 'git commit -m "fix"'}})
+        check("a commit with no ID is denied", '"permissionDecision":"deny"' in out, out)
+        out = fire("work-item-id.sh", {"tool_input": {"command": 'git commit -m "HKT-9 fix"'}})
+        check("a commit with an ID is allowed", "deny" not in out, out)
+        out = fire("work-item-id.sh", {"tool_input": {"command": "ls"}})
+        check("an unrelated command is allowed", "deny" not in out, out)
+        out = fire("protected-paths.sh", {"tool_input": {"file_path": "package-lock.json"}})
+        check("an unlisted path is allowed", "deny" not in out, out)
+        with open(os.path.join(d, ".ai-sdlc", "protected.txt"), "a") as fh:
+            fh.write("package-lock.json\n")
+        out = fire("protected-paths.sh", {"tool_input": {"file_path": "package-lock.json"}})
+        check("a listed path is denied", '"permissionDecision":"deny"' in out, out)
+    else:
+        check("jq present for hook behaviour tests", True, "skipped: jq not installed")
+
+    code, out = run([d, "HKT", "-y", "--hooks"])
+    settings = json.loads(read(d, ".claude/settings.json"))
+    check("re-running does not duplicate the hooks",
+          len(settings.get("hooks", {}).get("PreToolUse", [])) == 2, str(settings))
+    shutil.rmtree(d, ignore_errors=True)
+
+    d = tempfile.mkdtemp(prefix="sdlc-nohooks-")
+    run([d, "HKT", "-y"])
+    check("hooks are never installed without the flag",
+          not os.path.exists(os.path.join(d, ".claude", "hooks")))
+    shutil.rmtree(d, ignore_errors=True)
+
+
 def test_domain_detection():
     print("domain markers select project types")
     cases = [
@@ -684,7 +743,7 @@ def test_architecture():
 def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
-                 test_stack_adapters, test_harness_wiring, test_profiles,
+                 test_stack_adapters, test_harness_wiring, test_profiles, test_hooks,
                  test_domain_detection,
                  test_role_and_skill_selection, test_profile, test_scaffolding,
                  test_multiselect_and_review, test_review_jump,
