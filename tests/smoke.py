@@ -360,6 +360,42 @@ def test_stack_adapters():
     shutil.rmtree(d, ignore_errors=True)
 
 
+def test_harness_wiring():
+    print("agent instruction files point at AGENTS.md")
+
+    # The defect: a project that already has CLAUDE.md must still be wired, or the kit
+    # installs into permanent silence.
+    d = tempfile.mkdtemp(prefix="sdlc-harness-existing-")
+    write(d, "CLAUDE.md", "# My project\n\nRun npm test.\n")
+    code, out = run([d, "HRN", "-y"])
+    text = read(d, "CLAUDE.md")
+    check("exit 0", code == 0, out[-300:])
+    check("existing CLAUDE.md is pointed at AGENTS.md", "AGENTS.md" in text, text)
+    check("its original content survives", "Run npm test." in text, text)
+    check("the append is announced", "CLAUDE.md" in out, out[-400:])
+    code, out = run([d, "HRN", "-y"])
+    check("re-running adds no second pointer", text.count("AGENTS.md") ==
+          read(d, "CLAUDE.md").count("AGENTS.md"), read(d, "CLAUDE.md"))
+    shutil.rmtree(d, ignore_errors=True)
+
+    # A fresh project gets only the harnesses that were asked for.
+    d = tempfile.mkdtemp(prefix="sdlc-harness-multi-")
+    code, out = run([d, "HRN", "-y", "--harness", "claude,cursor,copilot"])
+    check("exit 0 for --harness", code == 0, out[-300:])
+    for rel in ("CLAUDE.md", ".cursor/rules/agents.mdc", ".github/copilot-instructions.md"):
+        check("%s written" % rel, "AGENTS.md" in read(d, rel), rel)
+    check("unrequested harnesses are not written",
+          not os.path.exists(os.path.join(d, "GEMINI.md")) and
+          not os.path.exists(os.path.join(d, ".windsurfrules")), str(files(d)))
+    profile = json.loads(read(d, ".ai-sdlc/profile.json") or "{}")
+    check("profile records what was wired",
+          "CLAUDE.md" in profile.get("harnesses", []), str(profile.get("harnesses")))
+    shutil.rmtree(d, ignore_errors=True)
+
+    code, out = run(["/tmp/sdlc-nonexistent-harness", "HRN", "-y", "--harness", "nope"])
+    check("an unknown harness is rejected", code != 0 and "unknown harness" in out, out[-200:])
+
+
 def test_domain_detection():
     print("domain markers select project types")
     cases = [
@@ -605,7 +641,7 @@ def test_architecture():
 def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
-                 test_stack_adapters, test_domain_detection,
+                 test_stack_adapters, test_harness_wiring, test_domain_detection,
                  test_role_and_skill_selection, test_profile, test_scaffolding,
                  test_multiselect_and_review, test_review_jump,
                  test_quit_writes_nothing,

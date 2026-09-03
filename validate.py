@@ -100,6 +100,17 @@ def cross_references(errors):
     for key in sorted(wizard_keys - charter_keys):
         errors.append("the installer asks for checks.%s with no charter Commands row" % key)
 
+    # Harnesses: every alias names a pointer the table actually knows how to write.
+    known = {rel for rel, _ in install.HARNESS_POINTERS}
+    for alias, targets in sorted(install.HARNESS_ALIASES.items()):
+        for rel in targets:
+            if rel not in known:
+                errors.append("--harness %s names %r, absent from HARNESS_POINTERS"
+                              % (alias, rel))
+    for rel, _ in install.HARNESS_POINTERS:
+        if not any(rel in t for t in install.HARNESS_ALIASES.values()):
+            errors.append("HARNESS_POINTERS lists %r that no --harness value selects" % rel)
+
     # Facts: every fact has a label, and every type maps to known facts.
     for fid in install.FACT_IDS:
         if fid not in install.FACT_LABELS:

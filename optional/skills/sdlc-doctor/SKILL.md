@@ -14,6 +14,11 @@ where the answer changes what you are about to do.
 
 ## Check before you rely on it
 
+0. **Is anything pointing at the contract?** Nothing here runs unless a file the agent
+   tool actually loads says to read `AGENTS.md` — `CLAUDE.md`, `GEMINI.md`, `AGENT.md`,
+   `.github/copilot-instructions.md`, `.cursor/rules/`, and so on. If none does, the kit
+   is installed and inert, and nothing about the repository looks wrong. That is the
+   first thing to report and the cheapest thing to fix.
 1. **The charter first.** `{{DOCS_DIR}}/project/charter.md` — is `last-reviewed` inside
    the staleness window it names? Are the Commands rows you are about to use filled in?
    **A blank cell is *Unknown*, not "absent"** (`{{DOCS_DIR}}/process/06-evidence-and-claims.md`),

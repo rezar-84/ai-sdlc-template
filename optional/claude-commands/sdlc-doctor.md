@@ -24,7 +24,25 @@ substituted at install time.)
 Any hit is a broken install: an unsubstituted work-item prefix leaves a literal path in
 the docs an agent follows. Report every occurrence with its file.
 
-## 2. Charter completeness
+## 2. Is anything pointing at the contract?
+
+Nothing in this kit runs unless an agent is told to read `AGENTS.md`, and every tool
+looks in a different file. Check that at least one of these names it:
+
+```sh
+grep -ln 'AGENTS.md' CLAUDE.md GEMINI.md AGENT.md CONVENTIONS.md \
+  .github/copilot-instructions.md .cursor/rules/*.mdc .windsurfrules .clinerules 2>/dev/null
+```
+
+No output is a **finding of the highest severity in this report**: the documents are
+installed, the process is not running, and nothing about the repository looks wrong. The
+fix is one line — `Read and follow \`AGENTS.md\` in this directory.` — in whichever file
+the tool in use actually loads. `.ai-sdlc/profile.json` → `harnesses` records what the
+installer wired; a file listed there that no longer mentions `AGENTS.md` was edited since.
+
+Codex, Jules, Zed, Factory and opencode read `AGENTS.md` directly and need no pointer.
+
+## 3. Charter completeness
 
 Read `{{DOCS_DIR}}/project/charter.md`. A blank cell is **Unknown**, not "not applicable"
 (`{{DOCS_DIR}}/process/06-evidence-and-claims.md`), and an agent that guesses a check
@@ -41,14 +59,14 @@ Report, in this order of severity:
   "Create when" column, which is the only statement of which artifacts this project is
   supposed to have).
 
-## 3. Staleness
+## 4. Staleness
 
 For every file in `{{DOCS_DIR}}/project/`, read the frontmatter `last-reviewed` and
 compare against today and the charter's staleness window. Report anything older, anything
 with a missing or malformed date, and anything marked `status: stale` that has no backlog
 item to fix it. ADRs are exempt: they are dated records and are superseded, not refreshed.
 
-## 4. Traceability
+## 5. Traceability
 
 Per `{{DOCS_DIR}}/process/07-traceability.md`:
 
@@ -57,14 +75,14 @@ Per `{{DOCS_DIR}}/process/07-traceability.md`:
 - Items marked `Parked` with no stated blocker or owner.
 - Branches or recent commits referencing an ID that exists in neither.
 
-## 5. Worklog size
+## 6. Worklog size
 
 Report the line count of `{{DOCS_DIR}}/project/worklog.md`. Past the rotation threshold in
 `07-traceability.md`, recommend rotating the closed entries into
 `{{DOCS_DIR}}/project/worklog-archive/`. An unbounded worklog quietly becomes the largest
 file every future agent reads.
 
-## 6. Profile drift
+## 7. Profile drift
 
 If `.ai-sdlc/profile.json` exists, compare its `commands`, `roles`, and `docs_dir`
 against the charter. **The charter is the source of truth**; report any difference as

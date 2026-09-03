@@ -277,6 +277,12 @@ USAGE = """usage: install.sh <target-project-dir> [PREFIX] [options]
   --scaffold-tests   create a detected project test plan and machine-readable profile
   --scaffold-ci <provider>
                      create CI for github or gitlab from detected quality commands
+  --harness <list>   comma-separated agent tools to wire up (default: claude). One of
+                     claude, gemini, amp, copilot, cursor, windsurf, cline, aider, or
+                     "all". Each gets a pointer file naming AGENTS.md; an instruction
+                     file that already exists is appended to, never overwritten. Codex,
+                     Jules, Zed, Factory and opencode read AGENTS.md directly and need
+                     nothing.
   --dry-run          list what would be written, write nothing
   --lang <code>      language for this setup's own prompts (default: en)
   --upgrade          refresh manifest-owned portable docs and installed skills. Stops
@@ -298,6 +304,7 @@ class Options(object):
         self.scaffold_ci = ""
         self.create = False
         self.dry_run = False
+        self.harnesses = []
         self.lang = "en"
 
 
@@ -337,6 +344,24 @@ def parse_args(argv):
                 sys.stderr.write("--scaffold-ci requires github or gitlab\n")
                 usage()
             o.scaffold_ci = argv[i + 1]
+            i += 1
+        elif arg == "--harness":
+            if i + 1 >= len(argv):
+                sys.stderr.write("--harness requires a comma-separated list\n")
+                usage()
+            names = [x.strip().lower() for x in argv[i + 1].split(",") if x.strip()]
+            if "all" in names:
+                names = sorted(HARNESS_ALIASES)
+            unknown = [x for x in names if x not in HARNESS_ALIASES]
+            if unknown:
+                if [x for x in unknown if x in HARNESS_NATIVE]:
+                    sys.stderr.write(
+                        "%s reads AGENTS.md directly and needs no pointer file\n"
+                        % ", ".join(x for x in unknown if x in HARNESS_NATIVE))
+                sys.stderr.write("unknown harness: %s (known: %s)\n"
+                                 % (", ".join(unknown), ", ".join(sorted(HARNESS_ALIASES))))
+                usage()
+            o.harnesses = names
             i += 1
         elif arg == "--create":
             o.create = True
@@ -479,6 +504,37 @@ LOAD_NODE = (("k6", "k6"), ("artillery", "Artillery"), ("autocannon", "autocanno
              ("@types/k6", "k6"), ("lighthouse", "Lighthouse"))
 LOAD_PY = (("locust", "Locust"), ("pytest-benchmark", "pytest-benchmark"),
            ("asv", "airspeed velocity"))
+
+# Every agent tool looks for its instructions in a different file, and they nearly all
+# now also read AGENTS.md. So AGENTS.md stays the single source of truth and each of
+# these is a pointer to it — never a copy, which would drift within a release.
+# (relative path, header written when the file is created)
+HARNESS_POINTERS = (
+    ("CLAUDE.md", "# Project instructions\n\n"),                     # Claude Code
+    ("GEMINI.md", "# Project instructions\n\n"),                     # Gemini CLI
+    ("AGENT.md", "# Project instructions\n\n"),                      # Amp
+    (".github/copilot-instructions.md", "# Copilot instructions\n\n"),
+    (".cursor/rules/agents.mdc",
+     "---\ndescription: Operating contract for this repository\nalwaysApply: true\n---\n\n"),
+    (".windsurfrules", ""),
+    (".clinerules", ""),
+    ("CONVENTIONS.md", "# Conventions\n\n"),                         # Aider
+)
+
+# Tools whose own instruction file *is* AGENTS.md need no pointer at all: OpenAI Codex,
+# Jules, Zed, Factory, Cursor 1.x and others read it directly.
+HARNESS_NATIVE = ("codex", "jules", "zed", "factory", "opencode")
+
+HARNESS_ALIASES = {
+    "claude": ("CLAUDE.md",),
+    "gemini": ("GEMINI.md",),
+    "amp": ("AGENT.md",),
+    "copilot": (".github/copilot-instructions.md",),
+    "cursor": (".cursor/rules/agents.mdc",),
+    "windsurf": (".windsurfrules",),
+    "cline": (".clinerules",),
+    "aider": ("CONVENTIONS.md",),
+}
 
 WEB_FRAMEWORKS = ("Next.js", "Nuxt", "Astro", "Remix", "TanStack Start", "Angular",
                   "Svelte", "Vue", "React")
@@ -2109,6 +2165,10 @@ class Installer(object):
         self.skipped = 0
         self.updated = 0
         self.fresh = set()
+        self.wired = []
+        self.harnesses = set()
+        for name in (w.a.get("harnesses") or w.o.harnesses or ["claude"]):
+            self.harnesses.update(HARNESS_ALIASES.get(name, ()))
         self.ctx = {
             "PROJECT_NAME": plain_text(w.a.get("name") or
                                        (w.target.name if w.target else "")),
@@ -2226,12 +2286,40 @@ class Installer(object):
                 if path.is_file():
                     self.install_file(path, self.target / ".claude" / "skills" / name
                                       / path.relative_to(base))
-        claude_md = ensure_inside(self.target, self.target / "CLAUDE.md")
-        if not claude_md.exists() and not self.o.dry_run:
-            atomic_write_text(claude_md, "# Project instructions\n\nRead and follow "
-                              "`AGENTS.md` in this directory.\n")
-            print("  add            CLAUDE.md (pointer to AGENTS.md)")
+        self.wire_harnesses()
         return skills
+
+    POINTER = ("Read and follow `AGENTS.md` in this directory. It is the operating "
+               "contract for this repository and it takes precedence over habit.")
+
+    def wire_harnesses(self):
+        """Nothing in this kit runs unless the agent is told to read AGENTS.md, and each
+        tool looks in a different file. A pointer that is missing fails silently: the
+        install looks complete and the contract is never opened."""
+        for rel, header in HARNESS_POINTERS:
+            path = ensure_inside(self.target, self.target / rel)
+            if path.exists():
+                text = path.read_text(encoding="utf-8", errors="replace")
+                if "AGENTS.md" in text:
+                    continue
+                if self.o.dry_run:
+                    print("  would append   %s (pointer to AGENTS.md)" % rel)
+                    continue
+                joiner = "" if text.endswith("\n\n") else ("\n" if text.endswith("\n") else "\n\n")
+                atomic_write_text(path, text + joiner + "## Operating contract\n\n"
+                                  + self.POINTER + "\n")
+                print("  append         %s (pointer to AGENTS.md)" % rel)
+                self.wired.append(rel)
+                continue
+            if rel not in self.harnesses:
+                continue
+            if self.o.dry_run:
+                print("  would add      %s" % rel)
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            atomic_write_text(path, header + self.POINTER + "\n")
+            print("  add            %s (pointer to AGENTS.md)" % rel)
+            self.wired.append(rel)
 
     def selected_commands(self):
         commands = {}
@@ -2276,6 +2364,7 @@ class Installer(object):
             "skills": w.chosen_skills(),
             "commands": self.selected_commands(),
             "budgets": {},
+            "harnesses": sorted(self.wired),
             "platform": w.a.get("platform", "") if w.a.get("platform", "none") != "none" else "",
             "detected": {
                 "adapters": d.adapters,
@@ -2788,6 +2877,23 @@ def report(w, inst, skills, tailored):
         print("      - Point the platform's instruction file or knowledge base (e.g. replit.md,")
         print("        Lovable project knowledge) at AGENTS.md instead of duplicating it.")
         print("      - See 'Managed platforms' in %s/process/05-change-control.md." % docs)
+        print("")
+    if inst.wired:
+        print("Wired to read AGENTS.md: %s" % " ".join(inst.wired))
+        print("      Codex, Jules, Zed, Factory and opencode read AGENTS.md directly and")
+        print("      needed nothing. Add others later with --harness.")
+        print("")
+    elif not inst.o.dry_run:
+        print("WARNING: nothing in this repository points an agent at AGENTS.md.")
+        print("         The kit is installed but will never be read: every agent tool loads")
+        print("         its own instruction file, and none of them names AGENTS.md here.")
+        print("         Add this line to the one your tool reads (CLAUDE.md, GEMINI.md,")
+        print("         AGENT.md, .github/copilot-instructions.md, .cursor/rules/, ...):")
+        print("")
+        print("           Read and follow `AGENTS.md` in this directory.")
+        print("")
+        print("         Or re-run with --harness <tool>. Codex, Jules, Zed, Factory and")
+        print("         opencode read AGENTS.md directly and need nothing.")
         print("")
     if not inst.ctx.get("PREFIX"):
         print("WARNING: no PREFIX given. {{PREFIX}} is still literal in the installed files.")
