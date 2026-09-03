@@ -65,7 +65,7 @@ Tier 1 is a violation of this contract, not a clever reading of it.
 
 ## 3. What to read — the whole list, by tier
 
-**Reading past your tier's list is not diligence, it is cost** — `{{DOCS_DIR}}/` is around 62,000
+**Reading past your tier's list is not diligence, it is cost** — `{{DOCS_DIR}}/` is around 74,000
 tokens, and reading it whole leaves nothing for the work. But an *incomplete* list is the
 worse failure, because it sends you back mid-task to find the rule you should have had.
 So each tier below is the whole list: if it is not named here and the task does not touch
@@ -92,8 +92,12 @@ it, you do not need it.
 | Tier | Also open | Added | Total |
 | --- | --- | --- | --- |
 | **3** | This file's risk table · the relevant charter row(s) · the affected files' local instructions. Read a role playbook only if a role surface is touched. | usually <2k | **<3k** |
-| **2** | The always-list above · `00-operating-model.md` · `03-ready-and-done.md` · `05-change-control.md` · `templates/plan.md` | ~20k | **~23k** with two roles, **~26k** with four |
-| **1** | The Tier 2 list · `templates/adr.md` · `templates/role-review.md` · every role the charter marks active | ~7k | **~26k** on the default four-role roster; **~48k** with all sixteen |
+| **2** | The always-list above (~18k) · `00-operating-model.md` · `03-ready-and-done.md` · `05-change-control.md` · `templates/plan.md` | ~8k + roles | **~29k** with two roles, **~32k** with four |
+| **1** | The Tier 2 list · `templates/adr.md` · `templates/role-review.md` · every role the charter marks active | ~1k + roles | **~33k** on the default four-role roster; **~53k** with all sixteen |
+
+Those totals are measured, not estimated, and `validate.py` fails if they drift from the
+files. The sixteen-role figure is the worst case and should be rare: a change that
+genuinely selects every role is usually several changes.
 
 No reading list makes Tier 1 and Tier 2 cheap: a plan, a multi-role review, a full check
 run and a complete worklog entry need the documents that define them. What the list buys

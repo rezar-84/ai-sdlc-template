@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Validate the distributable kit using only the Python standard library."""
 
+import io
 import json
 import re
 import shutil
@@ -33,6 +34,104 @@ def frontmatter_fields(path):
     except ValueError:
         return set()
     return {line.split(":", 1)[0].strip() for line in lines[1:end] if ":" in line}
+
+
+def cross_references(errors):
+    """The kit names the same things in several places — a role in the wizard, in the
+    charter's roster, in the roles README, and as a playbook file; a template in the
+    docs map and on disk; a check stage in the gates document and in the charter. Each
+    pairing is a place an addition can be made once and forgotten once, and nothing
+    else in this repository would notice."""
+    sys.path.insert(0, str(ROOT))
+    import install                                     # noqa: E402  (path set above)
+
+    roles_dir = ROOT / "template" / "docs" / "roles"
+    on_disk = {p.stem for p in roles_dir.glob("*.md") if p.stem != "README"}
+
+    # Ask the real function rather than reading its source: a project with every fact
+    # true selects every role the installer can ever select.
+    w = install.Wizard.__new__(install.Wizard)
+    w.a = dict((fid, True) for fid in install.FACT_IDS)
+    w.a["multilingual"] = True
+    w.det = install.Detected()
+    wizard = set(w.active_roles())
+
+    charter = (ROOT / "template" / "docs" / "project" / "charter.md").read_text(encoding="utf-8")
+    charter_roles = set(re.findall(r"^\| ([a-z][a-z-]+) \| [\u2611\u2610] \|", charter, re.M))
+    readme_roles = set(re.findall(r"^\| \[([a-z-]+)\]\(",
+                                  (roles_dir / "README.md").read_text(encoding="utf-8"), re.M))
+
+    for name in sorted(wizard - on_disk):
+        errors.append("install.py activates role %r with no playbook in roles/" % name)
+    for name in sorted(on_disk - wizard):
+        errors.append("roles/%s.md exists but install.py never activates it" % name)
+    for name in sorted(wizard - charter_roles):
+        errors.append("role %r is activated but has no row in the charter roster" % name)
+    for name in sorted(on_disk - readme_roles):
+        errors.append("roles/%s.md is missing from the roles README roster" % name)
+
+    # Templates: on disk, and named in the docs map's "Create when" table.
+    tpl_dir = ROOT / "template" / "docs" / "templates"
+    tpl_disk = {p.name for p in tpl_dir.glob("*.md")}
+    docs_map = (ROOT / "template" / "docs" / "README.md").read_text(encoding="utf-8")
+    tpl_listed = set(re.findall(r"^\| `([a-z-]+\.md)` \|", docs_map, re.M))
+    for name in sorted(tpl_disk - tpl_listed):
+        errors.append("templates/%s is not listed in the docs map's Create when table" % name)
+    for name in sorted(tpl_listed - tpl_disk):
+        errors.append("the docs map lists templates/%s, which does not exist" % name)
+
+    # Skills: every rule names a directory, every directory has a rule.
+    skill_dirs = {p.name for p in (ROOT / "optional" / "skills").iterdir() if p.is_dir()}
+    ruled = {name for name, _, _, _ in install.SKILL_RULES}
+    for name in sorted(skill_dirs - ruled):
+        errors.append("optional/skills/%s has no rule in SKILL_RULES" % name)
+    for name in sorted(ruled - skill_dirs):
+        errors.append("SKILL_RULES names %r, which has no skill directory" % name)
+
+    # Check stages: every key in the gates table has a charter row and a wizard field.
+    gates = (ROOT / "template" / "docs" / "process" / "04-quality-gates.md").read_text(encoding="utf-8")
+    staged = set(re.findall(r"`checks\.([a-z0-9]+)`", gates))
+    charter_keys = set(re.findall(r"^\| `checks\.([a-z0-9]+)` \|", charter, re.M))
+    wizard_keys = {key for _, _, key in install.CMD_FIELDS} - {"install", "run"}
+    for key in sorted(staged - charter_keys):
+        errors.append("04-quality-gates names checks.%s with no charter Commands row" % key)
+    for key in sorted(staged - wizard_keys):
+        errors.append("04-quality-gates names checks.%s that the installer never asks for" % key)
+    for key in sorted(wizard_keys - charter_keys):
+        errors.append("the installer asks for checks.%s with no charter Commands row" % key)
+
+    # Facts: every fact has a label, and every type maps to known facts.
+    for fid in install.FACT_IDS:
+        if fid not in install.FACT_LABELS:
+            errors.append("fact %r has no label in FACT_LABELS" % fid)
+    for index, facts in install.TYPE_FACTS.items():
+        if not 1 <= index <= len(install.PROJECT_TYPES):
+            errors.append("TYPE_FACTS has an entry %r with no project type" % index)
+        for fid in facts:
+            if fid not in install.FACT_IDS:
+                errors.append("project type %d claims unknown fact %r" % (index, fid))
+    for index in range(1, len(install.PROJECT_TYPES) + 1):
+        if index not in install.TYPE_FACTS:
+            errors.append("project type %d has no TYPE_FACTS entry" % index)
+
+
+def reading_budget(errors):
+    """AGENTS.md quotes the size of the docs tree so an agent can bound its reading.
+    The figure is load-bearing and nothing keeps it honest, so measure it. Four
+    characters per token is rough on purpose — this catches drift, not accuracy."""
+    text = (ROOT / "template" / "AGENTS.md").read_text(encoding="utf-8")
+    m = re.search(r"is around ([0-9,]+)\ntokens", text) or re.search(r"is around ([0-9,]+) tokens", text)
+    if not m:
+        errors.append("AGENTS.md no longer states the size of the docs tree")
+        return
+    stated = int(m.group(1).replace(",", ""))
+    chars = sum(len(p.read_text(encoding="utf-8"))
+                for p in (ROOT / "template" / "docs").rglob("*.md"))
+    actual = chars / 4.0
+    if abs(actual - stated) > 0.1 * actual:
+        errors.append("AGENTS.md says the docs tree is ~%s tokens; it measures ~%d. "
+                      "Update the figure (and the per-tier totals under it)."
+                      % (m.group(1), round(actual, -2)))
 
 
 def main():
@@ -103,6 +202,9 @@ def main():
             errors.append("installed manifest is missing or invalid")
     finally:
         shutil.rmtree(str(target), ignore_errors=True)
+
+    cross_references(errors)
+    reading_budget(errors)
 
     if errors:
         for error in errors:

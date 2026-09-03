@@ -360,6 +360,119 @@ def test_stack_adapters():
     shutil.rmtree(d, ignore_errors=True)
 
 
+def test_domain_detection():
+    print("domain markers select project types")
+    cases = [
+        ("ai", {"requirements.txt": "langchain\nqdrant-client\nragas\n"},
+         [7], ["ai", "data", "deploy", "pii"]),
+        ("data", {"requirements.txt": "dagster\ndbt-core\ngreat-expectations\n"},
+         [6], ["data", "deploy", "pii"]),
+        ("messaging", {"package.json": '{"dependencies":{"kafkajs":"2"}}'},
+         [8], ["deploy", "dist", "pii"]),
+        ("iac", {"main.tf": 'resource "null_resource" "x" {}\n'},
+         [9], ["deploy", "infra"]),
+        ("scrape", {"requirements.txt": "scrapy\n"},
+         [10], ["acquire", "data", "deploy", "pii"]),
+    ]
+    for name, fixture_files, want_types, want_facts in cases:
+        d = tempfile.mkdtemp(prefix="sdlc-domain-%s-" % name)
+        for rel, content in fixture_files.items():
+            write(d, rel, content)
+        found = installer.detect(d)
+        facts = sorted({f for t in found.types for f in installer.TYPE_FACTS.get(t, ())})
+        check("%s type detected" % name,
+              all(t in found.types for t in want_types), str(found.types))
+        check("%s facts derived" % name, facts == want_facts, str(facts))
+        shutil.rmtree(d, ignore_errors=True)
+
+    # A content site must be unaffected by any of it: same six facts as before v3.
+    d = tempfile.mkdtemp(prefix="sdlc-domain-web-")
+    write(d, "package.json", '{"dependencies":{"astro":"4"}}')
+    found = installer.detect(d)
+    facts = sorted({f for t in found.types for f in installer.TYPE_FACTS.get(t, ())})
+    check("content site gains no engineering facts",
+          facts == ["conv", "deploy", "public", "ui", "visual"], str(facts))
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def test_role_and_skill_selection():
+    print("facts select roles and skills")
+
+    def wizard(facts, db=()):
+        w = installer.Wizard.__new__(installer.Wizard)
+        w.a = dict((fid, fid in facts) for fid in installer.FACT_IDS)
+        w.a["multilingual"] = False
+        w.det = installer.Detected()
+        w.det.db = list(db)
+        w.o = type("O", (), {"want_skills": True})()
+        return w
+
+    site = wizard(("ui", "visual", "public", "deploy", "conv"))
+    check("content site roster unchanged",
+          site.active_roles() == ["product-manager", "architect", "security", "qa",
+                                  "ux-designer", "accessibility", "brand-designer",
+                                  "copywriter", "seo", "cro-analyst", "devops-sre"],
+          str(site.active_roles()))
+    check("content site gains no engineering skills",
+          not [n for n in site.chosen_skills()
+               if n in ("sdlc-eval-gate", "sdlc-data-contract", "sdlc-perf-budget",
+                        "sdlc-service-contract", "sdlc-scrape-compliance")],
+          str(site.chosen_skills()))
+
+    ai = wizard(("deploy", "pii", "ai", "data"))
+    for role in ("ml-engineer", "data-engineer", "performance-engineer"):
+        check("ai project activates %s" % role, role in ai.active_roles(),
+              str(ai.active_roles()))
+    for skill in ("sdlc-eval-gate", "sdlc-data-contract", "sdlc-perf-budget"):
+        check("ai project installs %s" % skill, skill in ai.chosen_skills(),
+              str(ai.chosen_skills()))
+
+    dist = wizard(("deploy", "pii", "dist"))
+    check("distributed project installs sdlc-service-contract",
+          "sdlc-service-contract" in dist.chosen_skills(), str(dist.chosen_skills()))
+    check("distributed project has no ml-engineer",
+          "ml-engineer" not in dist.active_roles(), str(dist.active_roles()))
+
+    # sdlc-migration is gated on detection, not on an answer.
+    plain = wizard(("deploy",))
+    check("no data layer, no migration skill",
+          "sdlc-migration" not in plain.chosen_skills(), str(plain.chosen_skills()))
+    withdb = wizard(("deploy",), db=("Prisma",))
+    check("detected data layer installs sdlc-migration",
+          "sdlc-migration" in withdb.chosen_skills(), str(withdb.chosen_skills()))
+
+
+def test_profile():
+    print("machine-readable project profile")
+    d = fixture("next")
+    code, out = run([d, "PRF", "-y"])
+    check("exit 0", code == 0, out[-300:])
+    raw = read(d, ".ai-sdlc/profile.json")
+    try:
+        profile = json.loads(raw)
+    except ValueError:
+        profile = {}
+    check("profile is valid json with the expected keys",
+          set(("kit_version", "facts", "roles", "commands", "detected", "docs_dir"))
+          <= set(profile), str(sorted(profile)))
+    check("profile records the kit version",
+          profile.get("kit_version") == installer.VERSION, str(profile.get("kit_version")))
+    check("every fact is present and boolean",
+          sorted(profile.get("facts", {})) == sorted(installer.FACT_IDS) and
+          all(isinstance(v, bool) for v in profile.get("facts", {}).values()),
+          str(profile.get("facts")))
+    check("non-interactive declares nothing",
+          profile.get("declared") is False and
+          not any(profile.get("facts", {}).values()), str(profile.get("facts")))
+    check("detection is still recorded",
+          "Prisma" in " ".join(profile.get("detected", {}).get("data_layers", [])),
+          str(profile.get("detected", {}).get("data_layers")))
+    check("commands come from detection",
+          profile.get("commands", {}).get("build") == "npm run build",
+          str(profile.get("commands")))
+    shutil.rmtree(d, ignore_errors=True)
+
+
 def test_scaffolding():
     print("opt-in test and CI scaffolding")
     d = fixture("next")
@@ -492,7 +605,8 @@ def test_architecture():
 def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
-                 test_stack_adapters, test_scaffolding,
+                 test_stack_adapters, test_domain_detection,
+                 test_role_and_skill_selection, test_profile, test_scaffolding,
                  test_multiselect_and_review, test_review_jump,
                  test_quit_writes_nothing,
                  test_multilingual, test_architecture):
