@@ -89,6 +89,21 @@ against the charter. **The charter is the source of truth**; report any differen
 drift to be corrected in the profile, never the other way round. Report a `kit_version`
 older than `.ai-sdlc/manifest.json` as an incomplete upgrade.
 
+## 8. Refresh the status page
+
+If `{{DOCS_DIR}}/dashboard.html` exists, rewrite `{{DOCS_DIR}}/dashboard-state.js` from
+what you just read, keeping the shape that is already in the file: `generated` (today),
+`project`, `prefix`, `kit_version`, `docs_dir`, `profile`, `wired`, `staleness_days`, and
+the arrays `roles` (`name` · `active` · `reason`), `commands` (`stage` · `command`),
+`items` (`id` · `task` · `tier` · `owner` · `depends` · `status`), `artifacts` (`file` ·
+`status` · `owner` · `last_reviewed`), and `budgets`.
+
+It is a generated project record, not a kit file — overwrite it whole rather than editing
+around the edges, and set `generated` to today so the page stops declaring itself stale.
+Never write a value you did not read from a file: the page inherits this kit's evidence
+rules, and a status page that states something nobody verified is the exact failure the
+rest of these documents exist to prevent.
+
 ## Output
 
 One table: area · finding · severity per `{{DOCS_DIR}}/process/04-quality-gates.md` ·

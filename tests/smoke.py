@@ -498,6 +498,73 @@ def test_hooks():
     shutil.rmtree(d, ignore_errors=True)
 
 
+def test_dashboard():
+    print("status page and its generated state")
+    d = fixture("next")
+    code, out = run([d, "DSH", "-y", "--scaffold-tests"])
+    check("exit 0", code == 0, out[-300:])
+    page = read(d, "docs/dashboard.html")
+    check("the page is installed", "SDLC_STATE" in page, page[:120])
+    check("the page carries no placeholders", "{{" not in page, page[:200])
+    raw = read(d, "docs/dashboard-state.js")
+    check("the state file is generated", raw.startswith("//") and "SDLC_STATE" in raw,
+          raw[:120])
+    try:
+        state = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except (ValueError, IndexError):
+        state = {}
+
+    # The page must agree with the files, not with the answers.
+    charter = read(d, "docs/project/charter.md")
+    roles = [r["name"] for r in state.get("roles", [])]
+    on_disk = sorted(f[:-3] for f in os.listdir(os.path.join(d, "docs", "roles"))
+                     if f.endswith(".md") and f != "README.md")
+    check("every role in the charter is in the state", sorted(roles) == on_disk,
+          "%s vs %s" % (sorted(roles), on_disk))
+    check("active roles match the charter's ticks",
+          sum(1 for r in state.get("roles", []) if r["active"]) ==
+          len(re.findall(r"^\| [a-z-]+ \| \u2611 \|", charter, re.M)),
+          str([r["name"] for r in state.get("roles", []) if r["active"]]))
+    check("check stages come from the charter",
+          sorted(c["stage"] for c in state.get("commands", [])) ==
+          sorted(re.findall(r"^\| `(checks\.[a-z0-9]+)` \|", charter, re.M)),
+          str([c["stage"] for c in state.get("commands", [])]))
+    check("artifact frontmatter is read",
+          any(a["file"] == "test-plan.md" and a["last_reviewed"]
+              for a in state.get("artifacts", [])), str(state.get("artifacts")))
+    check("the state records what was wired",
+          "CLAUDE.md" in state.get("harnesses", state.get("wired", [])),
+          str(state.get("wired")))
+    check("the state is dated today",
+          state.get("generated") == installer.today(), str(state.get("generated")))
+
+    # The state is a project record: an upgrade must not manage or replace it.
+    manifest = json.loads(read(d, ".ai-sdlc/manifest.json") or "{}")
+    files = manifest.get("files", {})
+    check("dashboard.html is upgrade-managed", "docs/dashboard.html" in files,
+          str(sorted(files)[:4]))
+    check("the state file is never upgrade-managed",
+          "docs/dashboard-state.js" not in files, str(sorted(files)[-4:]))
+    shutil.rmtree(d, ignore_errors=True)
+
+    # It must survive a project with nothing in it, and a compact install.
+    d = tempfile.mkdtemp(prefix="sdlc-dash-compact-")
+    run([d, "DSH", "-y", "--profile", "compact"])
+    raw = read(d, "docs/dashboard-state.js")
+    check("compact installs still get a status page",
+          os.path.exists(os.path.join(d, "docs", "dashboard.html")) and "SDLC_STATE" in raw,
+          raw[:80])
+    try:
+        state = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except (ValueError, IndexError):
+        state = {}
+    check("an empty backlog yields no items", state.get("items") == [],
+          str(state.get("items")))
+    check("the profile is recorded", state.get("profile") == "compact",
+          str(state.get("profile")))
+    shutil.rmtree(d, ignore_errors=True)
+
+
 def test_domain_detection():
     print("domain markers select project types")
     cases = [
@@ -744,6 +811,7 @@ def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
                  test_stack_adapters, test_harness_wiring, test_profiles, test_hooks,
+                 test_dashboard,
                  test_domain_detection,
                  test_role_and_skill_selection, test_profile, test_scaffolding,
                  test_multiselect_and_review, test_review_jump,

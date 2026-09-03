@@ -28,6 +28,21 @@ those stay as escalation, and **the full document wins wherever they disagree**.
 Read it on every Tier 1 and Tier 2 change. It is also the routing for agent tools that
 have no equivalent of Claude Code's model-invoked skills.
 
+## `dashboard.html` — the status page
+
+Open it from the filesystem; there is no server. It reads `dashboard-state.js`, which is
+generated from these files — the charter's roles and commands, the backlog rows, the
+frontmatter of every `project/` artifact — and shows what is open, what is stale, which
+roles nobody decided about, and which check stages have no command.
+
+**Read-only on purpose.** A page that could edit the charter would be a second source of
+truth, and every rule here depends on there being one. Where the page and a file disagree,
+the file is right and the page is the defect.
+
+Regenerate the state by re-running the installer or with `/sdlc-doctor`. The page shows
+its own generation date and flags itself when that date is past the charter's staleness
+window, because a confidently wrong status page is worse than none.
+
 ## `process/` — how work is done
 
 Portable standards. Identical in every project that installs this kit. Do not add

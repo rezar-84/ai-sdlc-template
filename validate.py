@@ -186,6 +186,41 @@ def card_fidelity(errors):
             errors.append("AGENTS.md no longer names %s as escalation" % rel)
 
 
+def dashboard_fidelity(errors):
+    """The status page restates the backlog's status values and reads the charter's role
+    and command tables. Like CARD.md it can drift from the standard it displays, and a
+    status page that is confidently wrong is the failure this kit exists to prevent."""
+    page = ROOT / "template" / "docs" / "dashboard.html"
+    if not page.is_file():
+        errors.append("template/docs/dashboard.html is missing")
+        return
+    html = page.read_text(encoding="utf-8")
+    trace = (ROOT / "template" / "docs" / "process" / "07-traceability.md").read_text(
+        encoding="utf-8")
+
+    # Only the Status values table defines statuses; 07 has other tables of bold terms.
+    section = trace.split("### Status values", 1)[-1].split("\n## ", 1)[0].split("\n### ", 1)[0]
+    statuses = set(re.findall(r"^\| \*\*([A-Z][a-z ]+)\*\* \|", section, re.M))
+    if not statuses:
+        errors.append("07-traceability.md no longer has a parseable Status values table")
+    declared = set(re.findall(r'"([A-Z][a-z]+(?: [a-z]+)?)":\s*"b?-?[a-z-]*"', html))
+    for status in sorted(declared - statuses):
+        errors.append("dashboard.html knows backlog status %r, absent from "
+                      "07-traceability.md" % status)
+    for status in sorted(statuses):
+        if status not in html:
+            errors.append("dashboard.html does not handle backlog status %r" % status)
+
+    if "dashboard-state.js" not in html:
+        errors.append("dashboard.html no longer loads its state file")
+    for marker in ("staleness_days", "SDLC_STATE", "AGENTS.md"):
+        if marker not in html:
+            errors.append("dashboard.html no longer references %s" % marker)
+    if "contenteditable" in html or "<form" in html:
+        errors.append("dashboard.html must stay read-only: it is not a second source of "
+                      "truth for the charter")
+
+
 def reading_budget(errors):
     """AGENTS.md quotes the size of the docs tree so an agent can bound its reading.
     The figure is load-bearing and nothing keeps it honest, so measure it. Four
@@ -276,6 +311,7 @@ def main():
 
     cross_references(errors)
     card_fidelity(errors)
+    dashboard_fidelity(errors)
     reading_budget(errors)
 
     if errors:

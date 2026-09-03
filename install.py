@@ -32,6 +32,7 @@ SRC = Path(__file__).resolve().parent
 VERSION = (SRC / "VERSION").read_text(encoding="utf-8").strip()
 MANIFEST_REL = Path(".ai-sdlc") / "manifest.json"
 PROFILE_REL = Path(".ai-sdlc") / "profile.json"
+STATE_REL = "dashboard-state.js"
 
 # Writing direction is derived from the language tag, never asked: a project that lists
 # `fa` is right-to-left whether or not anyone remembered to say so.
@@ -2056,7 +2057,7 @@ def installed_profile(target):
 def managed_source_texts(target, docs, ctx, profile="full"):
     """Return portable kit-owned destination paths and their rendered content."""
     planned = {}
-    for name in ("README.md", "CARD.md"):
+    for name in ("README.md", "CARD.md", "dashboard.html"):
         src = SRC / "template" / "docs" / name
         planned[str(Path(docs) / name)] = substitute(src.read_text(encoding="utf-8"), ctx)
     for sub in ("process", "roles", "templates"):
@@ -2110,7 +2111,8 @@ def is_managed_rel(rel, docs):
         return False
     prefixes = ((str(docs), "process"), (str(docs), "roles"),
                 (str(docs), "templates"), (".claude", "skills"))
-    return path.parts in ((str(docs), "README.md"), (str(docs), "CARD.md")) or any(
+    return path.parts in ((str(docs), "README.md"), (str(docs), "CARD.md"),
+                          (str(docs), "dashboard.html")) or any(
         path.parts[:2] == prefix for prefix in prefixes)
 
 
@@ -2417,6 +2419,101 @@ class Installer(object):
         print("  %s .claude/settings.json (%d hook%s)"
               % ("merge         " if added else "unchanged     ", added,
                  "" if added == 1 else "s"))
+
+    # -- the dashboard's state ------------------------------------------------
+    def read_installed(self, rel):
+        path = self.target / self.docs / rel
+        try:
+            return path.read_text(encoding="utf-8", errors="replace")
+        except (IOError, OSError):
+            return ""
+
+    def dashboard_state(self):
+        """Read the installed files back and describe them. Deliberately derived from the
+        files rather than from the answers: the answers were true at install time, the
+        files are true now, and a status page that reports the wrong one is worse than no
+        status page."""
+        charter = self.read_installed("project/charter.md")
+        state = {
+            "generated": today(),
+            "project": self.ctx.get("PROJECT_NAME", ""),
+            "prefix": self.ctx.get("PREFIX", ""),
+            "kit_version": VERSION,
+            "docs_dir": self.docs,
+            "profile": self.o.profile,
+            "wired": sorted(self.wired),
+            "staleness_days": 90,
+            "roles": [], "commands": [], "items": [], "artifacts": [], "budgets": [],
+        }
+
+        m = re.search(r"^\| \*\*Staleness threshold\*\* \| ([^|]*)\|", charter, re.M)
+        if m:
+            n = re.search(r"(\d+)", m.group(1))
+            if n:
+                state["staleness_days"] = int(n.group(1))
+
+        for name, tick, active_if, reason in re.findall(
+                r"^\| ([a-z][a-z-]+) \| ([\u2611\u2610]) \|([^|]*)\|([^|]*)\|", charter, re.M):
+            state["roles"].append({"name": name, "active": tick == "\u2611",
+                                   "reason": plain_text(reason).strip()})
+
+        for stage, command in re.findall(r"^\| `(checks\.[a-z0-9]+)` \|([^|]*)\|",
+                                         charter, re.M):
+            value = plain_text(command).strip()
+            if value.startswith("_(") or value.endswith(")_"):
+                value = ""
+            state["commands"].append({"stage": stage, "command": value})
+
+        for what, budget, method, baseline in re.findall(
+                r"^\|([^|]+)\|([^|]*)\|([^|]*)\|([^|]*)\|$", charter, re.M):
+            cells = [plain_text(c).strip() for c in (what, budget, method, baseline)]
+            if cells[0].startswith("_(e.g.") and any(cells[1:]):
+                state["budgets"].append(dict(zip(("what", "budget", "method", "baseline"),
+                                                 cells)))
+
+        prefix = self.ctx.get("PREFIX", "")
+        row = re.compile(r"^\| (%s-\d+) \|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|"
+                         % re.escape(prefix)) if prefix else None
+        if row:
+            for line in self.read_installed("project/backlog.md").splitlines():
+                m = row.match(line)
+                if not m:
+                    continue
+                cells = [plain_text(c).strip() for c in m.groups()]
+                state["items"].append(dict(zip(
+                    ("id", "task", "tier", "owner", "depends", "status"), cells)))
+
+        base = self.target / self.docs / "project"
+        if base.is_dir():
+            for path in sorted(base.glob("*.md")):
+                text = path.read_text(encoding="utf-8", errors="replace")
+                if not text.startswith("---"):
+                    continue
+                head = text.split("---", 2)[1] if text.count("---") >= 2 else ""
+                def field(key):
+                    m = re.search(r"^%s:\s*(.*)$" % key, head, re.M)
+                    return plain_text(m.group(1)).strip().strip('"') if m else ""
+                state["artifacts"].append({
+                    "file": path.name, "status": field("status"),
+                    "owner": field("owner"), "last_reviewed": field("last-reviewed")})
+        return state
+
+    def write_dashboard_state(self):
+        rel = "%s/%s" % (self.docs, STATE_REL)
+        if self.o.dry_run:
+            print("  would add      %s" % rel)
+            return
+        dest = ensure_inside(self.target, self.target / self.docs / STATE_REL)
+        if not (self.target / self.docs / "dashboard.html").exists():
+            return
+        payload = json.dumps(self.dashboard_state(), indent=2, sort_keys=True)
+        atomic_write_text(dest,
+                          "// Generated from the installed files on %s. Regenerate with the\n"
+                          "// installer or /sdlc-doctor -- a stale status page is worse than\n"
+                          "// none, and dashboard.html says so when this date is old.\n"
+                          "// This is a project record, not a kit file: it is not upgraded.\n"
+                          "window.SDLC_STATE = %s;\n" % (today(), payload))
+        print("  %s         %s" % ("write ", rel))
 
     def note_profile(self):
         """A reader must be able to tell a deliberate absence from a broken install."""
@@ -3154,6 +3251,7 @@ def main(argv):
         inst.scaffold()
         inst.install_hooks()
         inst.record_manifest()
+        inst.write_dashboard_state()
         inst.write_profile()
     except (IOError, OSError, RuntimeError) as exc:
         sys.stderr.write("error: installation failed: %s\n" % exc)
