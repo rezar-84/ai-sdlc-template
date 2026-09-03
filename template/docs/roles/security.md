@@ -100,6 +100,40 @@ diff, and the actual enforcement points in the code.
       grant and revoke, export, deletion, impersonation. Audit records are
       append-only in practice.
 
+**Supply chain**
+- [ ] Dependencies are pinned and the lockfile is committed and integrity-checked. A
+      floating version is code you have not reviewed entering on someone else's schedule.
+- [ ] A new dependency was assessed before it was added: maintenance, ownership,
+      install-time scripts, transitive weight, and whether the repository already has
+      something that does this.
+- [ ] Build and CI trust is bounded: third-party actions and images are pinned to a
+      digest, secrets are not exposed to jobs triggered by untrusted contributors, and no
+      build step fetches an unpinned artifact at runtime.
+- [ ] Base images and toolchains have a stated update path. "Currently unpatched" is a
+      finding; "no way to tell" is a worse one.
+
+**AI, model, and agent surfaces** — apply this block where the project has one:
+- [ ] **All model input is untrusted, including retrieved content.** A document in the
+      index, a scraped page, a user file, a tool result, and an email body can all carry
+      instructions. Trust is decided by the calling code, never by the model reading text
+      that asks to be trusted.
+- [ ] Privilege lives outside the model. Tool permissions are the minimum for the task,
+      are enforced by the caller, and are not expandable by anything the model outputs.
+      A model choosing its own authorisation is not a control.
+- [ ] Destructive, financial, or outward-facing actions require a human, and the path a
+      crafted input takes to reach one is traced explicitly.
+- [ ] The output is treated as untrusted data by whatever consumes it: no `eval`, no
+      shell interpolation, no unescaped rendering, no SQL built from it.
+- [ ] Nothing crosses a tenant or user boundary through retrieval. An index that mixes
+      tenants leaks by design, and the filter must be enforced at the query, not by
+      instruction.
+- [ ] The corpus is an attack surface: who can write into what gets indexed, and what
+      stops a poisoned document from changing behaviour for every user.
+- [ ] Secrets never enter prompts, traces, or evaluation fixtures. Traces are logs, and
+      everything above about logs applies to them unchanged.
+- [ ] Exfiltration paths are considered: an output that can cause a request, render an
+      image, or write to a log is a channel out.
+
 ## Ship-review checklist
 
 - [ ] Read the actual enforcement code — do not accept that a middleware "handles it"
@@ -126,9 +160,18 @@ in this table is below S1, which is why this role is never switched off.
 | Identity or entitlement derived from client-controllable input | S0 — a user can help themselves today |
 | Authorisation enforced only in the interface, not on the object | S0 — the API is the real surface |
 | Unparameterised query or command construction from user input | S0 — nothing stands between it and an attacker who chooses to |
+| Retrieval or a tool crossing a tenant or user boundary — an index that mixes tenants, a tool that can read another's data | S0 — the exposure exists now |
+| Model output reaching `eval`, a shell, a query builder, or unescaped rendering | S0 |
+| A model able to trigger a destructive, financial, or outward-facing action, on a path a crafted input can reach, with no human | S0 |
 | A known-vulnerable dependency in a reachable path with no compensating control | S1 |
 | Authentication or session handling weakened for convenience | S1 |
 | A security check disabled to make a test or build pass | S1 |
+| Tool or agent permissions wider than the task, or expandable by model output | S1 |
+| Retrieved or user-supplied content treated as instruction rather than as data | S1 |
+| Secrets present in prompts, traces, or evaluation fixtures | S1 — as with any log, treat the leak as having happened |
+| Writeable corpus with no control on what gets indexed | S2 |
+| Unpinned third-party build action, image, or runtime-fetched build artifact | S2 |
+| A floating dependency version, or a lockfile absent or unverified | S2 |
 
 ---
 

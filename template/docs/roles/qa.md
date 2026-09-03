@@ -76,6 +76,34 @@ the running system.
 
 ---
 
+## Testing something that does not give the same answer twice
+
+Where the output is probabilistic — a model, a ranker, a distributed timing, a
+concurrent path — the usual "assert the value" strategy silently stops working. It does
+not become untestable; it becomes tested differently.
+
+- [ ] Assert **properties and invariants**, not exact outputs: the shape validates, the
+      value is in the allowed set, required fields are grounded in the input, forbidden
+      content is absent, the total still reconciles.
+- [ ] Assert **rates over N**, not single runs, wherever the result varies. One passing
+      run of a variable system is a sample, and reporting it as a result is the failure
+      this section exists to prevent (`../process/06-evidence-and-claims.md`).
+- [ ] Pin what can be pinned — seed, temperature, version, clock, ordering — so the test
+      isolates the change rather than the weather.
+- [ ] **A flaky test is a defect with a measured failure rate.** Characterise it: how
+      often, on which input, since when. Re-running until green destroys the only
+      evidence there was, and a quarantined test needs a tracked ID and a deadline.
+- [ ] Scored suites are not pass/fail gates on their own. They report *Measured* against
+      a baseline; `../process/09-probabilistic-and-data-systems.md` §3 governs the
+      comparison.
+- [ ] Across a service boundary, contract tests are run by **both** sides. A provider
+      test that the consumer never runs proves the provider agrees with itself.
+- [ ] Pipeline and dataset tests use synthetic fixtures with the awkward cases built in —
+      late records, duplicates, nulls, a shape change — and never a copy of production
+      data taken without approval and controls.
+
+---
+
 ## Severity calibration
 
 | Finding | Sev |
@@ -84,6 +112,9 @@ the running system.
 | A test modified, skipped, or weakened to make this change pass, outside a separately reviewed decision | S1 |
 | A check disabled or bypassed | S1 |
 | An acceptance criterion not met, and the work being called done | S1 |
+| A single run of a non-deterministic system reported as a result | S1 — it is a sample presented as a property |
+| A flaky test re-run until green instead of characterised | S2 |
+| A contract test run by only one side of the boundary | S2 |
 | A known defect shipped with no record of it | S2 |
 | A stage the charter names, not run, with no reason given | S2 |
 | A test that passes with the feature deleted | S2 |

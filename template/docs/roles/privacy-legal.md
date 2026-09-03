@@ -106,6 +106,40 @@ data categories), the data inventory, and the change.
 
 ---
 
+## Acquired data, models, and generated output
+
+Apply this block where the project acquires data it did not create, or sends data to a
+model — including a third-party API.
+
+- [ ] **Permission precedes collection.** Terms of service, robots directives, licence,
+      and rate limits are checked and recorded before a fetcher is written. Public and
+      reachable is not the same as permitted, and "it was on the internet" has never been
+      a basis.
+- [ ] Personal data does not become impersonal by being public. Scraped personal data
+      carries every obligation that collected personal data does, including the ones the
+      person was never given a chance to exercise.
+- [ ] Provenance per record — source, date, and terms — exists for anything published,
+      sold, or trained on. Data whose origin nobody can state cannot be defended.
+- [ ] Sending data to a third-party model is a disclosure to a processor: there is a
+      recorded basis, a contract, and a stated position on whether the provider may
+      retain or train on it. Absence of a prohibition is not permission.
+- [ ] Prompts, completions, traces, and embeddings are records with a retention period
+      and a deletion path. **Embeddings of personal data are personal data**, and a
+      deletion that does not reach the index has not happened.
+- [ ] The right to erasure reaches derived copies: caches, exports, backups policy,
+      search indexes, embeddings, and evaluation fixtures.
+- [ ] Rights to train or fine-tune on a dataset are established before the work, not
+      after the model exists.
+- [ ] Generated output shown to a user is disclosed as generated where the domain,
+      the charter, or the law requires it — and generated text making a factual, medical,
+      financial, or legal claim is reviewed by a person before it is published
+      (`../process/06-evidence-and-claims.md`).
+- [ ] Automated decisions about people carry whatever explanation, contest, or human
+      review the applicable regime requires. "The model decided" is not an answer to a
+      person asking why.
+
+---
+
 ## Severity calibration
 
 This role owns **consent** and **licensing** wherever they appear, including on surfaces
@@ -116,7 +150,12 @@ another role is reviewing.
 | Special-category or children's data handled without its heightened requirements | S0 |
 | Personal data collected or shared with no stated basis and no notice | S1 |
 | Tracking that fires before, or despite, refused consent where consent is required | S1 |
-| A deletion promise the system cannot honour | S1 |
+| A deletion promise the system cannot honour | S1 — including one that stops before the index, the embeddings, or the exports |
+| Personal, regulated, or customer data sent to a third-party model with no recorded basis | S1 |
+| Data acquired before its terms, licence, or robots position was checked | S1 |
+| Training or fine-tuning on data without established rights to do so | S1 |
+| Published or acted-on data whose provenance nobody can state | S2 |
+| Generated content presented as human-authored where disclosure is required | S2 |
 | A third-party asset — font, image, code, data — used without a licence permitting this use | S1 |
 | A privacy notice or terms document that contradicts what the system actually does | S2 |
 | An unsubstantiated factual claim about the business, its results, or its credentials | S2 — S1 where a regulator or a court would read it as a representation |

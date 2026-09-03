@@ -59,6 +59,33 @@ the constraints are not met.
 - [ ] Growth is considered: what breaks at 10× the data, users, or request rate — and
       is that far enough away to be someone else's problem, deliberately?
 
+**Across a service or process boundary** — apply this block when the change crosses one:
+work handed to a queue, a broker, a scheduler, another service, or a workflow engine.
+- [ ] The delivery guarantee is named and designed for. At-least-once is the default
+      assumption unless something proves otherwise, which means every consumer is
+      idempotent — by natural key, by dedupe store, or by a conditional write. "Exactly
+      once" as an end-to-end property is a marketing phrase, not an architecture.
+- [ ] Ordering requirements are stated. If order matters, what enforces it, and what
+      happens to throughput because of it. If it does not matter, say so, because the
+      next reader will assume it does.
+- [ ] A message that cannot be processed has somewhere to go and someone to look at it.
+      A dead-letter queue nobody monitors is a data-loss mechanism with a reassuring name.
+- [ ] Retry and redelivery are bounded, and a poison message cannot block the partition
+      or the queue behind it forever.
+- [ ] The event or message schema evolves additively, is versioned, and old and new
+      consumers can run at the same time — because during a deploy they will.
+- [ ] A multi-step operation across services states what happens when step 3 of 5 fails:
+      compensation, a saga, or an accepted inconsistency with a stated reconciliation.
+      Distributed transactions that assume rollback do not exist.
+- [ ] Backpressure exists. A producer faster than its consumer either blocks, sheds, or
+      fills something unbounded — and the third is the one nobody chose deliberately.
+- [ ] Each service owns its data. A second service reaching into another's datastore is
+      a boundary violation regardless of how convenient the credentials are.
+- [ ] A correlation identifier crosses every hop, or nothing can be traced when it fails
+      (`devops-sre`).
+- [ ] The failure of any one participant is survivable: state what degrades, what stops,
+      and whether the system is still correct in that state.
+
 **Change cost**
 - [ ] The decision is reversible, or its irreversibility is acknowledged in an ADR.
 - [ ] Contracts that others depend on are versioned or additive.
@@ -79,6 +106,22 @@ the constraints are not met.
 - [ ] New dependencies are pinned, licensed compatibly, and noted in the worklog with
       the reason.
 
+**Clean code — reviewable, not a matter of taste.** Each of these is a finding with a
+location and a consequence, or it is not raised:
+- [ ] No duplicated logic that must now be changed in two places to stay correct. Two
+      similar-looking blocks that will diverge for different reasons are not duplication;
+      say which case this is.
+- [ ] No abstraction introduced for a second implementation that does not exist. An
+      interface with one implementer is indirection, and it costs every future reader.
+- [ ] Names say what the thing is or does. A name that requires reading the body to
+      understand is a defect the reader pays for repeatedly.
+- [ ] Nothing dead: unused code, commented-out blocks, unreachable branches, flags with
+      one value, or a stub that pretends to work. Delete it — history keeps it.
+- [ ] A function or module does one thing at one level of abstraction. Where a reviewer
+      cannot state what it does in a sentence, that is the finding.
+- [ ] Conditional depth and special-case count are not growing without a reason. The
+      fifth flag on a function is a design problem being paid in `if` statements.
+
 ---
 
 ## Severity calibration
@@ -88,7 +131,15 @@ the constraints are not met.
 | Silent data loss or corruption on any partial-failure path | S1 — S0 kind, gated behind a failure that has not happened |
 | A retry loop that can amplify an outage into total unavailability | S1 |
 | An external call with no timeout on a critical path | S1 |
+| A non-idempotent consumer of an at-least-once delivery | S1 — duplicates are not a possibility, they are a schedule |
+| An unmonitored dead-letter queue, or messages that can be dropped with no record | S1 |
+| A breaking event or message schema change that old and new consumers cannot straddle | S1 |
+| Unbounded buffering between a fast producer and a slow consumer | S2 |
+| A service reading or writing another service's datastore directly | S2 |
 | A data model that makes a required future change impossible without migrating everything | S2 |
+| Duplicated logic that must now be changed in two places to stay correct | S3 |
+| An abstraction with one implementation, added for a second that does not exist | S3 |
+| Dead code, a commented-out block, or a stub that pretends to work | S3 |
 | A dependency cycle, or a boundary violation that will spread once merged | S2 |
 | Business logic made untestable by where it was placed | S2 |
 | A material decision made with no ADR, where a later reader could not reconstruct why | S3 |
