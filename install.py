@@ -277,6 +277,12 @@ USAGE = """usage: install.sh <target-project-dir> [PREFIX] [options]
   --scaffold-tests   create a detected project test plan and machine-readable profile
   --scaffold-ci <provider>
                      create CI for github or gitlab from detected quality commands
+  --profile <name>   full (default) or compact. compact installs the operating card,
+                     roles, templates and project records but omits the numbered
+                     process/ documents: the same rules from one source, about 8k of
+                     reading for a Tier 2 change instead of 22k. For a small context
+                     window or a weaker model. A Tier 1 change then has no escalation
+                     document to appeal to, so choose it deliberately.
   --harness <list>   comma-separated agent tools to wire up (default: claude). One of
                      claude, gemini, amp, copilot, cursor, windsurf, cline, aider, or
                      "all". Each gets a pointer file naming AGENTS.md; an instruction
@@ -305,6 +311,7 @@ class Options(object):
         self.create = False
         self.dry_run = False
         self.harnesses = []
+        self.profile = "full"
         self.lang = "en"
 
 
@@ -344,6 +351,12 @@ def parse_args(argv):
                 sys.stderr.write("--scaffold-ci requires github or gitlab\n")
                 usage()
             o.scaffold_ci = argv[i + 1]
+            i += 1
+        elif arg == "--profile":
+            if i + 1 >= len(argv) or argv[i + 1] not in ("full", "compact"):
+                sys.stderr.write("--profile requires full or compact\n")
+                usage()
+            o.profile = argv[i + 1]
             i += 1
         elif arg == "--harness":
             if i + 1 >= len(argv):
@@ -1329,7 +1342,7 @@ class Wizard(object):
         if not self.target:
             return ""
         for name in (self.o.docs_dir, "docs", "sdlc-docs"):
-            if (self.target / name / "process" / "00-operating-model.md").exists():
+            if is_docs_root(self.target / name):
                 return name
         return ""
 
@@ -2017,7 +2030,22 @@ def atomic_write_text(path, text):
     atomic_write_bytes(path, text.encode("utf-8"))
 
 
-def managed_source_texts(target, docs, ctx):
+def installed_profile(target):
+    """Which profile this project was installed with. An upgrade must not quietly
+    convert a compact install to a full one by restoring documents it deliberately
+    does not have."""
+    path = Path(target) / PROFILE_REL
+    if not path.exists():
+        return "full"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (IOError, OSError, ValueError):
+        return "full"
+    value = data.get("profile") if isinstance(data, dict) else None
+    return value if value in ("full", "compact") else "full"
+
+
+def managed_source_texts(target, docs, ctx, profile="full"):
     """Return portable kit-owned destination paths and their rendered content."""
     planned = {}
     for name in ("README.md", "CARD.md"):
@@ -2026,9 +2054,12 @@ def managed_source_texts(target, docs, ctx):
     for sub in ("process", "roles", "templates"):
         base = SRC / "template" / "docs" / sub
         for src in sorted(base.rglob("*")):
-            if src.is_file():
-                rel = Path(docs) / sub / src.relative_to(base)
-                planned[str(rel)] = substitute(src.read_text(encoding="utf-8"), ctx)
+            if not src.is_file():
+                continue
+            if profile == "compact" and sub == "process" and re.match(r"^[0-9]{2}-", src.name):
+                continue
+            rel = Path(docs) / sub / src.relative_to(base)
+            planned[str(rel)] = substitute(src.read_text(encoding="utf-8"), ctx)
     skills_root = Path(target) / ".claude" / "skills"
     if skills_root.is_dir():
         for base in sorted((SRC / "optional" / "skills").iterdir()):
@@ -2179,6 +2210,22 @@ class Installer(object):
         if not self.ctx["PREFIX"]:
             del self.ctx["PREFIX"]
 
+    def doc_sources(self):
+        """Which of the portable tree this profile installs. compact keeps the card and
+        drops the numbered standards it summarises — one source for every rule either
+        way, never a second copy written in shorter words."""
+        root = SRC / "template" / "docs"
+        paths = sorted(p for p in root.rglob("*") if p.is_file())
+        if self.o.profile != "compact":
+            return paths
+        keep = []
+        for path in paths:
+            parts = path.relative_to(root).parts
+            if parts[0] == "process" and re.match(r"^[0-9]{2}-", parts[-1]):
+                continue
+            keep.append(path)
+        return keep
+
     def rel(self, dest):
         try:
             return str(Path(dest).relative_to(self.target))
@@ -2249,7 +2296,7 @@ class Installer(object):
         candidates = [self.target / "AGENTS.md", self.target / "CLAUDE.md",
                       self.target / MANIFEST_REL]
         candidates.extend(self.target / self.docs / path.relative_to(SRC / "template" / "docs")
-                          for path in (SRC / "template" / "docs").rglob("*") if path.is_file())
+                          for path in self.doc_sources())
         if w.a.get("commands", True):
             candidates.extend(self.target / ".claude" / "commands" / path.name
                               for path in (SRC / "optional" / "claude-commands").glob("*.md"))
@@ -2272,10 +2319,9 @@ class Installer(object):
         if not self.o.dry_run:
             self.target.mkdir(parents=True, exist_ok=True)
         self.install_file(SRC / "template" / "AGENTS.md", self.target / "AGENTS.md")
-        for path in sorted((SRC / "template" / "docs").rglob("*")):
-            if path.is_file():
-                rel = path.relative_to(SRC / "template" / "docs")
-                self.install_file(path, self.target / self.docs / rel)
+        for path in self.doc_sources():
+            self.install_file(path, self.target / self.docs
+                              / path.relative_to(SRC / "template" / "docs"))
         if w.a.get("commands", True):
             for path in sorted((SRC / "optional" / "claude-commands").glob("*.md")):
                 self.install_file(path, self.target / ".claude" / "commands" / path.name)
@@ -2287,7 +2333,24 @@ class Installer(object):
                     self.install_file(path, self.target / ".claude" / "skills" / name
                                       / path.relative_to(base))
         self.wire_harnesses()
+        self.note_profile()
         return skills
+
+    COMPACT_NOTE = (
+        "\n---\n\n**This project uses the compact profile.** The numbered documents in\n"
+        "`process/` that this card summarises are deliberately not installed, so an\n"
+        "escalation named above has nothing to open. That is *Absent*, not missing: the\n"
+        "card is the whole standard here. If a Tier 1 change genuinely needs the full\n"
+        "text, re-install with `--profile full`, which adds the documents and changes\n"
+        "no rule.\n")
+
+    def note_profile(self):
+        """A reader must be able to tell a deliberate absence from a broken install."""
+        if self.o.profile != "compact" or self.o.dry_run:
+            return
+        rel = "%s/CARD.md" % self.docs
+        if rel in self.fresh:
+            self.edit(rel, lambda text: text + self.COMPACT_NOTE)
 
     POINTER = ("Read and follow `AGENTS.md` in this directory. It is the operating "
                "contract for this repository and it takes precedence over habit.")
@@ -2364,6 +2427,7 @@ class Installer(object):
             "skills": w.chosen_skills(),
             "commands": self.selected_commands(),
             "budgets": {},
+            "profile": self.o.profile,
             "harnesses": sorted(self.wired),
             "platform": w.a.get("platform", "") if w.a.get("platform", "none") != "none" else "",
             "detected": {
@@ -2509,7 +2573,7 @@ class Installer(object):
         """Record only portable files that exactly match this kit's rendered source."""
         if self.o.dry_run or (self.target / MANIFEST_REL).exists():
             return
-        planned = managed_source_texts(self.target, self.docs, self.ctx)
+        planned = managed_source_texts(self.target, self.docs, self.ctx, self.o.profile)
         owned = {}
         for rel, expected in planned.items():
             path = self.target / rel
@@ -2697,6 +2761,14 @@ def refresh_profile(target):
         pass
 
 
+def is_docs_root(path):
+    """A compact install has no numbered process documents, so the marker cannot be one
+    of them: CARD.md is present in every profile and README.md in every version."""
+    return ((path / "process" / "00-operating-model.md").exists()
+            or (path / "CARD.md").exists()
+            or (path / "roles" / "README.md").exists())
+
+
 def find_docs(target, preferred):
     names = [preferred]
     manifest = load_manifest(target)
@@ -2704,7 +2776,7 @@ def find_docs(target, preferred):
         names.append(manifest["docs_dir"])
     names.extend(("docs", "sdlc-docs"))
     for name in names:
-        if (target / name / "process" / "00-operating-model.md").exists():
+        if is_docs_root(target / name):
             return name
     return ""
 
@@ -2712,8 +2784,8 @@ def find_docs(target, preferred):
 def upgrade(target, o):
     docs = find_docs(target, o.docs_dir)
     if not docs:
-        sys.stderr.write("error: %s/%s/process does not exist -- nothing to upgrade.\n"
-                         % (target, o.docs_dir))
+        sys.stderr.write("error: no installed kit found under %s/%s -- nothing to "
+                         "upgrade.\n" % (target, o.docs_dir))
         sys.stderr.write("       Run without --upgrade to install for the first time.\n")
         return 1
     prefix = o.prefix
@@ -2739,7 +2811,10 @@ def upgrade(target, o):
 
     previous = load_manifest(target)
     previous_files = previous.get("files", {}) if previous else {}
-    planned = managed_source_texts(target, docs, inst.ctx)
+    o.profile = installed_profile(target)
+    planned = managed_source_texts(target, docs, inst.ctx, o.profile)
+    if o.profile == "compact":
+        print("Compact profile: the numbered process/ documents stay uninstalled.")
     try:
         for rel in list(planned) + list(previous_files) + [str(MANIFEST_REL)]:
             if rel != str(MANIFEST_REL) and not is_managed_rel(rel, docs):

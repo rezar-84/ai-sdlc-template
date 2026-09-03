@@ -396,6 +396,49 @@ def test_harness_wiring():
     check("an unknown harness is rejected", code != 0 and "unknown harness" in out, out[-200:])
 
 
+def test_profiles():
+    print("documentation profiles")
+    d = tempfile.mkdtemp(prefix="sdlc-profile-compact-")
+    code, out = run([d, "CMP", "-y", "--profile", "compact"])
+    check("exit 0", code == 0, out[-300:])
+    check("the card is installed", "Operating card" in read(d, "docs/CARD.md"))
+    check("numbered process documents are omitted",
+          not os.path.exists(os.path.join(d, "docs", "process")) or
+          not [f for f in os.listdir(os.path.join(d, "docs", "process")) if f[:2].isdigit()],
+          str(os.listdir(os.path.join(d, "docs"))))
+    check("roles and templates survive",
+          os.path.isdir(os.path.join(d, "docs", "roles")) and
+          os.path.isdir(os.path.join(d, "docs", "templates")))
+    check("the card says the absence is deliberate",
+          "compact profile" in read(d, "docs/CARD.md"), read(d, "docs/CARD.md")[-200:])
+    profile = json.loads(read(d, ".ai-sdlc/profile.json") or "{}")
+    check("profile.json records it", profile.get("profile") == "compact",
+          str(profile.get("profile")))
+
+    # An upgrade must find a compact install, and must not silently make it full.
+    code, out = run([d, "CMP", "--upgrade"])
+    check("compact installs can be upgraded", code == 0 and "nothing to upgrade" not in out,
+          out[-300:])
+    check("upgrade does not restore the omitted documents",
+          not [f for f in os.listdir(os.path.join(d, "docs", "process"))
+               if f[:2].isdigit()] if os.path.isdir(os.path.join(d, "docs", "process"))
+          else True, out[-300:])
+    shutil.rmtree(d, ignore_errors=True)
+
+    d = tempfile.mkdtemp(prefix="sdlc-profile-full-")
+    code, out = run([d, "FUL", "-y"])
+    check("full is the default", os.path.exists(
+        os.path.join(d, "docs", "process", "00-operating-model.md")), out[-300:])
+    check("full installs the card too", os.path.exists(os.path.join(d, "docs", "CARD.md")))
+    check("full card carries no compact note",
+          "compact profile" not in read(d, "docs/CARD.md"))
+    shutil.rmtree(d, ignore_errors=True)
+
+    code, out = run(["/tmp/sdlc-nonexistent-profile", "PRF", "-y", "--profile", "tiny"])
+    check("an unknown profile is rejected", code != 0 and "full or compact" in out,
+          out[-200:])
+
+
 def test_domain_detection():
     print("domain markers select project types")
     cases = [
@@ -641,7 +684,8 @@ def test_architecture():
 def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
-                 test_stack_adapters, test_harness_wiring, test_domain_detection,
+                 test_stack_adapters, test_harness_wiring, test_profiles,
+                 test_domain_detection,
                  test_role_and_skill_selection, test_profile, test_scaffolding,
                  test_multiselect_and_review, test_review_jump,
                  test_quit_writes_nothing,

@@ -120,6 +120,16 @@ platforms").
 | **Platform instruction file** | _(where the platform's own agent reads its instructions — e.g. `replit.md`, Lovable project knowledge — and whether it points at `AGENTS.md` so the two contracts cannot diverge)_ |
 | **Deploys** | _(e.g. "published from the platform UI" — if so, the release runbook documents the platform's publish and rollback affordances, not a deploy command)_ |
 
+## Agent environment
+
+**Authoritative.** What the installed reading list assumes about the agent reading it.
+
+| | |
+| --- | --- |
+| **Documentation profile** | _(full / compact — compact omits the numbered `process/` documents that `../CARD.md` summarises)_ |
+| **Minimum context window** | _(a Tier 2 change reads roughly 17k tokens on the compact profile and 23k on full, before any code. Say what the smallest model used here can hold, so nobody plans a Tier 1 review that will not fit)_ |
+| **Agent tools in use** | _(which instruction files must point at `AGENTS.md` — `.ai-sdlc/profile.json` records what the installer wired)_ |
+
 ## Concurrency
 
 **Authoritative.** Blank is *Unknown*, and an agent may not assume it is working alone.
