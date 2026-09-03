@@ -75,10 +75,21 @@ diff, and the actual enforcement points in the code.
       exist in a development environment.
 
 **Sessions and accounts**
-- [ ] Session tokens are unguessable, transport-secured, scoped, expiring, and revocable.
-- [ ] Privilege changes and sign-out invalidate existing sessions.
-- [ ] Authentication endpoints are rate-limited; enumeration is prevented by identical
-      responses and timing for existing and non-existing accounts.
+- [ ] Authentication mechanism and MFA policy match the project charter's **Standards &
+      targets** (`MFA / OTP policy` and `Access level model`). **Never force MFA/OTP**
+      if the charter declares it `Not required` or `Optional`.
+- [ ] Authorisation matches the declared Access Level Model (Public, Simple, RBAC,
+      Workspace-scoped, ABAC) and is enforced server-side / in the data store — never only
+      by hiding UI affordances.
+- [ ] Session tokens are unguessable, transport-secured (HTTPS, Secure/HttpOnly/SameSite
+      cookies or Bearer tokens), scoped, expiring, and revocable.
+- [ ] Privilege changes, password resets, and sign-out invalidate existing sessions.
+- [ ] Authentication endpoints are rate-limited to mitigate brute-force and credential
+      stuffing; enumeration is prevented by identical responses and timing for existing
+      and non-existing accounts.
+- [ ] CSRF and CORS protections match the session mechanism: state-changing cookie routes
+      require SameSite/CSRF tokens; CORS origins are explicitly restricted (no `*` with
+      credentials).
 - [ ] Password and recovery flows follow current guidance; recovery cannot be used to
       take over an account.
 - [ ] Any impersonation or support-access feature is explicitly authorised, time-bound,

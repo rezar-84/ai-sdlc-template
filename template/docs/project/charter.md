@@ -242,6 +242,9 @@ here, in the shape of a role playbook: mission, engage when, reads, what it chec
 
 | | |
 | --- | --- |
+| **Access level model** | `None (Public)` · `Simple Owner/User` · `Role-Based (RBAC)` · `Multi-tenant Workspace-Scoped` · `ABAC/ReBAC` |
+| **MFA / OTP policy** | `Not required` · `Optional / User-enabled` · `Enforced for Admin/Privileged only` · `Enforced for all users` |
+| **Session & Token policy** | _(lifetime, revocation mechanism, cookie SameSite/Secure or Bearer token)_ |
 | **Accessibility target** | _(e.g. WCAG 2.2 AA, or "not applicable — no interface")_ |
 | **Assistive technologies supported** | _(the screen reader / browser pairs actually tested against, or "none tested" — which is a gap, not a neutral state)_ |
 | **Supported platforms / browsers / sizes** | |

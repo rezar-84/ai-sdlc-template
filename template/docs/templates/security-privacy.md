@@ -20,11 +20,11 @@ Every row needs a purpose. A row whose purpose is "might be useful" should not e
 
 ## Identity & access
 
-- **Authentication:** _(mechanism, provider, session lifetime, revocation)_
-- **Multi-factor:** _(required for whom, enforced by what — if it is only "whatever the
-  identity provider does", say exactly that rather than implying a policy)_
+- **Access level model:** _(None / Public · Simple Owner/User · RBAC · Multi-tenant Workspace-Scoped · ABAC)_
+- **Authentication:** _(mechanism, provider, session lifetime, revocation, or "None / Public")_
+- **Multi-factor (MFA / OTP):** _(Not required · Optional / User-enabled · Enforced for Admin · Enforced for all — do not force if charter says not required)_
 - **Roles and permissions:** _(the model, and where the matrix lives)_
-- **Where authorisation is enforced:** _(name the layer — not "in the API")_
+- **Where authorisation is enforced:** _(name the layer — data layer, service middleware, RPC gate — not "in the UI")_
 - **Isolation:** _(how one account's data is kept from another's, and where that is
   guaranteed)_
 - **Privileged/support access:** _(who, how it is authorised, how it is time-bound, how

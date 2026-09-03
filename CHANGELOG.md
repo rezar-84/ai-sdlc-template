@@ -4,6 +4,13 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **Flexible Access Level Models & Opt-In MFA/OTP**:
+  - Added explicit `Access level model` (`Public`, `Simple`, `RBAC`, `Workspace-Scoped`, `ABAC`)
+    and `MFA / OTP policy` (`Not required`, `Optional`, `Enforced for Admin`, `Enforced for all`)
+    settings in `charter.md` and `templates/security-privacy.md`.
+  - Calibrated `roles/security.md` to prevent dogmatic enforcement of MFA/OTP when declared
+    not required, while adding checks for standard practices: auth endpoint rate-limiting,
+    CORS/CSRF protections, and session invalidation on password reset.
 - **Beast Mode (rapid prototyping & permissive scraping)**:
   - Added formal `Operating mode: Beast mode` option in `charter.md` under **Risk defaults**
     and documented operating dynamics in `00-operating-model.md`.
