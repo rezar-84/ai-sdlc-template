@@ -37,7 +37,9 @@ Drop it into any project. From then on, an agent that reads `AGENTS.md` will:
 
 Setup asks what the project is, and the answers decide which of the sixteen roles review
 your work and which of the twenty-one skills get installed. Nothing below is on by
-default — a marketing site reads exactly what it read in 2.5.0.
+default. The portable `docs/` tree is copied whole either way — that is what makes
+`--upgrade` work — but an inactive role's playbook is not on any reading list, so a
+marketing site's agent reads what it read in 2.5.0.
 
 | If the project… | It gets |
 | --- | --- |

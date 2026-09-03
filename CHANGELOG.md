@@ -9,9 +9,16 @@ This project follows semantic versioning. User-visible changes are recorded here
 ## 3.0.0 — 2026-09-03
 
 The kit covered web and content projects well and engineering-heavy ones barely. This
-release closes that, without growing what a web project reads: every addition is gated
-on the fact model, and a content site's roster, skills, and installed files are
-unchanged from 2.5.0 (there is a smoke test that asserts exactly this).
+release closes that without growing what a web project *reads*: every review, skill, and
+gate is fact-gated, and a content site's role roster and installed skills are byte-for-byte
+what 2.5.0 produced (a smoke test asserts exactly that).
+
+What does grow is the portable tree on disk. `docs/process/`, `docs/roles/`, and
+`docs/templates/` are installed whole in every project, as they always have been, so that
+`--upgrade` can manage them and a project can activate a role later without reinstalling.
+A content site therefore gains eleven files it never opens: the reading list in
+`AGENTS.md` §3 is what bounds an agent's context, and an inactive role's playbook is not
+on it. `09-probabilistic-and-data-systems.md` says so in its own opening line.
 
 ### Added
 
