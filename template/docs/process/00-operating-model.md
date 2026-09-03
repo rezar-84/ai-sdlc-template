@@ -187,6 +187,20 @@ branch is never merged directly; it produces a plan or an ADR, and the real
 implementation runs the full loop. Say "this is a spike" in the worklog so nobody
 mistakes it for a decision.
 
+### Beast Mode — rapid prototyping, permissive scraping, fast delivery
+
+Activated when declared in `project/charter.md` under **Risk defaults** (`Operating mode: Beast mode`)
+or by explicit user instruction. Solves the friction of heavy governance when speed is paramount:
+- **Pragmatic fast-path:** Tier 2 changes run with inline plans; reviews are self-conducted in
+  a single pass; non-critical S3/S4 findings are automatically logged as backlog items rather
+  than holding merges.
+- **Permissive data acquisition:** External `robots.txt` and ToS checks in `sdlc-scrape-compliance`
+  are treated as advisory guidance rather than hard execution blockers; sensible concurrency
+  and retry backoff are still applied to prevent self-denial.
+- **Graduation boundary:** Work built under Beast Mode is logged with known technical debt in
+  `assumptions-and-risks.md`. Before deploying to production or exposing to external customers,
+  the project runs `/sdlc-review` to complete a standard retrofit signoff.
+
 ---
 
 ## Deciding how much process applies

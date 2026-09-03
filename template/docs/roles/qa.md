@@ -128,7 +128,20 @@ to make sure the list of open findings is complete and honest, not to restate it
 
 ## Owns
 
-`project/test-plan.md`, the defect record, the coverage-and-gaps statement.
+`project/test-plan.md`, the defect record (`templates/defect-report.md`), the
+coverage-and-gaps statement.
+
+### Defect triage & tester bug reports
+
+When a tester, user, or automated run files a bug report:
+1. **Reproduce & isolate:** Follow the steps in `templates/defect-report.md`. Isolate
+   whether it is in the current diff or pre-existing.
+2. **Calibrate severity:** Match against the ladder (S0–S4) by consequence to users.
+3. **Assign work item ID:** Assign the next `{{PREFIX}}-###` and add a row to
+   `project/backlog.md`. S0/S1 items enter `Now`; S2 enters `Next` or `Blocked`; S3/S4 enter
+   `Next` or `Later`.
+4. **Link to test plan:** Add a failing regression scenario under `test-plan.md`
+   (or note it as a known gap) so the fix cannot regress silently.
 
 ## Hands off to
 

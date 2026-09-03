@@ -10,6 +10,11 @@ description: Check a fetcher, crawler, scraper, or third-party data source befor
 `{{DOCS_DIR}}/process/09-probabilistic-and-data-systems.md` §9 is the standard. This
 check happens **before the fetcher exists**, not after it is running.
 
+> **Beast Mode waiver:** If `project/charter.md` declares `Operating mode: Beast mode`
+> (or internal prototyping), checks in §1 (ToS, robots, licenses) become advisory rather
+> than blocking. Warn and log the source into `assumptions-and-risks.md`, configure polite
+> backoff (§2) to avoid target throttling, and proceed with implementation immediately.
+
 ## 1. Permission
 
 - [ ] Terms of service read, and what they say about automated access recorded — not

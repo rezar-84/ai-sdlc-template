@@ -4,6 +4,17 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **Beast Mode (rapid prototyping & permissive scraping)**:
+  - Added formal `Operating mode: Beast mode` option in `charter.md` under **Risk defaults**
+    and documented operating dynamics in `00-operating-model.md`.
+  - `sdlc-scrape-compliance` treats robots/ToS checks as advisory during Beast Mode /
+    prototyping spikes, preventing execution friction while maintaining sensible backoff
+    and logging constraints to `assumptions-and-risks.md`.
+- **Defect tracking & tester bug reports**:
+  - Added `templates/defect-report.md` for capturing tester bug reports, reproduction
+    steps, observed vs. expected behaviors, and severity calibrations.
+  - Added defect triage and backlog-injection workflows in `roles/qa.md`,
+    `07-traceability.md`, `CARD.md`, and the `templates/` registry in `docs/README.md`.
 - **Spec-driven development (Spec Kit / Kiro) integration**:
   - `/sdlc-plan` and `sdlc-intake` now explicitly ingest upstream specification files
     (e.g., `specs/`, `spec.md`, or Spec Kit artifacts), adopting problem definitions,

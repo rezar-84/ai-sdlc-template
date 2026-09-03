@@ -231,6 +231,7 @@ here, in the shape of a role playbook: mission, engage when, reads, what it chec
 
 | | |
 | --- | --- |
+| **Operating mode** | `Standard` · `Beast mode` _(rapid prototyping / permissive scraping / fast spike — relaxes advisory gates & external rate friction; logs gaps into assumptions)_ |
 | **Always Tier 1 here** | _(the surfaces that are high-risk in this project specifically)_ |
 | **Never Tier 1 here** | _(surfaces from the `AGENTS.md` Tier 1 list that genuinely do not apply — e.g. "no PII: this project holds no personal data, see Data categories held". Without this, "when in doubt, tier up" makes almost everything Tier 1.)_ |
 | **Human approval required for** | _(list — mirrors the "Human approval required for" line in `AGENTS.md`, "Project overrides")_ |

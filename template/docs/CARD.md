@@ -158,6 +158,7 @@ Tier 3 → one line there.
 | Auth, uploads, payments, an external interface | `roles/security.md`, `templates/threat-model.md` |
 | Shipping to a real environment | `templates/release-runbook.md` |
 | Something broke, or a release was reverted | `templates/postmortem.md` |
+| A bug or tester defect is reported | `templates/defect-report.md`, `roles/qa.md` |
 | Strings, screens, or locales change | `process/08-content-and-translation.md` |
 | A platform co-owns this repo | "Managed platforms" in `process/05-change-control.md` |
 | Prompt, model, retrieval, index, dataset, pipeline, or eval changes | `process/09-probabilistic-and-data-systems.md` |

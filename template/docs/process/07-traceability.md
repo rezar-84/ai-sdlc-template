@@ -37,6 +37,7 @@ was retroactive. An untracked change is not erased by pretending it did not happ
 | **Worklog** | `project/worklog.md` | What actually happened and why. | Prose entries, newest first. | Append only |
 | **Decisions** | `project/adr/NNNN-*.md` | Why the durable choices were made. | One file per decision. | New files; existing ones superseded, not edited |
 | **Reviews** | `project/reviews/{{PREFIX}}-###-<stage>.md` | What each role checked and found. | One file per review. | New files |
+| **Defects** | `project/defects/{{PREFIX}}-###.md` | Bug reports filed by testers / users. | One file per defect. | New files |
 
 ### The separation rule
 

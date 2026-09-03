@@ -98,6 +98,7 @@ to hold project content.
 | `plan.md` | inline in the response, or `project/plans/{{PREFIX}}-###.md` | Per Tier 1–2 task |
 | `role-review.md` | `project/reviews/{{PREFIX}}-###-<stage>.md` | Per Tier 1 review only; Tier 2 and 3 record verdicts in the worklog entry |
 | `worklog-entry.md` | appended to `project/worklog.md` | Per completed task |
+| `defect-report.md` | `project/defects/{{PREFIX}}-###.md` | A bug report or QA defect is filed by testers |
 | `postmortem.md` | `project/postmortems/YYYY-MM-DD-slug.md` | After an S0/S1 incident |
 
 ## `project/` — this project's reality
