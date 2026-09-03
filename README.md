@@ -9,7 +9,8 @@ Drop it into any project. From then on, an agent that reads `AGENTS.md` will:
 2. **Plan** before editing, at a depth proportional to risk.
 3. **Review** the plan (and later the result) from named professional perspectives —
    product, architecture, UX, brand, copy, SEO, CRO, security, DevOps/SRE, QA,
-   accessibility, privacy/legal — recording findings and verdicts.
+   accessibility, privacy/legal, and where the project has those surfaces, data
+   engineering, ML/AI, and performance — recording findings and verdicts.
 4. **Build** to a stated Definition of Done.
 5. **Verify** with real commands and real output, never assertion.
 6. **Log** what shipped, what was verified, and what is still open.
@@ -25,11 +26,38 @@ Drop it into any project. From then on, an agent that reads `AGENTS.md` will:
   all fine. The architect role reviews *whatever the project chose* against its own
   stated constraints.
 - **No domain assumptions.** Works for a marketing site, an internal CLI, a data
-  pipeline, a mobile app, a library, or a docs-only repo. Roles that do not apply are
-  switched off in the charter, not awkwardly forced.
-- **No ceremony tax.** A one-line copy fix does not trigger thirteen role reviews. Risk
+  pipeline, a RAG service, a microservice fleet, a Terraform repository, a crawler, a
+  mobile app, a library, or a docs-only repo. Roles that do not apply are switched off in
+  the charter, not awkwardly forced.
+- **No ceremony tax.** A one-line copy fix does not trigger sixteen role reviews. Risk
   tiers (defined in `AGENTS.md`) scale both the process and the *reading* to the change —
   a Tier 3 fix has a reading list of one charter section.
+
+## What it covers
+
+Setup asks what the project is, and the answers decide which of the sixteen roles review
+your work and which of the twenty-one skills get installed. Nothing below is on by
+default — a marketing site reads exactly what it read in 2.5.0.
+
+| If the project… | It gets |
+| --- | --- |
+| has an interface | UX, brand, copy, accessibility review; design-system and a11y skills |
+| is publicly discoverable | SEO and content review; content/SEO skill |
+| deploys anywhere | DevOps/SRE review; release runbook, release and postmortem skills |
+| holds personal data | privacy/legal review; privacy and threat-model skills |
+| **owns datasets or pipelines** | data-engineer review; data contracts, pipeline runbook, data-quality gate, contract and migration skills |
+| **has models, prompts, or retrieval** | ml-engineer review; eval plan, model/dataset card, evaluation gate, the `Measured` doctrine, prompt-injection and agent-permission checks |
+| **runs several services or messaging** | asynchronous and distributed architecture review; service catalogue with SLOs, cross-boundary contract skill |
+| **carries a latency, throughput, or cost budget** | performance-engineer review; performance budgets with recorded baselines |
+| **provisions infrastructure** | an infrastructure plan/policy stage that a human reviews before it is applied |
+| **acquires third-party data** | terms, robots, rate-limit, and provenance obligations checked before the fetcher is written |
+| has a data layer of any kind | the migration skill: expand/migrate/contract, lock analysis, tested reverse paths |
+
+Two things run through all of it. **Nothing probabilistic may be claimed to have
+improved without a baseline** measured before the change on a golden set that is not also
+changing — the kit gives that its own word, *Measured*, with the five things it must
+carry. And **a prompt is executable**: it is tiered by the surface it governs, not by
+being a string.
 
 ## Install into a project
 
@@ -58,9 +86,11 @@ template. A destination that does not exist yet can be created on the spot — o
 
 It asks who and what the project is, then what you are building — **choose every type that
 applies**, `1,3` for an app that is also an API — defaulted from what is actually in the
-repository. That selection derives six yes/no facts (interface, visual interface, public
-discoverability, deployment, personal data, conversion goal) which decide which of the
-thirteen roles review your work and which skills get installed. It then shows the stack,
+repository. That selection derives eleven yes/no facts — interface, visual interface,
+public discoverability, deployment, personal data, conversion goal, datasets or pipelines,
+models or retrieval, several services or messaging, provisioned infrastructure, acquired
+data — which decide which of the sixteen roles review your work and which skills get
+installed. It then shows the stack,
 the check commands, and the architecture it read out of the repository for you to confirm,
 asks about languages if the project has an interface or public content, and takes approvers
 and risk defaults.
@@ -79,6 +109,9 @@ What it writes into the installed files:
   three things you told it that no file could say.
 - `AGENTS.md` — the "Human approval required for" and "Forbidden in this project" lines of
   the Project overrides section.
+- `.ai-sdlc/profile.json` — the facts, active roles, chosen skills, and command table in
+  machine-readable form, so `/sdlc-verify` and the skills can act on them without parsing
+  prose. Derived, never authored: the charter is the source of truth and wins on conflict.
 
 Anything it could not establish is left blank on purpose. A blank cell is read as *Unknown*
 by the process; a wrong one produces confidently false "verified" claims, so nothing is
@@ -163,7 +196,7 @@ nothing to run.
 
 ## Skills
 
-`optional/skills/` is a catalogue of fourteen skills that make the process fire on its own.
+`optional/skills/` is a catalogue of twenty-one skills that make the process fire on its own.
 The slash commands wait to be typed; skills are model-invoked — the agent loads one when the
 situation its description names actually appears.
 
@@ -183,8 +216,15 @@ situation its description names actually appears.
 | `sdlc-i18n-audit` | strings, screens, or locales change | it ships in 2+ languages |
 | `sdlc-translation-review` | content appears in a non-source language | it ships in 2+ languages |
 | `sdlc-managed-platform` | editing platform config, history, or deploys | a platform co-owns the repo |
+| `sdlc-doctor` | the project's own documents may not describe reality | always |
+| `sdlc-migration` | a schema migration or backfill appears | a data layer was detected |
+| `sdlc-data-contract` | a schema, pipeline output, or event payload changes | there are datasets, or data is acquired |
+| `sdlc-eval-gate` | a prompt, model, retrieval config, or quality claim changes | models or retrieval are on the product path |
+| `sdlc-service-contract` | an API or event contract crosses a service boundary | several services, or messaging |
+| `sdlc-perf-budget` | a hot path, query, payload, or cache changes | there is a backend, data, or model workload |
+| `sdlc-scrape-compliance` | a fetcher, crawler, or third-party source is added | the project acquires third-party data |
 
-Setup evaluates that list against your six answers and installs only what applies — an
+Setup evaluates that list against your answers and installs only what applies — an
 unused skill is a description competing for attention in every future context window. Add
 one later by copying its directory into `.claude/skills/` and replacing the placeholders.
 See `optional/skills/README.md` for how to write your own.
@@ -230,8 +270,9 @@ template/
       06-evidence-and-claims.md  the no-fabrication doctrine; provenance; assumptions
       07-traceability.md         IDs, the backlog row spec, what gets logged where
       08-content-and-translation.md  source language, machine translation, RTL, per-locale checks
+      09-probabilistic-and-data-systems.md  models, prompts, evaluation, pipelines, acquired data
     roles/                   WHO reviews. One playbook per professional perspective.
-      README.md + 13 role playbooks
+      README.md + 16 role playbooks
     templates/               Blank artifacts to copy when a project needs one.
     project/                 WHERE this project's filled-in reality lives.
       charter.md  backlog.md  worklog.md  assumptions-and-risks.md
@@ -269,6 +310,12 @@ process docs, so they go stale silently. Do not merge the directories.
 ./install.sh /path/to/your-project ACME --upgrade
 ```
 
+Upgrading to 3.0.0 additionally needs two things by hand, because both files are
+project-owned: merge the `AGENTS.md` changes with the printed `diff`, and copy the new
+charter sections (**Budgets**, **Model & data**, **Data ownership**, the three role rows,
+the four `checks.*` rows) from `template/docs/project/charter.md` if the project has
+those surfaces. See `CHANGELOG.md`.
+
 `--upgrade` manages `docs/README.md`, `docs/process/`, `docs/roles/`, `docs/templates/`,
 and any kit skill the project already has. It verifies their recorded checksums first and
 stops if a managed file was locally modified or removed. It backs up affected files under
@@ -298,7 +345,12 @@ python3 tests/smoke.py
 python3 -m py_compile install.py validate.py tests/smoke.py
 ```
 
-CI runs these checks on every push and pull request. Tags shaped like `v2.5.0` are checked
+`validate.py` also cross-checks the pairings the kit maintains by hand — every role has a
+playbook, a charter row, and a README entry; every template is in the docs map; every
+skill has an install rule; every check stage has a charter row — and fails if the
+docs-tree size quoted in `AGENTS.md` has drifted from the measured one.
+
+CI runs these checks on every push and pull request. Tags shaped like `v3.0.0` are checked
 against `VERSION` before release creation. See `CONTRIBUTING.md`, `SECURITY.md`,
 `CHANGELOG.md`, and `LICENSE` for project governance and distribution terms.
 
