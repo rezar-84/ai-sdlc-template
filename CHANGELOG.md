@@ -6,6 +6,41 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 - Nothing yet.
 
+## 3.2.0 — 2026-09-03
+
+The question this release answers is whether the kit needs a GUI. Researched rather than
+guessed, the answer was: one small read-only page, and distribution — not a web product.
+Claude Code Remote Control already drives local sessions from `claude.ai/code` and mobile,
+and the independent agent-orchestration GUIs have not found a business model (Bloop, the
+company behind vibe-kanban, shut down in April 2026 saying exactly that).
+
+### Added
+
+- **`docs/dashboard.html`** — a read-only status page over the installed state. Open it
+  from the filesystem; no server, no dependency, no build. Shows open work by status and
+  tier, artifacts stale or undated, roles unticked with nobody's reason, check stages with
+  no command, budgets and baselines, and whether anything points at `AGENTS.md`.
+  The page is kit-managed and upgradeable; its state lives in `docs/dashboard-state.js`,
+  a project record derived from the files and never from the wizard's answers. It states
+  its own generation date and declares itself untrustworthy past the charter's staleness
+  window. `validate.py` fails if it invents a backlog status the standard lacks, or if a
+  form or `contenteditable` appears in it.
+- **`/sdlc-doctor` refreshes the page's state** and is told not to write a value it did
+  not read from a file.
+- **Claude Code plugin packaging** (`.claude-plugin/`) — `/plugin marketplace add
+  rezar-84/ai-sdlc-template`. Commands only: skills are model-invoked and cost context in
+  every turn whether they fire or not, so choosing them per project stays with the
+  installer, which is the whole point of the fact model.
+- **README positioning** for Spec Kit, Kiro and Tessl (complementary — they specify a
+  feature, this governs a change), for the AI app builders (a place to install this, not a
+  thing to replace), and for why there is no web UI.
+
+### Not built, deliberately
+
+A web installer, and a Lovable-style surface driving local agents. Both are argued in the
+README and the decision record; the second belongs in a separate repository that consumes
+this kit, if it is ever built at all.
+
 ## 3.1.0 — 2026-09-03
 
 Profiling 3.0.0 found three defects and one cost regression. This release fixes them and

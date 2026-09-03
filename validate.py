@@ -246,6 +246,30 @@ def main():
     if not VERSION_RE.match(version):
         errors.append("VERSION is not semantic major.minor.patch: %r" % version)
 
+    # The plugin manifest carries its own version string and drifts silently otherwise.
+    manifest = ROOT / ".claude-plugin" / "plugin.json"
+    if manifest.is_file():
+        try:
+            plugin = json.loads(manifest.read_text(encoding="utf-8"))
+        except ValueError:
+            plugin = None
+            errors.append(".claude-plugin/plugin.json is not valid JSON")
+        if plugin is not None:
+            if plugin.get("version") != version:
+                errors.append(".claude-plugin/plugin.json says version %r, VERSION says %r"
+                              % (plugin.get("version"), version))
+            if "skills" in plugin:
+                errors.append(".claude-plugin/plugin.json ships skills globally; they are "
+                              "model-invoked and cost context every turn, so they are "
+                              "chosen per project by the installer instead")
+            rel = plugin.get("commands", "")
+            if rel and not (ROOT / rel.lstrip("./")).is_dir():
+                errors.append(".claude-plugin/plugin.json points commands at %r, which "
+                              "does not exist" % rel)
+        market = ROOT / ".claude-plugin" / "marketplace.json"
+        if not market.is_file():
+            errors.append(".claude-plugin/plugin.json exists without marketplace.json")
+
     required_root = ("LICENSE", "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md")
     for name in required_root:
         if not (ROOT / name).is_file():

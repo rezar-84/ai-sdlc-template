@@ -61,6 +61,45 @@ changing — the kit gives that its own word, *Measured*, with the five things i
 carry. And **a prompt is executable**: it is tiered by the surface it governs, not by
 being a string.
 
+## How this relates to Spec Kit, Kiro, and the AI app builders
+
+**Spec-driven development tools are complementary, not alternatives.** GitHub Spec Kit,
+AWS Kiro and Tessl answer *what should this feature do, precisely, before an agent builds
+it*. This kit answers *how does every change get made, reviewed, verified and recorded* —
+risk tiers, sixteen role playbooks, the evidence vocabulary, the severity ladder,
+traceability. Neither has the other's content. Use Spec Kit to specify the feature and
+this to govern the change; the process documents here never dictate how a requirement is
+written.
+
+**AI app builders are a place to install this, not a thing to replace.** Independent
+research puts roughly 80% of AI-generated applications as containing at least one
+exploitable flaw, and the standing advice for Lovable, Bolt and v0 output is to budget
+20–30% of development time for security review. That review is what this kit is. So the
+installer detects a managed platform, the charter declares the sync model and the files
+the platform owns, and `05-change-control.md` yields to that table where they conflict —
+see [Installing into a managed platform](#installing-into-a-managed-platform-lovable-replit-bolt-)
+below. The answer to "AI builders have no discipline" is to be the discipline they
+install.
+
+**A web UI for the kit is deliberately not here.** The kit installs a read-only status
+page (`docs/dashboard.html`) and nothing else, because a driving-agents-from-a-browser
+product already exists first-party — Claude Code Remote Control syncs a local session to
+`claude.ai/code` and mobile — and the independent attempts at that category have not found
+a business model. `docs/dashboard.html` is the part that was actually missing: a glanceable
+view for the human while the agents work.
+
+## Install as a Claude Code plugin
+
+```
+/plugin marketplace add rezar-84/ai-sdlc-template
+/plugin install ai-sdlc@ai-sdlc
+```
+
+That gives you the five `/sdlc-*` commands everywhere. **It ships no skills on purpose** —
+skills are model-invoked, so each one costs context in every turn whether it fires or not,
+and choosing them per project is the entire point of the fact model. Run the installer for
+those. See `.claude-plugin/README.md`.
+
 ## Install into a project
 
 ```sh
@@ -321,9 +360,11 @@ template/
       README.md + 16 role playbooks
     templates/               Blank artifacts to copy when a project needs one.
     CARD.md                  the operating card: the whole standard on one page
+    dashboard.html           read-only status page (state in dashboard-state.js)
     project/                 WHERE this project's filled-in reality lives.
       charter.md  backlog.md  worklog.md  assumptions-and-risks.md
       adr/  reviews/  plans/  postmortems/  worklog-archive/
+.claude-plugin/              plugin + marketplace manifests (commands only, no skills)
 optional/
   hooks/                     opt-in Claude Code enforcement (--hooks)
   claude-commands/           Claude Code slash commands that drive the loop
@@ -398,7 +439,7 @@ playbook, a charter row, and a README entry; every template is in the docs map; 
 skill has an install rule; every check stage has a charter row — and fails if the
 docs-tree size quoted in `AGENTS.md` has drifted from the measured one.
 
-CI runs these checks on every push and pull request. Tags shaped like `v3.0.0` are checked
+CI runs these checks on every push and pull request. Tags shaped like `v3.2.0` are checked
 against `VERSION` before release creation. See `CONTRIBUTING.md`, `SECURITY.md`,
 `CHANGELOG.md`, and `LICENSE` for project governance and distribution terms.
 
