@@ -62,6 +62,12 @@ to hold project content.
 | `threat-model.md` | `project/threat-model.md` | Auth, tenancy, payments, PII, or public exposure |
 | `test-plan.md` | `project/test-plan.md` | Always |
 | `release-runbook.md` | `project/release-runbook.md` | Anything that deploys |
+| `service-catalog.md` | `project/service-catalog.md` | More than one independently deployed unit |
+| `data-contract.md` | `project/data-contract-<name>.md` | Anything outside this project reads a dataset, table, or event it produces |
+| `pipeline-runbook.md` | `project/pipeline-runbook.md` | A scheduled or triggered pipeline exists |
+| `eval-plan.md` | `project/eval-plan.md` | An output is judged by quality rather than correctness |
+| `model-and-dataset-card.md` | `project/model-card-<name>.md` | A model is trained or tuned here, or a dataset is curated |
+| `performance-budget.md` | `project/performance-budget.md` | A latency, throughput, or cost budget is claimed |
 | `adr.md` | `project/adr/NNNN-slug.md` | Per material decision |
 | `plan.md` | inline in the response, or `project/plans/{{PREFIX}}-###.md` | Per Tier 1–2 task |
 | `role-review.md` | `project/reviews/{{PREFIX}}-###-<stage>.md` | Per Tier 1 review only; Tier 2 and 3 record verdicts in the worklog entry |

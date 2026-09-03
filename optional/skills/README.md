@@ -1,12 +1,12 @@
 # Skills
 
-Fourteen skills that make the process fire on its own. The four `/sdlc-*` slash commands in
+Twenty skills that make the process fire on its own. The four `/sdlc-*` slash commands in
 `../claude-commands/` wait to be typed; these are **model-invoked** — the agent reads the
 `description` in each `SKILL.md` frontmatter and loads the skill when the situation it
 describes appears. The two are complements, not duplicates: the commands drive the loop,
 the skills catch the moments between its steps.
 
-`install.sh` evaluates which of them a project needs from the same six answers that decide
+`install.sh` evaluates which of them a project needs from the same answers that decide
 the active roles, and copies only those into the project's `.claude/skills/`. An unused
 skill is not free — it is a description competing for attention in every future context
 window.
@@ -27,6 +27,12 @@ window.
 | `sdlc-i18n-audit` | it ships in more than one language |
 | `sdlc-translation-review` | it ships in more than one language |
 | `sdlc-managed-platform` | a platform co-owns the repository |
+| `sdlc-migration` | a data layer was detected in the repository |
+| `sdlc-data-contract` | the project owns a dataset, or acquires third-party data |
+| `sdlc-eval-gate` | a model, prompt, or retrieval step is on the product path |
+| `sdlc-service-contract` | several services, or asynchronous messaging |
+| `sdlc-perf-budget` | there is a backend, data, or model workload |
+| `sdlc-scrape-compliance` | the project fetches data from third-party sources |
 
 Install a skill later by copying its directory:
 

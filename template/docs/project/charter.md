@@ -262,4 +262,6 @@ a deliberate omission.
 
 ☐ product-brief ☐ discovery-audit ☐ user-stories ☐ architecture ☐ data-model-api
 ☐ design-system ☐ content-seo-plan ☐ measurement-plan ☐ security-privacy
-☐ threat-model ☐ test-plan ☐ release-runbook
+☐ threat-model ☐ test-plan ☐ release-runbook ☐ service-catalog
+☐ data-contract ☐ pipeline-runbook ☐ eval-plan ☐ model-and-dataset-card
+☐ performance-budget

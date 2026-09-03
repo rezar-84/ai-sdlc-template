@@ -8,7 +8,7 @@ description: Check a status claim before it is written — "done", "tests pass",
 `{{DOCS_DIR}}/process/06-evidence-and-claims.md` is the authority. This skill is the
 pre-flight for the moment you are about to type a claim.
 
-## The only four words
+## The only five words
 
 | Word | Means | Requires |
 | --- | --- | --- |
@@ -16,9 +16,16 @@ pre-flight for the moment you are about to type a claim.
 | **Not run** | the check exists, you did not run it | the reason |
 | **Absent** | the charter has no command for this stage | naming it as a gap |
 | **Unknown** | you cannot establish it from here | who or what could |
+| **Measured** | the result is a number, not a pass | method · subject and its version · N · spread · date |
 
 No synonyms. "Should work", "looks right", "mostly passing", and "tests are green" (from
 memory) are none of these.
+
+**Measured is the one that gets faked accidentally.** A score, a latency, an accuracy, or
+a freshness lag is not a pass — and a number with no baseline is not an improvement, it
+is a number. One run of something non-deterministic is a sample, not a result. If you are
+about to write "faster", "more accurate", or "better", you need the before-number, N, and
+the spread, or the honest sentence is: *unmeasured.*
 
 ## Procedure
 
