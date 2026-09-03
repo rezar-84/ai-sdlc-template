@@ -80,7 +80,8 @@ actual result.
 - Use the six words in `06-evidence-and-claims.md` exactly — *Verified*, *Reported*,
   *Assumed*, *Unknown*, *Not run*, *Absent* — and no synonyms. A check that exists and you
   did not run is *Not run*, with the reason. A check the charter has no command for is
-  *Absent*.
+  *Absent*. A result that is a number rather than a pass or a fail is *Measured*, and is
+  not sayable without the five things that section requires of it.
 - Failing output is pasted or summarised faithfully. Never describe a failing suite as
   "mostly passing".
 - For anything user-facing, verify the behaviour, not only the build: exercise the actual

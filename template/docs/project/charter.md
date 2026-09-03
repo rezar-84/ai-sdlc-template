@@ -80,6 +80,10 @@ links here rather than repeating them.
 | `checks.scan` | |
 | `checks.a11y` | |
 | `checks.e2e` | |
+| `checks.infra` | _(if this repository provisions infrastructure — plan/diff plus policy scan)_ |
+| `checks.data` | _(if this project produces or consumes datasets — see `../process/09-probabilistic-and-data-systems.md` §7)_ |
+| `checks.eval` | _(if any output is probabilistic — scores against the versioned golden set)_ |
+| `checks.perf` | _(if any budget below is claimed — benchmark or load)_ |
 
 Write **absent** in the Command cell for a stage this project does not have, with the
 reason. A blank cell is not "absent" — it is "nobody has filled this in", and an agent
@@ -116,6 +120,48 @@ platforms").
 | **Platform instruction file** | _(where the platform's own agent reads its instructions — e.g. `replit.md`, Lovable project knowledge — and whether it points at `AGENTS.md` so the two contracts cannot diverge)_ |
 | **Deploys** | _(e.g. "published from the platform UI" — if so, the release runbook documents the platform's publish and rollback affordances, not a deploy command)_ |
 
+## Budgets
+
+**Authoritative.** The numbers a change is held against. A budget is a pair — the number
+*and* the method that produces it — because a figure whose measurement conditions are
+unstated cannot detect a regression, which is the only thing a budget is for. Enforced by
+`../process/04-quality-gates.md`; a regression is S2 by default. Delete rows that do not
+apply, and write "none set" rather than leaving the table empty, so a reader can tell a
+deliberate absence from an unfilled form.
+
+| What | Budget | Measured how, and where | Current baseline |
+| --- | --- | --- | --- |
+| _(e.g. p95 request latency)_ | | | |
+| _(e.g. cost per 1k requests)_ | | | |
+| _(e.g. data freshness lag)_ | | | |
+
+## Model & data
+
+**Authoritative.** Fill this in if the project uses a model, a prompt, retrieval, or
+third-party inference, or if it holds datasets. Write "none" otherwise. This table is
+what `../process/09-probabilistic-and-data-systems.md` and `../roles/privacy-legal.md`
+enforce; a blank cell is *Unknown*, and an agent may not proceed on it as though the
+answer were "anything goes".
+
+| | |
+| --- | --- |
+| **Providers and pinned versions** | _(exact model/version identifiers. A floating alias — `latest`, an unversioned endpoint — is a dependency that changes without a commit; if the platform offers nothing pinnable, log it in `assumptions-and-risks.md` as an accepted risk)_ |
+| **What may be sent** | _(data classes permitted to leave for a third-party model, and the recorded basis for each. Absence of a prohibition is not permission)_ |
+| **What may never be sent** | _(secrets, credentials, regulated categories, customer content — be specific)_ |
+| **Retention** | _(how long prompts, completions, traces, embeddings, and eval logs are kept, where, and how they are deleted. Embeddings of personal data are personal data)_ |
+| **May be trained or tuned on** | _(datasets, and the rights that permit it)_ |
+| **Golden set** | _(where it lives, who owns it, and its current version — see `eval-plan.md`)_ |
+| **Human in the loop** | _(which decisions a person reviews, and what they can see in order to judge)_ |
+
+## Data ownership
+
+**Authoritative.** Fill this in if the project publishes datasets, tables, or events that
+anything else reads, or acquires data it did not create. Write "none" otherwise.
+
+| Dataset / stream | Owner | Consumers | Contract | Acquired from |
+| --- | --- | --- | --- | --- |
+| | | | _(link to a `data-contract.md`, or "internal only")_ | _(source and the terms it was obtained under, or "produced here")_ |
+
 ## Active roles
 
 **Every unticked row below is unreviewed by default.** The four at the top are always on.
@@ -138,6 +184,9 @@ reason on an unticked row means nobody decided; it does not mean the role does n
 | devops-sre | ☐ | it deploys or runs somewhere | |
 | privacy-legal | ☐ | personal data, tracking, or public claims exist | |
 | localisation | ☐ | it ships in more than one language | |
+| data-engineer | ☐ | this project owns a dataset, a pipeline, or acquires third-party data | |
+| ml-engineer | ☐ | a model, prompt, or retrieval step is on the product path | |
+| performance-engineer | ☐ | there is a backend, data, or model workload carrying a latency, throughput, or cost budget | |
 
 **Project-specific role checks** — additions to a role's playbook for this project only.
 Put them here, never by editing files in `../roles/`, so the kit stays upgradeable and
@@ -147,8 +196,8 @@ Put them here, never by editing files in `../roles/`, so the kit stays upgradeab
 | --- | --- |
 | | |
 
-**Project-specific roles** — a perspective this project needs that the thirteen do not
-cover (data engineer, firmware, ML evaluation, support, community). Define it
+**Project-specific roles** — a perspective this project needs that the sixteen do not
+cover (firmware, hardware, clinical, support, community, regulatory). Define it
 here, in the shape of a role playbook: mission, engage when, reads, what it checks.
 
 | Role | Mission | Engage when | Checks |

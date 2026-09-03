@@ -100,6 +100,10 @@ EN = {
     "q.c_scan": "checks.scan",
     "q.c_a11y": "checks.a11y",
     "q.c_e2e": "checks.e2e",
+    "q.c_infra": "checks.infra",
+    "q.c_data": "checks.data",
+    "q.c_eval": "checks.eval",
+    "q.c_perf": "checks.perf",
     "q.shape": "How is it deployed?",
     "h.shape": "Goes into architecture.md as the Shape section. Detection can list the parts, not how they run.",
     "q.critical": "What must never go down, or never lose data?",
@@ -1608,7 +1612,9 @@ CMD_FIELDS = (("c_install", "q.c_install", "install"), ("c_run", "q.c_run", "run
               ("c_contract", "q.c_contract", "contract"),
               ("c_build", "q.c_build", "build"), ("c_scan", "q.c_scan", "scan"),
               ("c_a11y", "q.c_a11y", "a11y"),
-              ("c_e2e", "q.c_e2e", "e2e"))
+              ("c_e2e", "q.c_e2e", "e2e"),
+              ("c_infra", "q.c_infra", "infra"), ("c_data", "q.c_data", "data"),
+              ("c_eval", "q.c_eval", "eval"), ("c_perf", "q.c_perf", "perf"))
 
 
 def seed_from_detection(w):
@@ -2414,11 +2420,10 @@ class Installer(object):
                               ("Language / runtime", "Package manager", "Framework(s)",
                                "Data store(s)", "Auth", "Hosting", "CI", "Test tooling")):
             text = fill_row(text, label, a.get(sid))
-        for sid, label in zip([c[0] for c in CMD_FIELDS],
-                              ("Install", "Run locally", "`checks.format`", "`checks.lint`",
-                               "`checks.typecheck`", "`checks.unit`", "`checks.integration`",
-                               "`checks.contract`", "`checks.build`", "`checks.scan`",
-                               "`checks.a11y`", "`checks.e2e`")):
+        # Derived from the key rather than zipped against a parallel list: a stage
+        # added to one and not the other would silently write into the wrong row.
+        for sid, _, key in CMD_FIELDS:
+            label = {"install": "Install", "run": "Run locally"}.get(key, "`checks.%s`" % key)
             text = fill_row(text, label, a.get(sid))
 
         text = fill_row(text, "**Default branch**", a.get("branch"))

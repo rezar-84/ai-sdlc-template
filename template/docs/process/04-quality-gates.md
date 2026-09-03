@@ -22,6 +22,28 @@ Run in this order — cheapest and most localising first, so failures are diagno
 | 9 | Accessibility | Automated a11y smoke, where there is an interface. | `checks.a11y` |
 | 10 | End-to-end | The real journeys, in a realistic environment. | `checks.e2e` |
 
+**Conditional stages.** These exist only in projects that have the surface, and the
+charter's roles table says which. Absent everywhere else — and *Absent* is a complete
+answer (`06-evidence-and-claims.md`), not a gap to apologise for.
+
+| # | Stage | Purpose | Charter key | Applies when |
+| --- | --- | --- | --- | --- |
+| 3a | Infrastructure | Plan/diff the change to real infrastructure and scan it against policy, before it is applied. | `checks.infra` | This repository provisions infrastructure |
+| 5a | Data quality | Schema, freshness, volume, integrity, and business invariants over the data this project produces or consumes. Order and meaning: `09-probabilistic-and-data-systems.md` §7. | `checks.data` | There are datasets or pipelines |
+| 6a | Evaluation | Score the model, prompt, retrieval, or ranker against the versioned golden set. Never a pass/fail on its own — see below. | `checks.eval` | There is a probabilistic output |
+| 10a | Performance | Benchmark or load the paths that carry a budget. | `checks.perf` | A latency, throughput, or cost budget exists |
+
+**Evaluation and performance stages report *Measured*, not passed.** A number is
+compared against the budget or threshold the charter records, and against the baseline
+from before the change. A run with no baseline is not a gate, it is a reading — say so,
+and treat the missing baseline as the finding. `09-probabilistic-and-data-systems.md` §3
+governs what a comparison requires.
+
+**Infrastructure and data stages gate differently from the rest.** An infrastructure
+plan that shows a destroy, a replacement, or a permission widening is a review item for
+a named human before it is applied, not a stage that goes green. A data-quality failure
+stops the pipeline; it never publishes and warns.
+
 **How much of it runs, by tier.** Tier 1 and Tier 2 run the whole sequence. Tier 3 runs
 the stages that can plausibly be affected — for a copy change that is format, lint,
 typecheck and the unit suite — and reports the rest **Not run — Tier 3, no code path
@@ -133,12 +155,20 @@ mismatch as a defect in the kit, because it will mislead the next review too.
 
 ## Budgets
 
-Where a project has measurable budgets, the charter records them and this is where they
-are enforced. Regressions against a budget are S2 by default.
+Where a project has measurable budgets, the charter's **Budgets** table records them and
+this is where they are enforced. Regressions against a budget are S2 by default. Where
+there are enough of them to need working detail — measurement method, environment,
+baseline, and history — they live in `project/performance-budget.md`.
 
-Candidate budgets to set, if applicable: page or interaction latency at the 75th
-percentile, payload/bundle size, cold-start time, query count per request, error rate,
-availability, build duration, test-suite duration.
+Candidate budgets to set, if applicable: page or interaction latency at the 75th and
+95th percentiles, payload/bundle size, cold-start time, query count per request, error
+rate, availability, build duration, test-suite duration; and where the project has them,
+throughput at a stated concurrency, cost per request or per pipeline run, data freshness
+lag, and evaluation thresholds per category rather than in aggregate.
+
+**A budget is a pair**: the number, and the method that produces it. A latency figure
+without the environment, the concurrency, and the percentile is not comparable to the
+next one, so it cannot detect a regression — which is the only thing a budget is for.
 
 If a budget is not set, say so — an unstated budget is not "no budget", it is an
 unmeasured one.

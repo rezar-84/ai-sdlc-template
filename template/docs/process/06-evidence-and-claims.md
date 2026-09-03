@@ -74,9 +74,46 @@ confidence propagates.
 | **Unknown** | You do not know. This is a complete and acceptable answer. |
 | **Not run** | The check exists but you did not execute it. Say why. |
 | **Absent** | There is no such check, artifact, or input in this project. Distinct from *Not run* — nothing was skipped, there was nothing to skip. An absent check is a finding for the role that owns it, not a neutral fact. |
+| **Measured** | A numeric or statistical result: a pass rate, a latency, an accuracy, a freshness lag, a cost. Never sayable on its own — see below. |
 
 Never write "should work", "presumably passes", or "I've made sure that…" for something
 you did not observe. If you did not run the tests, the sentence is "tests not run".
+
+### Measured — the sixth word has conditions
+
+The other five words describe checks that pass or fail. A great deal of software does
+neither: an evaluation suite scores, a benchmark distributes, a pipeline is fresh to
+within some lag. Reporting those as *Verified* is the most comfortable way to fabricate,
+because the number is real and only the claim around it is invented.
+
+A measurement is only stated with all five of:
+
+1. **The method** — what was run, and how the number was derived from it.
+2. **The subject and its version** — the dataset, golden set, workload, or corpus, by
+   identifier. "The eval suite" is not an identifier; "golden-set v4" is.
+3. **N** — how many cases, requests, or runs. A single run is a sample, not a result.
+4. **The spread** — variance, range, or the fact that it was not measured. A number
+   from a non-deterministic system with no spread is one draw from a distribution
+   presented as a property of the system.
+5. **The date and the environment**, including anything pinned: model or engine version,
+   seed, temperature, concurrency, hardware class.
+
+> Not a claim: "accuracy improved to 87%".
+> A claim: "87.1% (183/210) on golden-set v4, 3 runs, ±1.4pp, model pinned to
+> `<version>`, temperature 0, on `<environment>`, 2026-05-04. Baseline 84.3% on the
+> same set and settings, 2026-04-20."
+
+**A measurement with no baseline is not an improvement — it is a number.** If no
+baseline exists, that is the finding: establish one first, on a subject that is not
+changing in the same work item.
+
+**Comparing two measurements** requires the same subject version, the same environment,
+and the same seed and sampling policy. Change the system or the measurement, never both
+in one change — a comparison across a changed golden set is not a comparison, and
+reporting it as one is a fabrication under Prime Directive 1.
+
+Where the project holds budgets, `04-quality-gates.md` says what a measurement outside
+budget costs. Where it holds none, say so: an unstated budget is *Unknown*, not "fine".
 
 ---
 

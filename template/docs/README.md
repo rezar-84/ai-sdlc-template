@@ -34,10 +34,11 @@ project facts here.
 | `06-evidence-and-claims.md` | What may be stated as fact, what needs a source, how unknowns are recorded. |
 | `07-traceability.md` | ID scheme, what gets logged where, how staleness is detected. |
 | `08-content-and-translation.md` | Source language, what may be machine-translated, who reviews it, and what multilingual code and layout must do. |
+| `09-probabilistic-and-data-systems.md` | How do I change a model, prompt, index, dataset, or pipeline — and what may I claim about a system whose output is a distribution? |
 
 ## `roles/` — who reviews
 
-Thirteen playbooks, one per professional perspective. Each has the same shape: mission, when to
+Sixteen playbooks, one per professional perspective. Each has the same shape: mission, when to
 engage and when to skip, what it reads, a design-review checklist, a ship-review
 checklist, a severity calibration table, what it owns, and where it hands findings off.
 See `roles/README.md` for the roster and how to run a review.

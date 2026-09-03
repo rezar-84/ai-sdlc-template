@@ -48,8 +48,8 @@ When in doubt, tier up.
 
 | Tier | Trigger (any one) | Required |
 | --- | --- | --- |
-| **1 — High** | authentication, authorisation, tenancy/isolation, payments, PII or regulated data, data migration or deletion, public-facing brand/legal copy, infrastructure or release pipeline, anything hard to reverse | Written plan · role review per the charter · design + ship review · ADR for the approach · human approval before merge (2 approvers) · rollback plan |
-| **2 — Standard** | a new feature or user-visible behaviour, a schema addition, a new dependency, a refactor crossing module boundaries | Written plan · role review limited to the surfaces the change touches · tests · worklog entry |
+| **1 — High** | authentication, authorisation, tenancy/isolation, payments, PII or regulated data, data migration or deletion, backfills, public-facing brand/legal copy, infrastructure or release pipeline, a model/prompt/retrieval change on any of those surfaces or in a system that takes actions, a contract other services consume, anything hard to reverse | Written plan · role review per the charter · design + ship review · ADR for the approach · human approval before merge (2 approvers) · rollback plan |
+| **2 — Standard** | a new feature or user-visible behaviour, a schema addition, a new dependency, a refactor crossing module boundaries, **any** change to a prompt, model version, retrieval configuration, eval threshold, or published dataset | Written plan · role review limited to the surfaces the change touches · tests · worklog entry |
 | **3 — Low** | copy/typo fix, dependency patch bump, comment, formatting, adding a test, a doc edit | One-line plan · one design-review role, or none if no role's surface is touched · **no ship review** · short worklog entry · no ADR |
 
 A Tier 3 worklog entry is a compact dated bullet containing the ID, request, changed
@@ -57,14 +57,15 @@ files, verification result, and anything deferred. It does not instantiate the f
 worklog template unless the change uncovers risk or an unresolved decision.
 
 A Tier 1 change never becomes Tier 3 because it is small in lines of code. A one-line
-change to an authorisation check is Tier 1. Splitting a Tier 1 item until no piece looks
+change to an authorisation check is Tier 1. So is a one-word change to a prompt that
+governs one: a prompt is executable, and "it is just a string" is not a tier argument. Splitting a Tier 1 item until no piece looks
 Tier 1 is a violation of this contract, not a clever reading of it.
 
 ---
 
 ## 3. What to read — the whole list, by tier
 
-**Reading past your tier's list is not diligence, it is cost** — `{{DOCS_DIR}}/` is around 49,000
+**Reading past your tier's list is not diligence, it is cost** — `{{DOCS_DIR}}/` is around 62,000
 tokens, and reading it whole leaves nothing for the work. But an *incomplete* list is the
 worse failure, because it sends you back mid-task to find the rule you should have had.
 So each tier below is the whole list: if it is not named here and the task does not touch
@@ -81,14 +82,18 @@ it, you do not need it.
   finding is rated on
 - `{{DOCS_DIR}}/process/02-role-reviews.md` — which roles the change surface selects, and how a
   severity becomes a verdict
-- `{{DOCS_DIR}}/process/06-evidence-and-claims.md` — the six words you may use about evidence
+- `{{DOCS_DIR}}/process/06-evidence-and-claims.md` — the six words you may use about evidence,
+  and what a *Measured* number has to carry before it is a claim
 - `{{DOCS_DIR}}/templates/worklog-entry.md` — and the role playbook for each role selected
+- `{{DOCS_DIR}}/process/09-probabilistic-and-data-systems.md` — **only** when the change touches a
+  prompt, model, index, dataset, pipeline, or evaluation. Nothing in it applies to
+  deterministic code, and it is not part of the always-list for anything else.
 
 | Tier | Also open | Added | Total |
 | --- | --- | --- | --- |
 | **3** | This file's risk table · the relevant charter row(s) · the affected files' local instructions. Read a role playbook only if a role surface is touched. | usually <2k | **<3k** |
 | **2** | The always-list above · `00-operating-model.md` · `03-ready-and-done.md` · `05-change-control.md` · `templates/plan.md` | ~20k | **~23k** with two roles, **~26k** with four |
-| **1** | The Tier 2 list · `templates/adr.md` · `templates/role-review.md` · every role the charter marks active | ~7k | **~26k** on the default four-role roster; **~41k** with all thirteen |
+| **1** | The Tier 2 list · `templates/adr.md` · `templates/role-review.md` · every role the charter marks active | ~7k | **~26k** on the default four-role roster; **~48k** with all sixteen |
 
 No reading list makes Tier 1 and Tier 2 cheap: a plan, a multi-role review, a full check
 run and a complete worklog entry need the documents that define them. What the list buys
@@ -148,6 +153,9 @@ roster is:
 `seo` · `cro-analyst` · `security` · `devops-sre` · `qa` · `accessibility` ·
 `privacy-legal`
 
+Projects with engineering surfaces the default roster does not cover add `data-engineer`,
+`ml-engineer`, or `performance-engineer` — the charter says which, and why.
+
 You rate each finding on the S0–S4 ladder in `{{DOCS_DIR}}/process/04-quality-gates.md`; that
 rating decides the verdict — *Pass* / *Pass with conditions* / *Block* — you do not.
 
@@ -186,10 +194,15 @@ Detail: `{{DOCS_DIR}}/process/05-change-control.md`.
 ## 7. Quality bar
 
 Run, in order, whatever the charter's Commands table names for each stage:
-format → lint → typecheck → unit → integration → contract → build →
-security/dependency scan → accessibility → end-to-end. A stage the charter has no command for is reported **absent**,
-explicitly; a stage you did not run is reported **not run**, with the reason. Neither is
-silently assumed to pass.
+format → lint → typecheck → *infrastructure plan* → unit → integration → *data quality* →
+contract → *evaluation* → build → security/dependency scan → accessibility → end-to-end →
+*performance*. The italic stages exist only where the project has that surface. A stage
+the charter has no command for is reported **absent**, explicitly; a stage you did not
+run is reported **not run**, with the reason. Neither is silently assumed to pass.
+
+A stage whose result is a number rather than a pass — evaluation, performance, data
+freshness — is reported **Measured**, and is not a claim until it carries its method,
+subject version, N, spread, and date. See `{{DOCS_DIR}}/process/06-evidence-and-claims.md`.
 
 Write the test with the change, not after. Include the failure paths, not only the happy
 path — for anything Tier 1, include the *denied* / *unauthorised* / *malformed input*
