@@ -128,11 +128,54 @@ For scripts, CI, or a plain copy with no questions:
 `-y` (also implied when stdin is not a terminal) takes every default, tailors nothing, and
 installs only the skills that do not depend on an answer. The target directory is required
 in this mode — without a terminal there is nobody to ask. Other flags: `--docs-dir <name>`
-to install the docs under a different directory, `--create`, `--no-skills`, `--dry-run`,
-`--lang <code>`, `--scaffold-tests`, `--scaffold-ci <github|gitlab>`, and `--upgrade`.
+to install the docs under a different directory, `--harness <list>`, `--profile
+<full|compact>`, `--hooks`, `--create`, `--no-skills`, `--dry-run`, `--lang <code>`,
+`--scaffold-tests`, `--scaffold-ci <github|gitlab>`, and `--upgrade`.
 
 The installer is `install.py` (Python 3.6+, standard library only); `install.sh` is a
 wrapper that runs it. Nothing the kit *installs* needs Python — only the installer does.
+The optional `--hooks` scripts need `jq`, and say so and allow the call when it is absent.
+
+## Which agent tools this works with
+
+`AGENTS.md` is the contract, and most tools now read it directly. The rest each look in
+their own file, so the installer points them at it — appending to a file that already
+exists, never overwriting, and never copying the contract itself.
+
+| Tool | Wiring |
+| --- | --- |
+| Codex, Jules, Zed, Factory, opencode | Nothing to do — they read `AGENTS.md` |
+| Claude Code | `CLAUDE.md`, plus slash commands, skills and optional hooks |
+| Gemini CLI · Amp · Copilot · Cursor · Windsurf · Cline · Aider | `--harness gemini,amp,copilot,cursor,windsurf,cline,aider` (or `all`) |
+
+```sh
+./install.sh /path/to/project ACME -y --harness claude,cursor,copilot
+```
+
+**If nothing points at `AGENTS.md`, the kit is installed and inert** — and nothing about
+the repository looks wrong. The installer warns when it wires nothing, and
+`/sdlc-doctor` rates that the most severe finding it can report.
+
+Only Claude Code has model-invoked skills, so on every other tool the routing lives in
+the last table of `docs/CARD.md`: *when X is true, read Y*.
+
+## Reading cost, and small models
+
+Measured, and enforced by `validate.py` — the figures in `AGENTS.md` fail CI if they
+drift from the files:
+
+| Change | Full | Compact |
+| --- | --- | --- |
+| Tier 3 | <3k | <3k |
+| Tier 2, two roles | ~23k | ~17k |
+| Tier 1, four roles | ~26k | ~20k |
+
+`--profile compact` installs the card, roles, templates and project records but omits the
+numbered `process/` documents the card summarises. One source for every rule either way —
+it is a packaging choice, not a second copy written in shorter words. A Tier 1 change
+then has no escalation document to appeal to, so choose it deliberately; the charter's
+**Agent environment** table records which profile is installed and the minimum context
+window the reading list assumes.
 
 `--docs-dir` is for a project whose `docs/` already means something else. The installed
 contract, commands, and skills all follow the chosen name automatically.
@@ -273,13 +316,16 @@ template/
       07-traceability.md         IDs, the backlog row spec, what gets logged where
       08-content-and-translation.md  source language, machine translation, RTL, per-locale checks
       09-probabilistic-and-data-systems.md  models, prompts, evaluation, pipelines, acquired data
+      10-multi-agent.md          claiming, single-writer files, review fan-out, handoff
     roles/                   WHO reviews. One playbook per professional perspective.
       README.md + 16 role playbooks
     templates/               Blank artifacts to copy when a project needs one.
+    CARD.md                  the operating card: the whole standard on one page
     project/                 WHERE this project's filled-in reality lives.
       charter.md  backlog.md  worklog.md  assumptions-and-risks.md
       adr/  reviews/  plans/  postmortems/  worklog-archive/
 optional/
+  hooks/                     opt-in Claude Code enforcement (--hooks)
   claude-commands/           Claude Code slash commands that drive the loop
   skills/                    model-invoked skills, installed per project need
   locales/                   translations of the installer's own prompts

@@ -6,6 +6,54 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 - Nothing yet.
 
+## 3.1.0 — 2026-09-03
+
+Profiling 3.0.0 found three defects and one cost regression. This release fixes them and
+makes the kit work outside Claude Code.
+
+### Fixed
+
+- **The kit could install itself into permanent silence.** The `CLAUDE.md` pointer was
+  written only when no `CLAUDE.md` existed — which is almost never in a real project — so
+  `AGENTS.md` was never auto-loaded and nothing was printed about it. An existing
+  instruction file is now appended to (never overwritten), re-running adds no second
+  pointer, and an install that wires nothing warns loudly and prints the line to add.
+- **A compact install could never be upgraded**, because `find_docs()` used a numbered
+  process document as the marker for an installed kit.
+
+### Added
+
+- **`docs/CARD.md`** — the operating card. 2,252 tokens covering tiers, the seven
+  evidence words, the check sequence, the severity ladder, verdicts and traceability. It
+  replaces reading `02`, `04`, `06` and `07` for ordinary work; those become named
+  escalation, and the full document wins wherever they disagree. `validate.py` reads the
+  rules the card actually asserts and fails if it invents or drops one.
+- **`--harness <list>`** — pointer files for Claude Code, Gemini CLI, Amp, Copilot,
+  Cursor, Windsurf, Cline and Aider. Codex, Jules, Zed, Factory and opencode read
+  `AGENTS.md` directly and are told so. Pointers reference; they never copy.
+- **`--profile compact`** — installs the card, roles, templates and project records but
+  omits the numbered `process/` documents. For a small context window or a weaker model.
+- **`--hooks`** — two deterministic Claude Code guards: a commit with no work item ID is
+  denied, and an edit to a path in `.ai-sdlc/protected.txt` is denied. Merged into an
+  existing `settings.json` without disturbing it.
+- **`process/10-multi-agent.md`** — claiming, single-writer files, review fan-out, why a
+  subagent's result is *Reported* and not *Verified*, and handoff. Conditional.
+- Charter: **Agent environment** and **Concurrency** tables. `/sdlc-doctor` checks that
+  something points at `AGENTS.md` and rates its absence the highest finding it can make.
+
+### Changed
+
+- **The always-list costs 11,624 tokens instead of 18,222** — a 36% cut, and 26% below
+  where 3.0.0 started. A Tier 2 change with two roles: 22.7k full, 17.3k compact.
+- `AGENTS.md`'s per-tier figures are measured, and CI fails if they drift.
+
+### Upgrading
+
+`--upgrade` delivers `CARD.md` and `10-multi-agent.md`. Merge the `AGENTS.md` reading-list
+changes with the printed `diff` — Tier 2 and Tier 1 now read the card instead of four
+process documents, and that is the whole token saving. Copy the new charter tables if the
+project needs them. `--harness`, `--profile` and `--hooks` apply to a fresh install.
+
 ## 3.0.0 — 2026-09-03
 
 The kit covered web and content projects well and engineering-heavy ones barely. This
