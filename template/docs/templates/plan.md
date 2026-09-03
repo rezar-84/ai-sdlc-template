@@ -14,12 +14,13 @@ _(What is wrong or missing today, for whom, and what it costs them. Not the solu
 
 ## Outcome
 
-_(One sentence: what will be true afterwards that is not true now, stated observably.)_
+_(One sentence: what will be true afterwards that is not true now, stated observably. Or
+link to upstream spec: `specs/...md`)_
 
 ## Approach
 
 _(How. Concrete enough that someone else could implement it. Name the actual files,
-modules, endpoints, tables, or screens.)_
+modules, endpoints, tables, or screens. Reference upstream specification if one exists.)_
 
 ## Alternatives rejected
 
@@ -41,6 +42,7 @@ people act at once, the migration half-applies.)_
 
 ## Test strategy
 
+- **Acceptance criteria mapping:** _(which Given/When/Then scenarios or spec criteria map to tests)_
 - **Unit:** _(what)_
 - **Integration:** _(what boundary)_
 - **Negative cases:** _(what must be refused — required for Tier 1)_

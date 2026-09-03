@@ -28,6 +28,9 @@ planned yet, which is all of them.
       a human, made irrelevant by a stated assumption, or the item is blocked. It is
       never silently guessed.
 
+*(An upstream specification from GitHub Spec Kit, Kiro, or `templates/user-stories.md`
+directly satisfies the outcome, acceptance criteria, and bounded-unknown checks.)*
+
 **Checkable at BUILD entry, once the plan exists:**
 
 - [ ] **Dependencies are identified and satisfied**, or the item is explicitly a

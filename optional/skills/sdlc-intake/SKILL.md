@@ -18,9 +18,10 @@ by vibes, reviewed by the wrong roles, and merged against a charter nobody read.
 
 ## 2. Restate
 
-One sentence, in your own words, of what is being asked. If your restatement could
-plausibly mean something materially different from the request, ask now — this is the
-cheapest moment in the whole loop to ask.
+One sentence, in your own words, of what is being asked. If an upstream specification
+exists (from GitHub Spec Kit, Kiro, or a spec file), cite it and use its defined problem
+statement and scope. If your restatement could plausibly mean something materially
+different from the request, ask now — this is the cheapest moment in the whole loop to ask.
 
 ## 3. Assign the ID
 
@@ -39,9 +40,10 @@ small — the tier follows the blast radius, not the line count.
 ## 5. Check readiness
 
 The Definition of Ready items knowable now (`{{DOCS_DIR}}/process/03-ready-and-done.md`).
-A failing item is recorded as a blocker, not guessed past. If a Tier 1 item is missing an
-accountable human, approvers, or the data and jurisdiction facts, park it — see "Waiting
-on a human" in `{{DOCS_DIR}}/process/00-operating-model.md`.
+An upstream spec with testable Given/When/Then scenarios satisfies the acceptance criteria
+check directly. A failing item is recorded as a blocker, not guessed past. If a Tier 1
+item is missing an accountable human, approvers, or the data and jurisdiction facts,
+park it — see "Waiting on a human" in `{{DOCS_DIR}}/process/00-operating-model.md`.
 
 ## 6. Produce the reading list
 

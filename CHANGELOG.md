@@ -4,7 +4,14 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
-- Nothing yet.
+- **Spec-driven development (Spec Kit / Kiro) integration**:
+  - `/sdlc-plan` and `sdlc-intake` now explicitly ingest upstream specification files
+    (e.g., `specs/`, `spec.md`, or Spec Kit artifacts), adopting problem definitions,
+    user stories, and acceptance criteria without asking redundant questions.
+  - `03-ready-and-done.md` clarifies that an upstream spec satisfies the FRAME Definition
+    of Ready criteria (outcomes, testable criteria, bounded unknowns).
+  - `plan.md` and `test-plan.md` templates gained explicit acceptance-criteria mapping
+    to connect Given/When/Then scenarios and negative assertions directly into test suites.
 
 ## 3.2.0 — 2026-09-03
 

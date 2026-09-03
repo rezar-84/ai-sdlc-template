@@ -69,7 +69,8 @@ it*. This kit answers *how does every change get made, reviewed, verified and re
 risk tiers, sixteen role playbooks, the evidence vocabulary, the severity ladder,
 traceability. Neither has the other's content. Use Spec Kit to specify the feature and
 this to govern the change; the process documents here never dictate how a requirement is
-written.
+written. When you have a spec file, pass it directly to `/sdlc-plan <path-to-spec>` — the
+command ingests its acceptance criteria and scope without re-asking questions.
 
 **AI app builders are a place to install this, not a thing to replace.** Independent
 research puts roughly 80% of AI-generated applications as containing at least one

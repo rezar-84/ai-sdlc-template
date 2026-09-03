@@ -26,7 +26,10 @@ Follow `{{DOCS_DIR}}/process/00-operating-model.md`. Specifically:
    if one fails, record the blocker rather than guessing past it.
 
 3. **Plan.** Read the existing implementation before proposing anything; most bad plans
-   are written against an imagined codebase. Then produce a plan from
+   are written against an imagined codebase. If an upstream specification already exists
+   (e.g. from GitHub Spec Kit, Kiro, `specs/`, or a provided spec file), adopt its problem
+   statement, user stories, and acceptance criteria directly rather than re-asking what is
+   already specified; reference the spec in the plan's approach. Then produce a plan from
    `{{DOCS_DIR}}/templates/plan.md` — Tier 1 as a file in `{{DOCS_DIR}}/project/plans/`, Tier 2 inline,
    Tier 3 as a sentence. Include the alternatives you rejected and the reason each lost,
    the failure modes, the rollback, and what you are deliberately not doing.

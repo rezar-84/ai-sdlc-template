@@ -41,6 +41,10 @@ testing is the data in them:
 
 ## What is covered
 
+### Acceptance criteria scenarios
+_(Mapping of Given/When/Then criteria from user stories or upstream specifications into
+executable checks, including explicit "must not" negative cases.)_
+
 ### Unit
 _(Which logic. Which edge cases matter and are covered.)_
 
