@@ -67,6 +67,9 @@ diff, and the actual enforcement points in the code.
 **Secrets and credentials**
 - [ ] No secret in source, configuration committed to the repository, client bundle,
       log, error message, URL, or analytics payload.
+- [ ] **Git hygiene (`.gitignore`):** `.env*`, credentials, service account JSONs, and private
+      keys are explicitly covered in `.gitignore`. Secrets scanning (e.g. `gitleaks`, `trufflehog`)
+      or pre-commit hooks verify no credential leaks into git history.
 - [ ] Secrets are injected at runtime, scoped to the least privilege that works, and
       rotatable without a code change.
 - [ ] A committed secret is treated as compromised and rotated — removal is not

@@ -16,6 +16,11 @@ Drop it into any project. From then on, an agent that reads `AGENTS.md` will:
 6. **Log** what shipped, what was verified, and what is still open.
 7. **Close** the loop — backlog status, ADRs, updated docs, flagged assumptions.
 
+Every work item also resolves an **effort mode** independently of its risk tier: Lean
+takes the shortest sufficient path, Normal is the balanced default, and Beast maximises
+investigation and verification without widening product scope. No mode weakens security,
+tests, evidence, approvals, or another requirement imposed by the risk tier.
+
 ## What it deliberately does NOT do
 
 - **No tech stack.** No framework, language, package manager, cloud, CI system, or test
@@ -151,8 +156,9 @@ What it writes into the installed files:
   three things you told it that no file could say.
 - `AGENTS.md` — the "Human approval required for" and "Forbidden in this project" lines of
   the Project overrides section.
-- `.ai-sdlc/profile.json` — the facts, active roles, chosen skills, and command table in
-  machine-readable form, so `/sdlc-verify` and the skills can act on them without parsing
+- `.ai-sdlc/profile.json` — schema 2: the facts, active roles, chosen skills, command
+  table, default effort mode, and acquisition profile in machine-readable form, so
+  `/sdlc-verify` and the skills can act on them without parsing
   prose. Derived, never authored: the charter is the source of truth and wins on conflict.
 
 Anything it could not establish is left blank on purpose. A blank cell is read as *Unknown*
@@ -169,8 +175,14 @@ For scripts, CI, or a plain copy with no questions:
 installs only the skills that do not depend on an answer. The target directory is required
 in this mode — without a terminal there is nobody to ask. Other flags: `--docs-dir <name>`
 to install the docs under a different directory, `--harness <list>`, `--profile
-<full|compact>`, `--hooks`, `--create`, `--no-skills`, `--dry-run`, `--lang <code>`,
+<full|compact>`, `--effort-mode <lean|normal|beast>`, `--acquisition-profile
+<standard|advanced>`, `--hooks`, `--create`, `--no-skills`, `--dry-run`, `--lang <code>`,
 `--scaffold-tests`, `--scaffold-ci <github|gitlab>`, and `--upgrade`.
+
+`Advanced` acquisition (displayed as **Black Widow**) enables browser automation, OCR,
+resilient extractors, and authorised session flows. It is a capability profile, not
+permission: authentication, paywalls, CAPTCHA, explicit denial, or other access controls
+still require target-owner authorisation or an approved API/export route.
 
 The installer is `install.py` (Python 3.6+, standard library only); `install.sh` is a
 wrapper that runs it. Nothing the kit *installs* needs Python — only the installer does.
@@ -374,6 +386,7 @@ optional/
 install.py                   the installer; install.sh is a wrapper around it
 validate.py                  source and installed-output validation
 tests/smoke.py               installer boundary and workflow tests
+benchmarks/effort-modes/     optional isolated-run protocol and measurement scorer
 .github/workflows/           continuous validation and tag-based releases
 VERSION                      the kit version, stamped into installed AGENTS.md
 LICENSE · SECURITY.md · CONTRIBUTING.md · CHANGELOG.md
@@ -433,6 +446,7 @@ The kit validates itself with standard-library-only commands:
 python3 validate.py
 python3 tests/smoke.py
 python3 -m py_compile install.py validate.py tests/smoke.py
+python3 benchmarks/effort-modes/score.py --selftest
 ```
 
 `validate.py` also cross-checks the pairings the kit maintains by hand — every role has a

@@ -124,6 +124,10 @@ EN = {
     "q.approvers": "Approver(s) for Tier 1 work",
     "h.approvers": "Named humans. Tier 1 needs two approvals.",
     "q.staleness": "Treat project docs as stale after",
+    "q.effort": "Default effort mode (l = Lean, n = Normal, x = Beast)",
+    "h.effort": "Lean minimizes optional work, Normal is balanced, Beast maximizes investigation and verification. Risk-tier requirements never change.",
+    "q.acquisition": "Acquisition profile (s = Standard, a = Advanced / Black Widow)",
+    "h.acquisition": "Advanced enables more extraction techniques on authorized targets. It never grants permission to bypass access controls.",
     "q.approval": "Human approval required for",
     "q.forbidden": "Forbidden in this project",
     "h.forbidden": "The specific shortcuts that would be tempting here. Blank = fill in later.",
@@ -132,6 +136,10 @@ EN = {
     "q.a11y": "Accessibility target",
     "q.outcome": "Primary outcome success is measured by",
     "h.outcome": "The one user action: sign-up, activation, task completion, purchase.",
+    "q.access_model": "Access level model",
+    "h.access_model": "Role-Based (RBAC), Simple Owner/User, Multi-tenant Workspace-Scoped, ABAC/ReBAC, or None (Public).",
+    "q.mfa_policy": "MFA / OTP policy",
+    "h.mfa_policy": "Optional / User-enabled, Enforced for Admin/Privileged only, Enforced for all users, or Not required.",
     "q.docsdir": "Install the docs under",
 
     "l.dest": "Destination",
@@ -153,14 +161,18 @@ EN = {
     "l.direct": "Direct commits to it",
     "l.approvers": "Approvers",
     "l.staleness": "Docs stale after",
+    "l.effort": "Default effort mode",
+    "l.acquisition": "Acquisition profile",
     "l.approval": "Human approval for",
     "l.forbidden": "Forbidden here",
     "l.platform": "Managed platform",
     "l.a11y": "Accessibility target",
     "l.outcome": "Primary outcome",
+    "l.access_model": "Access level model",
+    "l.mfa_policy": "MFA / OTP policy",
     "l.docsdir": "Docs directory",
     "l.commands": "Slash commands",
-    "q.commands": "Install the four /sdlc-* slash commands?",
+    "q.commands": "Install the five /sdlc-* slash commands?",
     "q.skills": "Install the ticked skills? (y = yes, e = choose each, n = none)",
 
     "hint.detected": "read from the repository -- confirm, do not assume:",
@@ -289,6 +301,13 @@ USAGE = """usage: install.sh <target-project-dir> [PREFIX] [options]
                      reading for a Tier 2 change instead of 22k. For a small context
                      window or a weaker model. A Tier 1 change then has no escalation
                      document to appeal to, so choose it deliberately.
+  --effort-mode <name>
+                     project default: lean, normal (default), or beast. This changes
+                     solution and review depth, never the risk-tier safety floor.
+  --acquisition-profile <name>
+                     standard (default) or advanced. Advanced enables additional data
+                     acquisition techniques on authorized targets; it does not grant
+                     permission to bypass authentication, CAPTCHA, or access controls.
   --harness <list>   comma-separated agent tools to wire up (default: claude). One of
                      claude, gemini, amp, copilot, cursor, windsurf, cline, aider, or
                      "all". Each gets a pointer file naming AGENTS.md; an instruction
@@ -318,6 +337,8 @@ class Options(object):
         self.dry_run = False
         self.harnesses = []
         self.profile = "full"
+        self.effort_mode = "normal"
+        self.acquisition_profile = "standard"
         self.hooks = False
         self.lang = "en"
 
@@ -366,6 +387,18 @@ def parse_args(argv):
                 sys.stderr.write("--profile requires full or compact\n")
                 usage()
             o.profile = argv[i + 1]
+            i += 1
+        elif arg == "--effort-mode":
+            if i + 1 >= len(argv) or argv[i + 1] not in ("lean", "normal", "beast"):
+                sys.stderr.write("--effort-mode requires lean, normal, or beast\n")
+                usage()
+            o.effort_mode = argv[i + 1]
+            i += 1
+        elif arg == "--acquisition-profile":
+            if i + 1 >= len(argv) or argv[i + 1] not in ("standard", "advanced"):
+                sys.stderr.write("--acquisition-profile requires standard or advanced\n")
+                usage()
+            o.acquisition_profile = argv[i + 1]
             i += 1
         elif arg == "--harness":
             if i + 1 >= len(argv):
@@ -1013,11 +1046,23 @@ def detect(root):
     # -- hosting, CI, platforms ------------------------------------------------
     for f, label in (("vercel.json", "Vercel"), ("netlify.toml", "Netlify"),
                      ("fly.toml", "Fly.io"), ("wrangler.toml", "Cloudflare Workers"),
-                     ("render.yaml", "Render"), ("Procfile", "Heroku-style buildpack host")):
+                     ("render.yaml", "Render"), ("Procfile", "Heroku-style buildpack host"),
+                     ("app.yaml", "Google App Engine")):
         if repo.has(f):
             add(d.host, label)
+    if (dep("@aws-sdk/client-s3") or repo.pydep("boto3") or repo.has("cdk.json")
+            or repo.has("template.yaml")):
+        add(d.host, "AWS")
+    if (dep("@google-cloud/storage") or dep("@google-cloud/bigquery")
+            or repo.pydep("google-cloud-storage") or repo.pydep("google-cloud-bigquery")):
+        add(d.host, "Google Cloud")
+    if dep("@cloudflare/workers-types") or repo.has("wrangler.toml") or repo.has("wrangler.json"):
+        add(d.host, "Cloudflare")
     if repo.has("Dockerfile") or repo.has("docker-compose.yml") or repo.has("compose.yaml"):
         add(d.host, "Docker")
+    compose_text = repo.text("docker-compose.yml") + "\n" + repo.text("compose.yaml")
+    if repo.has("dokploy.json") or "traefik.http.routers" in compose_text:
+        add(d.host, "Dokploy")
     for f, label in ((".github/workflows", "GitHub Actions"), (".gitlab-ci.yml", "GitLab CI"),
                      ("Jenkinsfile", "Jenkins"), (".circleci", "CircleCI"),
                      ("azure-pipelines.yml", "Azure Pipelines")):
@@ -1631,6 +1676,10 @@ class Wizard(object):
 
     def display(self, step):
         value = self.a.get(step.sid, "")
+        if step.sid == "effort":
+            return EFFORT_KEYS.get(value, "Normal")
+        if step.sid == "acquisition":
+            return ACQUISITION_KEYS.get(value, "Standard")
         if isinstance(value, bool):
             return "yes" if value else "no"
         if isinstance(value, list):
@@ -1649,7 +1698,8 @@ class Wizard(object):
             section = None
             for i in self.visible_indexes():
                 step = self.steps[i]
-                if step.kind == "key" or step.sid.startswith("skill:"):
+                if ((step.kind == "key" and step.sid not in ("effort", "acquisition"))
+                        or step.sid.startswith("skill:")):
                     continue
                 if step.section != section:
                     section = step.section
@@ -1695,6 +1745,21 @@ CMD_FIELDS = (("c_install", "q.c_install", "install"), ("c_run", "q.c_run", "run
               ("c_e2e", "q.c_e2e", "e2e"),
               ("c_infra", "q.c_infra", "infra"), ("c_data", "q.c_data", "data"),
               ("c_eval", "q.c_eval", "eval"), ("c_perf", "q.c_perf", "perf"))
+
+EFFORT_KEYS = {"l": "Lean", "n": "Normal", "x": "Beast"}
+ACQUISITION_KEYS = {"s": "Standard", "a": "Advanced"}
+
+
+def selected_effort(w):
+    raw = w.a.get("effort") or {"lean": "l", "normal": "n", "beast": "x"}.get(
+        w.o.effort_mode, "n")
+    return EFFORT_KEYS.get(raw, "Normal")
+
+
+def selected_acquisition(w):
+    raw = w.a.get("acquisition") or {"standard": "s", "advanced": "a"}.get(
+        w.o.acquisition_profile, "s")
+    return ACQUISITION_KEYS.get(raw, "Standard")
 
 
 def seed_from_detection(w):
@@ -1917,6 +1982,12 @@ def build_steps(w):
         Step("approvers", "sec.process", "text", "q.approvers", help="h.approvers", label="l.approvers",
              default=lambda w: w.a.get("owner", "")),
         Step("staleness", "sec.process", "text", "q.staleness", default="90 days", label="l.staleness"),
+        Step("effort", "sec.process", "key", "q.effort", help="h.effort",
+             options="lnx", default=lambda w: {"lean": "l", "normal": "n", "beast": "x"}[
+                 w.o.effort_mode], label="l.effort"),
+        Step("acquisition", "sec.process", "key", "q.acquisition", help="h.acquisition",
+             options="sa", default=lambda w: {"standard": "s", "advanced": "a"}[
+                 w.o.acquisition_profile], label="l.acquisition", when=lambda w: w.fact("acquire")),
         Step("approval", "sec.process", "text", "q.approval", default=default_approval, label="l.approval"),
         Step("forbidden", "sec.process", "text", "q.forbidden", help="h.forbidden", label="l.forbidden"),
         Step("platform", "sec.process", "text", "q.platform", help="h.platform", label="l.platform",
@@ -1926,6 +1997,14 @@ def build_steps(w):
              when=lambda w: w.fact("ui")),
         Step("outcome", "sec.standards", "text", "q.outcome", help="h.outcome", label="l.outcome",
              when=lambda w: w.fact("conv")),
+        Step("access_model", "sec.standards", "text", "q.access_model", help="h.access_model",
+             label="l.access_model",
+             default=lambda w: "None (Public)" if not (w.fact("pii") or bool(w.a.get("s_auth"))) else "Role-Based (RBAC)",
+             when=lambda w: bool(w.interactive and (w.fact("pii") or bool(w.a.get("s_auth"))))),
+        Step("mfa_policy", "sec.standards", "text", "q.mfa_policy", help="h.mfa_policy",
+             label="l.mfa_policy",
+             default=lambda w: "Not required" if not (w.fact("pii") or bool(w.a.get("s_auth"))) else "Optional / User-enabled",
+             when=lambda w: bool(w.interactive and (w.fact("pii") or bool(w.a.get("s_auth"))))),
 
         Step("docsdir", "sec.install", "text", "q.docsdir", default=default_docsdir, label="l.docsdir",
              validate=validate_docsdir),
@@ -2441,6 +2520,8 @@ class Installer(object):
             "kit_version": VERSION,
             "docs_dir": self.docs,
             "profile": self.o.profile,
+            "effort_mode": "Normal",
+            "acquisition_profile": "Standard",
             "wired": sorted(self.wired),
             "staleness_days": 90,
             "roles": [], "commands": [], "items": [], "artifacts": [], "budgets": [],
@@ -2451,6 +2532,15 @@ class Installer(object):
             n = re.search(r"(\d+)", m.group(1))
             if n:
                 state["staleness_days"] = int(n.group(1))
+
+        for field, key, allowed, fallback in (
+                ("Default effort mode", "effort_mode", ("Lean", "Normal", "Beast"), "Normal"),
+                ("Acquisition profile", "acquisition_profile", ("Standard", "Advanced"), "Standard")):
+            m = re.search(r"^\| \*\*%s\*\* \| ([^|]*)\|" % re.escape(field), charter, re.M)
+            if m:
+                cell = plain_text(m.group(1)).strip()
+                matches = [value for value in allowed if value in cell]
+                state[key] = matches[0] if len(matches) == 1 else fallback
 
         for name, tick, active_if, reason in re.findall(
                 r"^\| ([a-z][a-z-]+) \| ([\u2611\u2610]) \|([^|]*)\|([^|]*)\|", charter, re.M):
@@ -2584,7 +2674,7 @@ class Installer(object):
         shape in a form a command or a skill can branch on without parsing prose."""
         w, d = self.w, self.w.det
         return {
-            "schema": 1,
+            "schema": 2,
             "kit_version": VERSION,
             "generated": today(),
             "declared": bool(w.interactive),
@@ -2599,6 +2689,8 @@ class Installer(object):
             "commands": self.selected_commands(),
             "budgets": {},
             "profile": self.o.profile,
+            "effort_mode": selected_effort(w).lower(),
+            "acquisition_profile": selected_acquisition(w).lower(),
             "harnesses": sorted(self.wired),
             "platform": w.a.get("platform", "") if w.a.get("platform", "none") != "none" else "",
             "detected": {
@@ -2767,8 +2859,13 @@ class Installer(object):
 
         for sid, label in zip([s[0] for s in STACK_FIELDS],
                               ("Language / runtime", "Package manager", "Framework(s)",
-                               "Data store(s)", "Auth", "Hosting", "CI", "Test tooling")):
+                               "Data store(s)", "Auth & Identity", "Hosting & Cloud provider", "CI", "Test tooling")):
             text = fill_row(text, label, a.get(sid))
+            # Also fill legacy/alternative labels if present
+            if label == "Auth & Identity":
+                text = fill_row(text, "Auth", a.get(sid))
+            elif label == "Hosting & Cloud provider":
+                text = fill_row(text, "Hosting", a.get(sid))
         # Derived from the key rather than zipped against a parallel list: a stage
         # added to one and not the other would silently write into the wrong row.
         for sid, _, key in CMD_FIELDS:
@@ -2783,6 +2880,12 @@ class Installer(object):
         text = fill_row(text, "**Human approval required for**", a.get("approval"))
         text = fill_row(text, "**Approvers**", a.get("approvers"))
         text = fill_row(text, "**Staleness threshold**", a.get("staleness"))
+        text = fill_row(text, "**Default effort mode**", selected_effort(w))
+        text = fill_row(text, "**Acquisition profile**", selected_acquisition(w))
+        if a.get("access_model"):
+            text = fill_row(text, "**Access level model**", a.get("access_model"))
+        if a.get("mfa_policy"):
+            text = fill_row(text, "**MFA / OTP policy**", a.get("mfa_policy"))
         text = fill_row(text, "**Accessibility target**",
                         a.get("a11y") or ("" if w.fact("ui") else
                                           "not applicable — no interface"))
@@ -2913,8 +3016,12 @@ class Installer(object):
 # ---------------------------------------------------------------- upgrade mode
 
 def refresh_profile(target):
-    """An upgrade re-stamps the kit version and nothing else: every other key records
-    what the project answered, and no upgrade has the standing to change that."""
+    """Re-stamp generated metadata and add safe defaults for new profile fields.
+
+    Project-authored values stay in the charter. An upgrade cannot infer whether the old
+    Beast label meant implementation effort or acquisition policy, so it deliberately
+    uses the safe defaults and lets the doctor flag the legacy charter row.
+    """
     path = Path(target) / PROFILE_REL
     if not path.exists():
         return
@@ -2922,12 +3029,22 @@ def refresh_profile(target):
         data = json.loads(path.read_text(encoding="utf-8"))
     except (IOError, OSError, ValueError):
         return
-    if not isinstance(data, dict) or data.get("kit_version") == VERSION:
+    if not isinstance(data, dict):
         return
+    changed = data.get("kit_version") != VERSION or data.get("schema") != 2
     data["kit_version"] = VERSION
+    data["schema"] = 2
+    if "effort_mode" not in data:
+        data["effort_mode"] = "normal"
+        changed = True
+    if "acquisition_profile" not in data:
+        data["acquisition_profile"] = "standard"
+        changed = True
+    if not changed:
+        return
     try:
         atomic_write_text(path, json.dumps(data, indent=2, sort_keys=True) + "\n")
-        print("  update         %s (kit version)" % PROFILE_REL)
+        print("  update         %s (schema and kit version)" % PROFILE_REL)
     except (IOError, OSError):
         pass
 
@@ -2961,6 +3078,10 @@ def upgrade(target, o):
         return 1
     prefix = o.prefix
     charter = target / docs / "project" / "charter.md"
+    if charter.exists() and re.search(r"^\| \*\*Operating mode\*\* \|.*Beast",
+                                      charter.read_text(encoding="utf-8", errors="replace"), re.M):
+        print("  warning        legacy Beast mode is ambiguous; choose Default effort mode "
+              "and Acquisition profile in %s" % charter.relative_to(target))
     if not prefix and charter.exists():
         m = re.search(r"^\| \*\*Work item prefix\*\* \| `([A-Z]{2,4})`",
                       charter.read_text(encoding="utf-8", errors="replace"), re.M)

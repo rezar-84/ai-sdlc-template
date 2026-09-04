@@ -29,7 +29,10 @@ where the answer changes what you are about to do.
    relying on this", not as "ignore".
 3. **The roles.** An unticked role with an empty reason means nobody decided. If your
    change touches that role's surface, that is a question for a human, not a permission.
-4. **The profile.** If `.ai-sdlc/profile.json` disagrees with the charter, **the charter
+4. **Modes.** `Default effort mode` is exactly Lean, Normal, or Beast; `Acquisition
+   profile` is exactly Standard or Advanced. A legacy `Operating mode: Beast mode` is
+   ambiguous and needs a human migration decision.
+5. **The profile.** If `.ai-sdlc/profile.json` disagrees with the charter, **the charter
    wins** — a human maintains it and the profile is derived. Report the drift.
 
 ## What to do with a finding

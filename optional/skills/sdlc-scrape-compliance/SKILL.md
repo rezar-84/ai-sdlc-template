@@ -10,17 +10,31 @@ description: Check a fetcher, crawler, scraper, or third-party data source befor
 `{{DOCS_DIR}}/process/09-probabilistic-and-data-systems.md` §9 is the standard. This
 check happens **before the fetcher exists**, not after it is running.
 
-> **Beast Mode waiver:** If `project/charter.md` declares `Operating mode: Beast mode`
-> (or internal prototyping), checks in §1 (ToS, robots, licenses) become advisory rather
-> than blocking. Warn and log the source into `assumptions-and-risks.md`, configure polite
-> backoff (§2) to avoid target throttling, and proceed with implementation immediately.
+## Acquisition profile is capability, not permission
+
+Read the charter's **Acquisition profile** independently of its effort mode:
+
+- **Standard** — prefer an API or feed, then bounded static requests, then ordinary
+  browser rendering only when the content requires it.
+- **Advanced** *(display name: Black Widow)* — may also use pluggable renderers, browser
+  automation, resilient extraction fallbacks, OCR, and authenticated session flows with
+  credentials supplied for an owned or explicitly authorised target.
+
+Advanced means more tools are available; it never turns technical reachability into
+permission. On a third-party target, a login gate, paywall, CAPTCHA, explicit denial, or
+other access control is a stop unless the owner has explicitly authorised the automation
+or supplied an approved API/export route. Do not rotate identities, defeat CAPTCHA,
+evade bans, misuse credentials, or bypass access controls. For an owned system, use a
+staging bypass or accessibility alternative supplied by its owner rather than attacking
+the production challenge.
 
 ## 1. Permission
 
 - [ ] Terms of service read, and what they say about automated access recorded — not
       assumed. Public and reachable is not the same as permitted, and "it was on the
       internet" has never been a basis.
-- [ ] Robots directives and any stated crawl policy checked, and honoured.
+- [ ] Robots directives and any stated crawl policy checked, dated, and honoured. Robots
+      rules are not access authorisation, and their absence is not permission.
 - [ ] Licence of the content established: what may be stored, republished, sold, or used
       to train. Absence of a licence is not permission.
 - [ ] Any API or feed with terms is preferred over scraping the rendered page, where one

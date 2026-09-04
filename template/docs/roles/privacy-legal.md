@@ -70,9 +70,12 @@ data categories), the data inventory, and the change.
       require one.
 - [ ] Data residency requirements in the charter are actually met by the deployment.
 
-**Intellectual property**
-- [ ] Third-party code licences are compatible with this project's distribution model,
-      and their attribution requirements are satisfied.
+**Intellectual property & licensing**
+- [ ] Third-party code licences are compatible with this project's distribution model
+      (checked via `checks.scan`, e.g. `license-checker`, `cargo-deny`, `pip-licenses`).
+      Flag viral copyleft licences (GPL, AGPL) if the project is proprietary or dual-licensed.
+- [ ] The repository's declared licence (`charter.md` → Sources of truth: `Repository license`)
+      is respected, with correct SPDX headers and attribution files present.
 - [ ] Fonts, images, video, audio, icons, and datasets are licensed for this use. Found
       online is not licensed.
 - [ ] Customer names, logos, testimonials, and case-study details have documented

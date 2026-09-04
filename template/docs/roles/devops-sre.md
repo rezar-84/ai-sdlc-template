@@ -38,6 +38,9 @@ when it breaks at an inconvenient hour, someone can tell what happened and put i
       required value fails loudly and immediately, not on first use at 3am.
 - [ ] No environment-specific value, hostname, path, or credential is compiled in.
 - [ ] Defaults are safe: the accidental configuration is the restrictive one.
+- [ ] **Git hygiene (`.gitignore`):** Environment files (`.env*`), runtime state, ephemeral
+      logs, and build artifacts are explicitly gitignored. No uncommitted local config
+      leaks into git.
 
 **Deployment & edge delivery**
 - [ ] The deployment is incremental and reversible. State the exact rollback procedure
@@ -50,6 +53,12 @@ when it breaks at an inconvenient hour, someone can tell what happened and put i
 - [ ] Startup, readiness, and liveness are distinguishable from outside the process.
 - [ ] Restart is safe at any point. Nothing depends on a specific instance's memory or
       local disk unless that is designed and documented.
+- [ ] **Dokploy / Self-hosted PaaS:**
+      - Persistent data (uploads, sqlite/db files) is bound to named volumes or host paths,
+        not the ephemeral container layer.
+      - Traefik routing rules and SSL challenge resolvers (Let's Encrypt) are verified.
+      - Container healthcheck (`HEALTHCHECK` or Dokploy health probe) gates traffic routing
+        to enable zero-downtime rolling updates.
 - [ ] **Edge / CDN & Caching (Cloudflare, CloudFront, Fastly):** Cache headers, asset
       versioning (immutable hashing), and post-deploy purge policies are defined so old
       HTML doesn't request purged chunks.

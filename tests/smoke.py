@@ -537,6 +537,9 @@ def test_dashboard():
           str(state.get("wired")))
     check("the state is dated today",
           state.get("generated") == installer.today(), str(state.get("generated")))
+    check("the state uses safe mode defaults for an untailored charter",
+          state.get("effort_mode") == "Normal" and
+          state.get("acquisition_profile") == "Standard", str(state))
 
     # The state is a project record: an upgrade must not manage or replace it.
     manifest = json.loads(read(d, ".ai-sdlc/manifest.json") or "{}")
@@ -662,6 +665,9 @@ def test_profile():
           <= set(profile), str(sorted(profile)))
     check("profile records the kit version",
           profile.get("kit_version") == installer.VERSION, str(profile.get("kit_version")))
+    check("profile uses safe mode defaults",
+          profile.get("schema") == 2 and profile.get("effort_mode") == "normal" and
+          profile.get("acquisition_profile") == "standard", str(profile))
     check("every fact is present and boolean",
           sorted(profile.get("facts", {})) == sorted(installer.FACT_IDS) and
           all(isinstance(v, bool) for v in profile.get("facts", {}).values()),
@@ -675,6 +681,65 @@ def test_profile():
     check("commands come from detection",
           profile.get("commands", {}).get("build") == "npm run build",
           str(profile.get("commands")))
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def test_effort_and_acquisition_profiles():
+    print("effort and acquisition profiles")
+    d = tempfile.mkdtemp(prefix="sdlc-modes-")
+    code, out = run([d, "MOD", "-y", "--effort-mode", "lean",
+                     "--acquisition-profile", "advanced"])
+    profile = json.loads(read(d, ".ai-sdlc/profile.json"))
+    check("mode flags install successfully", code == 0, out[-300:])
+    check("profile schema 2 records both selections",
+          profile.get("schema") == 2 and profile.get("effort_mode") == "lean" and
+          profile.get("acquisition_profile") == "advanced", str(profile))
+
+    code, out = run([d, "MOD", "-y", "--effort-mode", "fast"])
+    check("invalid effort mode is rejected",
+          code != 0 and "requires lean, normal, or beast" in out, out[-300:])
+    code, out = run([d, "MOD", "-y", "--acquisition-profile", "unrestricted"])
+    check("invalid acquisition profile is rejected",
+          code != 0 and "requires standard or advanced" in out, out[-300:])
+    shutil.rmtree(d, ignore_errors=True)
+
+    d = tempfile.mkdtemp(prefix="sdlc-modes-wizard-")
+    write(d, "requirements.txt", "scrapy\n")
+    code, log = drive([d, "MOD"], [
+        ("Default effort mode", "x"),
+        ("Acquisition profile", "a"),
+    ])
+    charter = read(d, "docs/project/charter.md")
+    check("wizard records Beast and Advanced in the charter",
+          code == 0 and "| **Default effort mode** | Beast |" in charter and
+          "| **Acquisition profile** | Advanced |" in charter, log[-800:])
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def test_legacy_mode_upgrade():
+    print("legacy mode upgrade")
+    d = tempfile.mkdtemp(prefix="sdlc-mode-upgrade-")
+    run([d, "LEG", "-y"])
+    charter_path = os.path.join(d, "docs", "project", "charter.md")
+    charter = read(d, "docs/project/charter.md").replace(
+        "| **Default effort mode** |", "| **Operating mode** | `Beast mode` <!--")
+    with open(charter_path, "w") as fh:
+        fh.write(charter)
+    profile_path = os.path.join(d, ".ai-sdlc", "profile.json")
+    profile = json.loads(read(d, ".ai-sdlc/profile.json"))
+    profile.pop("effort_mode", None)
+    profile.pop("acquisition_profile", None)
+    profile["schema"] = 1
+    profile["kit_version"] = "3.2.0"
+    with open(profile_path, "w") as fh:
+        json.dump(profile, fh)
+    code, out = run([d, "--upgrade"])
+    upgraded = json.loads(read(d, ".ai-sdlc/profile.json"))
+    check("legacy Beast mode produces a migration warning",
+          code == 0 and "legacy Beast mode is ambiguous" in out, out[-500:])
+    check("legacy profile gets safe mode defaults",
+          upgraded.get("schema") == 2 and upgraded.get("effort_mode") == "normal" and
+          upgraded.get("acquisition_profile") == "standard", str(upgraded))
     shutil.rmtree(d, ignore_errors=True)
 
 
@@ -813,7 +878,9 @@ def main():
                  test_stack_adapters, test_harness_wiring, test_profiles, test_hooks,
                  test_dashboard,
                  test_domain_detection,
-                 test_role_and_skill_selection, test_profile, test_scaffolding,
+                 test_role_and_skill_selection, test_profile,
+                 test_effort_and_acquisition_profiles, test_legacy_mode_upgrade,
+                 test_scaffolding,
                  test_multiselect_and_review, test_review_jump,
                  test_quit_writes_nothing,
                  test_multilingual, test_architecture):

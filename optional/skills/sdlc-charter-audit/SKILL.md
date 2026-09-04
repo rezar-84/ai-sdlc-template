@@ -21,7 +21,10 @@ downstream. This skill makes that damage visible instead of letting it propagate
    framework imports, data layer, CI provider?
 4. **Active roles.** Every unticked row needs a reason. A blank reason means nobody
    decided, and the default is that the role is *unreviewed*, not *inactive*.
-5. **Risk defaults.** Are approvers named? Is "Never Tier 1 here" justified? Without it,
+5. **Risk defaults and modes.** Are approvers named? Is "Never Tier 1 here" justified?
+   Is the default effort exactly Lean, Normal, or Beast, and acquisition exactly Standard
+   or Advanced? Treat a legacy `Operating mode: Beast mode` row as ambiguous, not as a
+   valid value. Without a justified tier exception,
    "when in doubt, tier up" makes almost everything Tier 1 and the process stalls.
 6. **Environments and default branch.** Do they match the real remotes and workflows?
 7. **Managed platform.** If the repository shows platform markers (`.replit`, `.bolt/`,

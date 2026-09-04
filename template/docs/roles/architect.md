@@ -108,6 +108,9 @@ work handed to a queue, a broker, a scheduler, another service, or a workflow en
 
 **Clean code — reviewable, not a matter of taste.** Each of these is a finding with a
 location and a consequence, or it is not raised:
+- [ ] The implementation stopped at the first sufficient solution-ladder rung: existing
+      repository code/configuration, standard library, native platform, installed
+      dependency, then minimum custom code. A lower rung needs a concrete reason.
 - [ ] No duplicated logic that must now be changed in two places to stay correct. Two
       similar-looking blocks that will diverge for different reasons are not duplication;
       say which case this is.
@@ -121,6 +124,8 @@ location and a consequence, or it is not raised:
       cannot state what it does in a sentence, that is the finding.
 - [ ] Conditional depth and special-case count are not growing without a reason. The
       fifth flag on a function is a design problem being paid in `if` statements.
+- [ ] A bug is fixed at the shared cause after callers were inspected, rather than with
+      repeated guards on only the reported path.
 
 ---
 

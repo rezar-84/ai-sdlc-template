@@ -37,6 +37,11 @@ The tier decides three things at once: how much planning, which roles review, an
 you are expected to read. Do not carry a Tier 1 surface at Tier 3 because the diff is
 small — the tier follows the blast radius, not the line count.
 
+Then resolve the independent **effort mode**: an explicit `lean mode`, `normal mode`, or
+`beast mode` in the current request wins; otherwise use a mode already recorded for the
+work item, then the charter's **Default effort mode**, then `Normal`. Risk is the floor:
+Lean cannot remove a required check or approval, and Beast cannot widen product scope.
+
 ## 5. Check readiness
 
 The Definition of Ready items knowable now (`{{DOCS_DIR}}/process/03-ready-and-done.md`).
@@ -53,6 +58,6 @@ it touches. A Tier 3 reading list is allowed to be one line.
 
 ## Output
 
-Report the restatement, the ID, the tier and why, the roles that will review, the reading
+Report the restatement, the ID, the tier and why, the resolved effort mode, the roles that will review, the reading
 list, and any blocker. Then hand off to `/sdlc-plan` — do not start implementing from
 inside this skill.

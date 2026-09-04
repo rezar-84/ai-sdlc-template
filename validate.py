@@ -111,6 +111,23 @@ def cross_references(errors):
         if not any(rel in t for t in install.HARNESS_ALIASES.values()):
             errors.append("HARNESS_POINTERS lists %r that no --harness value selects" % rel)
 
+    # Modes: installer enums and every portable source of truth must agree.
+    mode_sources = {
+        "AGENTS.md": (ROOT / "template" / "AGENTS.md").read_text(encoding="utf-8"),
+        "CARD.md": (ROOT / "template" / "docs" / "CARD.md").read_text(encoding="utf-8"),
+        "operating model": (ROOT / "template" / "docs" / "process" /
+                            "00-operating-model.md").read_text(encoding="utf-8"),
+        "charter": charter,
+    }
+    for label, text in mode_sources.items():
+        for mode in install.EFFORT_KEYS.values():
+            if mode not in text:
+                errors.append("%s does not name effort mode %s" % (label, mode))
+    if set(install.EFFORT_KEYS.values()) != {"Lean", "Normal", "Beast"}:
+        errors.append("install.py effort modes must be Lean, Normal, and Beast")
+    if set(install.ACQUISITION_KEYS.values()) != {"Standard", "Advanced"}:
+        errors.append("install.py acquisition profiles must be Standard and Advanced")
+
     # Facts: every fact has a label, and every type maps to known facts.
     for fid in install.FACT_IDS:
         if fid not in install.FACT_LABELS:
@@ -127,7 +144,7 @@ def cross_references(errors):
 
 
 def card_fidelity(errors):
-    """CARD.md compresses four standards, so it can silently gain a rule none of them
+    """CARD.md compresses standards, so it can silently gain a rule none of them
     has, or keep one after the standard changed. A summary that drifts is worse than no
     summary: it is read instead of the thing it misrepresents."""
     card_path = ROOT / "template" / "docs" / "CARD.md"
@@ -137,7 +154,7 @@ def card_fidelity(errors):
     card = card_path.read_text(encoding="utf-8")
     docs = ROOT / "template" / "docs"
 
-    sources = ("process/02-role-reviews.md", "process/04-quality-gates.md",
+    sources = ("process/00-operating-model.md", "process/02-role-reviews.md", "process/04-quality-gates.md",
                "process/06-evidence-and-claims.md", "process/07-traceability.md")
     for rel in sources:
         if rel not in card:
@@ -274,6 +291,17 @@ def main():
     for name in required_root:
         if not (ROOT / name).is_file():
             errors.append("missing repository file: %s" % name)
+
+    scorer = ROOT / "benchmarks" / "effort-modes" / "score.py"
+    if not scorer.is_file():
+        errors.append("missing effort-mode benchmark scorer")
+    else:
+        proc = subprocess.run([sys.executable, str(scorer), "--selftest"],
+                              cwd=str(ROOT), stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, universal_newlines=True)
+        if proc.returncode:
+            errors.append("effort-mode benchmark scorer self-test failed: %s" %
+                          proc.stdout[-500:])
 
     for path in markdown_files():
         text = path.read_text(encoding="utf-8")

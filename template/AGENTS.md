@@ -61,6 +61,25 @@ change to an authorisation check is Tier 1. So is a one-word change to a prompt 
 governs one: a prompt is executable, and "it is just a string" is not a tier argument. Splitting a Tier 1 item until no piece looks
 Tier 1 is a violation of this contract, not a clever reading of it.
 
+### Effort mode — choose the path, never the safety floor
+
+Risk tier says what must be protected. **Effort mode** says how broadly to explore,
+design, and verify above that floor. Resolve it at FRAME in this order: an explicit mode
+in the current request → the work item's recorded override → the charter's **Default
+effort mode** → `Normal`. Record the result in the plan and worklog. Never silently
+change it mid-item; a requested change gets a short plan delta and a worklog note.
+
+| Mode | Working rule |
+| --- | --- |
+| **Lean** | Take the shortest decision-complete path: targeted reading, the first sufficient solution, the minimum applicable roles, concise required records, and the smallest meaningful tests — while still running every check and obtaining every approval the risk tier requires. |
+| **Normal** | The balanced default: trace the affected flow, compare the obvious alternatives, use the standard role selection and test strategy, and follow the loop as written. |
+| **Beast** | Maximise confidence, not code or scope: inspect adjacent flows and history, compare up to three viable approaches, engage materially adjacent roles, and add relevant adversarial, recovery, concurrency, scale, or mutation checks. Never build speculative features. |
+
+All three modes preserve requested scope, trust-boundary validation, security, privacy,
+accessibility, data integrity, evidence language, traceability, rollback, and human
+approval. Documentation profile (`full` / `compact`) changes what is installed; it does
+not change the mode or any obligation.
+
 ---
 
 ## 3. What to read — the whole list, by tier
@@ -226,6 +245,12 @@ Detail: `{{DOCS_DIR}}/process/04-quality-gates.md`.
 
 ## 8. Working style
 
+- Before writing custom code, stop at the first sufficient rung: **no implementation
+  needed → reuse repository code/configuration → standard library → native platform →
+  installed dependency → minimum custom code**. “Sufficient” means every acceptance
+  criterion and project constraint is met; it never means “shortest at any cost”.
+- For a defect, inspect every caller and shared path before choosing the fix. Prefer one
+  root-cause correction over repeated symptom patches.
 - Prefer boring, supported, already-present solutions. A new dependency is a decision
   with a maintenance cost — justify it, pin it, and note it in the worklog.
 - Match the surrounding code's idiom, naming, and comment density. This repository's

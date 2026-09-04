@@ -18,7 +18,7 @@ Run in this order — cheapest and most localising first, so failures are diagno
 | 5 | Integration | Components against real boundaries — data store, queue, filesystem, auth. | `checks.integration` |
 | 6 | Contract | The shape of any interface others consume, or that you consume. | `checks.contract` |
 | 7 | Build / package | It actually assembles. | `checks.build` |
-| 8 | Dependency + secret scan | Known vulnerabilities, leaked credentials. | `checks.scan` |
+| 8 | Dependency, secret & license scan | Known vulnerabilities, leaked credentials, incompatible/viral open-source licences. | `checks.scan` |
 | 9 | Accessibility | Automated a11y smoke, where there is an interface. | `checks.a11y` |
 | 10 | End-to-end | The real journeys, in a realistic environment. | `checks.e2e` |
 
@@ -49,6 +49,11 @@ the stages that can plausibly be affected — for a copy change that is format, 
 typecheck and the unit suite — and reports the rest **Not run — Tier 3, no code path
 affected**. That is a stated reason, so it is not the unexplained skip that QA rates S2.
 A Tier 3 change that touches anything executable is not a Tier 3 change.
+
+**Effort mode does not change that sequence.** Lean chooses the smallest meaningful
+tests that prove the acceptance criteria and failure paths, then still runs every stage
+the tier requires. Beast adds relevant adversarial, recovery, concurrency, scale, or
+mutation checks; it does not turn every possible check into mandatory ceremony.
 
 **Rules:**
 - A stage with no command in the charter is reported **absent**, explicitly, every time —

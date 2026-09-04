@@ -59,6 +59,11 @@ coding" on a Tier 1 or Tier 2 item.
 Start from the charter's active roles, then select by **change surface** — what the work
 actually touches — rather than reviewing with every role every time.
 
+Effort mode adjusts breadth only after required roles are selected: Lean stops at the
+minimum set below, Normal uses that set as written, and Beast adds a role only when an
+adjacent consequence is concrete and named. No mode may omit a role selected by the
+surface or add irrelevant reviews for appearance.
+
 | The change touches… | Roles that must engage |
 | --- | --- |
 | Scope, priority, or what a user can do | product-manager |

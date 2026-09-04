@@ -1,6 +1,6 @@
 ---
 description: Frame a request as a tracked work item and produce a reviewed plan
-argument-hint: "<what you want built or changed>"
+argument-hint: "[--mode lean|normal|beast] <what you want built or changed>"
 ---
 
 Run the FRAME → PLAN → DESIGN REVIEW steps of the loop in `AGENTS.md` for:
@@ -23,13 +23,16 @@ Follow `{{DOCS_DIR}}/process/00-operating-model.md`. Specifically:
    `Dropped` rows, plus one; numbers are never reused. Classify the risk tier per "Risk
    tiers" in `AGENTS.md`, and add a terse row to `{{DOCS_DIR}}/project/backlog.md`. Check the
    Definition of Ready items knowable at FRAME (`{{DOCS_DIR}}/process/03-ready-and-done.md`) —
-   if one fails, record the blocker rather than guessing past it.
+   if one fails, record the blocker rather than guessing past it. Resolve effort mode in
+   this order: `--mode` or explicit request → recorded work-item override → charter
+   default → `Normal`; record it separately from the risk tier.
 
 3. **Plan.** Read the existing implementation before proposing anything; most bad plans
    are written against an imagined codebase. If an upstream specification already exists
    (e.g. from GitHub Spec Kit, Kiro, `specs/`, or a provided spec file), adopt its problem
    statement, user stories, and acceptance criteria directly rather than re-asking what is
-   already specified; reference the spec in the plan's approach. Then produce a plan from
+   already specified; reference the spec in the plan's approach. Apply the solution ladder
+   from `AGENTS.md`, then produce a plan from
    `{{DOCS_DIR}}/templates/plan.md` — Tier 1 as a file in `{{DOCS_DIR}}/project/plans/`, Tier 2 inline,
    Tier 3 as a sentence. Include the alternatives you rejected and the reason each lost,
    the failure modes, the rollback, and what you are deliberately not doing.

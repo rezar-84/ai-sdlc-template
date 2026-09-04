@@ -109,6 +109,8 @@ Use `templates/worklog-entry.md`. Non-negotiable sections:
 
 - **What changed** — plain language, readable by someone who was not here.
 - **Why** — the reasoning, especially where the obvious approach was rejected.
+- **Effort mode** — Lean, Normal, or Beast, including any explicit override or mid-item
+  change. This is independent of the risk tier.
 - **Verified** — the actual commands and their actual results. Not "tests pass" but
   which suite, how many, against what.
 - **Not done** — deferred, stubbed, mocked, or hardcoded, each with the follow-up ID.

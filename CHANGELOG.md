@@ -4,6 +4,22 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **Lean / Normal / Beast effort modes**:
+  - Added a project default plus explicit work-item override, resolved independently of
+    risk tier. Lean minimises optional work, Normal keeps the balanced workflow, and
+    Beast maximises investigation and verification without widening product scope.
+  - Added the repository → standard-library → native-platform → installed-dependency →
+    minimum-custom-code ladder and root-cause caller tracing to the operating contract.
+  - Added installer flags, charter fields, profile schema 2, plan/worklog recording,
+    reviewer/subagent propagation, validation, and upgrade-safe defaults.
+- **Separate acquisition profiles**:
+  - Replaced the ambiguous Beast scraping waiver with `Standard` and `Advanced`
+    capability profiles. Advanced (display name **Black Widow**) enables additional
+    extraction techniques on owned or explicitly authorised targets.
+  - Reachability no longer substitutes for permission: authentication, paywalls,
+    CAPTCHA, explicit denial, and other access controls remain stop conditions without
+    target-owner authorisation or an approved route.
+
 - **External Services & Platform Awareness (Cloudflare, SSL, Search Console, GA4/GTM, AWS/GCP)**:
   - Expanded `charter.md` Stack & Sources of truth tables to explicitly register Cloud providers,
     CDN/Edge/WAF (Cloudflare/CloudFront), SSL/TLS certificates, Search Console verification, and GTM/GA4.
@@ -21,12 +37,6 @@ This project follows semantic versioning. User-visible changes are recorded here
   - Calibrated `roles/security.md` to prevent dogmatic enforcement of MFA/OTP when declared
     not required, while adding checks for standard practices: auth endpoint rate-limiting,
     CORS/CSRF protections, and session invalidation on password reset.
-- **Beast Mode (rapid prototyping & permissive scraping)**:
-  - Added formal `Operating mode: Beast mode` option in `charter.md` under **Risk defaults**
-    and documented operating dynamics in `00-operating-model.md`.
-  - `sdlc-scrape-compliance` treats robots/ToS checks as advisory during Beast Mode /
-    prototyping spikes, preventing execution friction while maintaining sensible backoff
-    and logging constraints to `assumptions-and-risks.md`.
 - **Defect tracking & tester bug reports**:
   - Added `templates/defect-report.md` for capturing tester bug reports, reproduction
     steps, observed vs. expected behaviors, and severity calibrations.

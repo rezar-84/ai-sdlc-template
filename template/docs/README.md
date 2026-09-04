@@ -50,7 +50,7 @@ project facts here.
 
 | File | Answers |
 | --- | --- |
-| `00-operating-model.md` | What is the loop? How do I decide how much process a task needs? What are the modes (bootstrap vs. change vs. incident)? |
+| `00-operating-model.md` | What is the loop? Which lifecycle applies, and how do Lean, Normal, and Beast effort modes change work above the risk floor? |
 | `01-lifecycle-gates.md` | What are the phases G0–G6, what must exist to enter and to leave each one? |
 | `02-role-reviews.md` | Who reviews what, at which stage, with what verdict, and what happens on a Block? |
 | `03-ready-and-done.md` | When is a task ready to start? When is it actually finished? |

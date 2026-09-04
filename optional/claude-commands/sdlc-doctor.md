@@ -53,6 +53,9 @@ Report, in this order of severity:
   Distinguish blank (nobody filled it in) from the word "absent" (deliberate).
 - Blank **approvers**, **default branch**, or **staleness window**.
 - Blank cells in **Model & data** or **Budgets** where the corresponding role is ticked.
+- Missing or invalid **Default effort mode** / **Acquisition profile** values. A legacy
+  `Operating mode: Beast mode` row is ambiguous and must be migrated explicitly; do not
+  guess whether it meant completeness or permissive acquisition.
 - **Unticked roles with an empty reason column.** A blank reason means nobody decided;
   it does not mean the role does not apply. List each one as a question for a human.
 - Ticked roles whose owned artifacts do not exist (see `{{DOCS_DIR}}/README.md` → the
@@ -84,7 +87,8 @@ file every future agent reads.
 
 ## 7. Profile drift
 
-If `.ai-sdlc/profile.json` exists, compare its `commands`, `roles`, and `docs_dir`
+If `.ai-sdlc/profile.json` exists, compare its `commands`, `roles`, `docs_dir`,
+`effort_mode`, and `acquisition_profile`
 against the charter. **The charter is the source of truth**; report any difference as
 drift to be corrected in the profile, never the other way round. Report a `kit_version`
 older than `.ai-sdlc/manifest.json` as an incomplete upgrade.
@@ -93,7 +97,8 @@ older than `.ai-sdlc/manifest.json` as an incomplete upgrade.
 
 If `{{DOCS_DIR}}/dashboard.html` exists, rewrite `{{DOCS_DIR}}/dashboard-state.js` from
 what you just read, keeping the shape that is already in the file: `generated` (today),
-`project`, `prefix`, `kit_version`, `docs_dir`, `profile`, `wired`, `staleness_days`, and
+`project`, `prefix`, `kit_version`, `docs_dir`, `profile`, `effort_mode`,
+`acquisition_profile`, `wired`, `staleness_days`, and
 the arrays `roles` (`name` · `active` · `reason`), `commands` (`stage` · `command`),
 `items` (`id` · `task` · `tier` · `owner` · `depends` · `status`), `artifacts` (`file` ·
 `status` · `owner` · `last_reviewed`), and `budgets`.

@@ -102,6 +102,8 @@
   if (S.prefix) bits.push("prefix " + S.prefix);
   if (S.kit_version) bits.push("kit v" + S.kit_version);
   if (S.profile) bits.push(S.profile + " profile");
+  if (S.effort_mode) bits.push(S.effort_mode + " effort");
+  if (S.acquisition_profile) bits.push(S.acquisition_profile + " acquisition");
   bits.push("state generated " + (S.generated || "unknown"));
   $("meta").textContent = bits.join(" · ");
 

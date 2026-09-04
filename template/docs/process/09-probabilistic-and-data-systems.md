@@ -189,6 +189,12 @@ downstream will treat it as true.
 Where the project fetches data it did not create — crawling, scraping, third-party
 feeds, purchased datasets:
 
+- **Capability and permission are separate.** The charter's `Standard` acquisition
+  profile prefers feeds/APIs and bounded requests; `Advanced` may add browser automation,
+  OCR, resilient extractors, and authorised session flows. Neither profile authorises a
+  target. Login, paywall, CAPTCHA, explicit denial, or another access control stops
+  third-party acquisition without explicit owner authorisation or an approved route.
+
 - **Permission before collection.** Terms of service, robots directives, licence, and
   any rate or volume limits are checked and recorded *before* the fetcher is written, not
   after it is running. `roles/privacy-legal.md` owns the verdict.

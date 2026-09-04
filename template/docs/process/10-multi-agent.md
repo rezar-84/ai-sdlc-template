@@ -54,7 +54,9 @@ operating context. Six roles reviewed concurrently cost six small contexts inste
 very large one.
 
 **Each reviewer gets:** exactly one `roles/<role>.md`, the diff or artifact under review,
-the charter rows that role's playbook names, and the work item ID. Nothing else.
+the charter rows that role's playbook names, the work item ID, its risk tier, and its
+resolved effort mode. Nothing else. Do not assume a parent session's mode reaches a
+subagent; pass it in the task packet.
 
 **Each reviewer returns**, and nothing more:
 

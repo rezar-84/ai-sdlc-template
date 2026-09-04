@@ -35,6 +35,24 @@ Tier 1 violates the contract. When in doubt, tier up.
 
 ---
 
+## Effort modes
+
+Resolve independently of tier per [`process/00-operating-model.md`](process/00-operating-model.md):
+explicit request → recorded work-item override → charter default → `Normal`. Record the
+effective mode in the plan and worklog.
+
+| Mode | Above the unchanged risk floor |
+| --- | --- |
+| **Lean** | Targeted reading; first sufficient rung of no implementation → repository reuse → stdlib → native platform → installed dependency → minimum custom code; minimum applicable roles; concise required records; smallest meaningful tests, then every tier-required check. |
+| **Normal** | Current balanced flow, obvious alternatives, standard role and test selection. |
+| **Beast** | Maximum confidence: adjacent flows/history, up to three viable alternatives, materially adjacent roles, and relevant adversarial/recovery/concurrency/scale checks. Never extra product scope or speculative code. |
+
+No mode weakens requested scope, validation, security, privacy, accessibility, data
+integrity, evidence, traceability, rollback, approvals, or tier requirements. Pass the
+resolved mode and tier explicitly to subagents; do not rely on hidden session state.
+
+---
+
 ## Evidence — the seven words
 
 Use exactly these. No synonyms. Not "should work", "looks right", "mostly passing".

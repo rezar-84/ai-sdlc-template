@@ -38,7 +38,7 @@ table, so it cannot drift.
 | Framework(s) | |
 | Data store(s) | |
 | Auth & Identity | |
-| Hosting & Cloud provider | _(AWS / GCP / Cloudflare / Vercel / Fly.io / bare-metal)_ |
+| Hosting & Cloud provider | _(AWS / GCP / Cloudflare / Dokploy / Vercel / Fly.io / bare-metal)_ |
 | CDN / Edge / WAF | _(Cloudflare / CloudFront / Fastly / none)_ |
 | SSL / TLS & Certificates | _(Let's Encrypt / Cloudflare Managed / AWS ACM / cert-manager)_ |
 | CI | |
@@ -99,7 +99,10 @@ repeating this table.
 
 | Environment | Purpose | Deployed from | Who may deploy |
 | --- | --- | --- | --- |
-| | | | |
+| local | Local developer workstation / Docker Compose / seed data | Working tree | Developer |
+| staging / preview | Preview PRs or persistent pre-release staging mirror | Branch / PR | CI / CD pipeline |
+| production | Live public/customer traffic | Default branch tag / release | Protected CI / CD / Authorized release manager |
+| backup / dr | Automated data backup snapshot & disaster recovery mirror | Cron / Storage replication | Automated system / SRE |
 
 | | |
 | --- | --- |
@@ -233,7 +236,8 @@ here, in the shape of a role playbook: mission, engage when, reads, what it chec
 
 | | |
 | --- | --- |
-| **Operating mode** | `Standard` · `Beast mode` _(rapid prototyping / permissive scraping / fast spike — relaxes advisory gates & external rate friction; logs gaps into assumptions)_ |
+| **Default effort mode** | `Lean` · `Normal` · `Beast` _(default: Normal; changes breadth above the risk-tier floor, never the floor itself)_ |
+| **Acquisition profile** | `Standard` · `Advanced` _(display name: Black Widow; advanced tools require an owned or explicitly authorised target and never grant permission)_ |
 | **Always Tier 1 here** | _(the surfaces that are high-risk in this project specifically)_ |
 | **Never Tier 1 here** | _(surfaces from the `AGENTS.md` Tier 1 list that genuinely do not apply — e.g. "no PII: this project holds no personal data, see Data categories held". Without this, "when in doubt, tier up" makes almost everything Tier 1.)_ |
 | **Human approval required for** | _(list — mirrors the "Human approval required for" line in `AGENTS.md`, "Project overrides")_ |
@@ -284,6 +288,7 @@ Where the authoritative version of each thing lives, so nobody guesses.
 | Content source | |
 | Secrets | |
 | Issue tracker _(if not `backlog.md`)_ | |
+| Repository license | _(e.g. MIT / Apache-2.0 / Proprietary — see `LICENSE` or `COPYING`)_ |
 
 ## Artifacts in use
 

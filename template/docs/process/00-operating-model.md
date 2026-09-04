@@ -25,6 +25,8 @@ Turn a request into a bounded unit of work.
   `project/backlog.md`. A request that is really three tasks becomes three IDs.
 - Classify the **risk tier** (see "Risk tiers" in `AGENTS.md`). This decides everything
   downstream, including how much of this document applies.
+- Resolve the **effort mode** independently of risk: explicit request → recorded
+  work-item override → charter default → `Normal`. Record it in the plan and worklog.
 - Check `project/assumptions-and-risks.md` — the thing you are about to build may
   already be blocked on a decision nobody made.
 - Check the Definition of Ready items marked **checkable at FRAME**
@@ -40,6 +42,8 @@ Decide the approach before touching code.
 
 - Read the existing implementation first. Most plans are wrong because they were written
   against an imagined codebase.
+- Apply the solution ladder in `AGENTS.md`: no implementation → repository reuse →
+  standard library → native platform → installed dependency → minimum custom code.
 - State the approach, the files/areas affected, the data or contract changes, the test
   strategy, and the rollback story.
 - Name the alternatives you rejected and why — one line each. This is what makes a plan
@@ -71,6 +75,8 @@ one role the surface selects, in a line; often that line is "no role's surface t
 - Write tests alongside the change, including failure and rejection paths.
 - Keep the change scoped to the ID. Unrelated improvements become new backlog rows.
 - Update any `project/` artifact the change falsifies, in the same change.
+- For a defect, inspect all callers and shared paths and fix the common cause once where
+  that is the correct boundary; do not patch only the reported symptom.
 
 ### 5. VERIFY
 
@@ -158,7 +164,7 @@ silently done twice or not at all.
 
 ---
 
-## Modes
+## Lifecycle modes
 
 The loop is the same; the emphasis differs.
 
@@ -187,19 +193,28 @@ branch is never merged directly; it produces a plan or an ADR, and the real
 implementation runs the full loop. Say "this is a spike" in the worklog so nobody
 mistakes it for a decision.
 
-### Beast Mode — rapid prototyping, permissive scraping, fast delivery
+## Effort modes — Lean, Normal, Beast
 
-Activated when declared in `project/charter.md` under **Risk defaults** (`Operating mode: Beast mode`)
-or by explicit user instruction. Solves the friction of heavy governance when speed is paramount:
-- **Pragmatic fast-path:** Tier 2 changes run with inline plans; reviews are self-conducted in
-  a single pass; non-critical S3/S4 findings are automatically logged as backlog items rather
-  than holding merges.
-- **Permissive data acquisition:** External `robots.txt` and ToS checks in `sdlc-scrape-compliance`
-  are treated as advisory guidance rather than hard execution blockers; sensible concurrency
-  and retry backoff are still applied to prevent self-denial.
-- **Graduation boundary:** Work built under Beast Mode is logged with known technical debt in
-  `assumptions-and-risks.md`. Before deploying to production or exposing to external customers,
-  the project runs `/sdlc-review` to complete a standard retrofit signoff.
+These are three levels of work above the same risk floor, not three new risk tiers. The
+mode is resolved at FRAME and stays attached to the work item:
+
+| | Lean | Normal | Beast |
+| --- | --- | --- | --- |
+| **Explore** | Relevant path, contracts, and callers; structure-first for a large file | Complete affected flow | Affected and adjacent flows, history, operational effects, likely regressions |
+| **Decide** | First solution-ladder rung that fully satisfies the request | Compare the obvious alternatives | Compare up to three viable approaches using repository evidence |
+| **Review** | Minimum roles selected by tier and touched surface | Standard selection | Materially relevant and adjacent roles, never every role reflexively |
+| **Verify** | Smallest meaningful tests, then every tier-required check | Standard test strategy and check sequence | Required checks plus relevant adversarial, recovery, concurrency, scale, or mutation checks |
+| **Record** | Concise but complete form required by the tier | Standard templates | Expanded reasoning, alternatives, failure analysis, and operational consequences |
+
+Beast maximises confidence, not implementation size: it cannot widen the requested
+product scope or add speculative architecture. Lean cannot delete a required check,
+review, record, approval, rollback, validation, security, privacy, accessibility, or
+data-integrity control. If the user changes mode mid-item, record a plan delta and the
+reason; never use the change to legitimise a skipped obligation retroactively.
+
+An orchestrator passes the resolved effort mode, risk tier, and task boundary explicitly
+to every reviewer or subagent. Do not rely on hidden session state or assume parent
+context propagates.
 
 ---
 

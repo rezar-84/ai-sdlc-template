@@ -4,7 +4,7 @@ For Tier 3, use this compact form unless the change uncovers risk, a durable dec
 or unresolved work:
 
 ```markdown
-- YYYY-MM-DD · {{PREFIX}}-### · <request> · changed: <files> · verified: <command/result>
+- YYYY-MM-DD · {{PREFIX}}-### · <request> · effort: Lean|Normal|Beast · changed: <files> · verified: <command/result>
   · deferred: nothing | <follow-up ID and reason>
 ```
 
@@ -12,7 +12,7 @@ Tier 1 and Tier 2 use the full entry below.
 
 ## {{PREFIX}}-### — <title>
 
-**Date:** YYYY-MM-DD **Tier:** 1|2|3
+**Date:** YYYY-MM-DD **Tier:** 1|2|3 **Effort:** Lean|Normal|Beast
 **Status:** Done | Partial | Parked | Reverted
 _(`Done` and `Parked` must match the backlog row. `Partial` and `Reverted` describe this
 entry only; the row stays open at the loop step actually reached — `In progress` before
