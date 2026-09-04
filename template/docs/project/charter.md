@@ -37,8 +37,10 @@ table, so it cannot drift.
 | Package manager | |
 | Framework(s) | |
 | Data store(s) | |
-| Auth | |
-| Hosting | |
+| Auth & Identity | |
+| Hosting & Cloud provider | _(AWS / GCP / Cloudflare / Vercel / Fly.io / bare-metal)_ |
+| CDN / Edge / WAF | _(Cloudflare / CloudFront / Fastly / none)_ |
+| SSL / TLS & Certificates | _(Let's Encrypt / Cloudflare Managed / AWS ACM / cert-manager)_ |
 | CI | |
 | Test tooling | |
 
@@ -277,7 +279,8 @@ Where the authoritative version of each thing lives, so nobody guesses.
 | --- | --- |
 | Brand guidelines | |
 | Design tokens | |
-| Analytics / search data | |
+| Analytics / Tag Manager | _(GA4 stream ID, GTM container ID, PostHog, or Plausible)_ |
+| Search Console / Webmaster | _(Google Search Console, Bing Webmaster, verification DNS/meta source)_ |
 | Content source | |
 | Secrets | |
 | Issue tracker _(if not `backlog.md`)_ | |

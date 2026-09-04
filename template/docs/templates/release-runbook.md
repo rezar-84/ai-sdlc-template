@@ -36,7 +36,7 @@ Add only the deploy-time specifics here:
 2. _(Migration order relative to the deploy — state whether it runs before, during, or
    after, and whether old code can run against the new schema.)_
 3. _(Deploy.)_
-4. _(Post-deploy steps: cache invalidation, index rebuild, feature flag, warm-up.)_
+4. _(Post-deploy steps: CDN cache purge for Cloudflare/CloudFront, index rebuild, feature flag, warm-up.)_
 
 State the expected duration and what "still normal" looks like at each step.
 
@@ -48,6 +48,8 @@ The minimum set proving the release is alive. Run every time; automate where pos
 - [ ] _(Critical journey 2.)_
 - [ ] _(Authentication works, and denial still denies.)_
 - [ ] _(A representative write reaches the datastore and is readable back.)_
+- [ ] _(SSL / TLS certificate is valid, expiration healthy, HTTPS redirect verified without redirect loops.)_
+- [ ] _(Search Console verification tag/file and Analytics/GTM container IDs present and functional.)_
 - [ ] _(Health, error rate, and latency within normal range.)_
 
 ## Monitoring window

@@ -54,7 +54,7 @@ baselines), current funnel data if the charter names a source, and the flow itse
       consent, no confirm-shaming, no obstruction of the exit. These convert once and
       cost trust permanently — and in many jurisdictions they are illegal.
 
-**Measurement — the part that is always deferred and should not be**
+**Measurement & Tag Management (GA4, GTM, PostHog)**
 - [ ] Every step of the funnel emits an event, with a documented name and payload.
       Naming follows one convention project-wide.
 - [ ] The event map exists *before* the feature ships. Instrumentation added later
@@ -62,6 +62,10 @@ baselines), current funnel data if the charter names a source, and the flow itse
 - [ ] A baseline is recorded for anything being changed, or the change is unevaluable.
 - [ ] Success and its counter-metric are both named. "More sign-ups" with no eye on
       qualification or retention optimises for the wrong thing.
+- [ ] **Tag Manager & Analytics Governance (GTM / GA4):** GTM container snippets and GA
+      scripts are placed per specification (`<head>` and `<noscript>`); third-party tags
+      firing inside GTM do not violate the application's Content Security Policy (CSP);
+      stream/measurement IDs are separated between development and production.
 - [ ] Tracking is consent-aware and privacy-compliant (`privacy-legal`), and the product
       still works when consent is refused.
 

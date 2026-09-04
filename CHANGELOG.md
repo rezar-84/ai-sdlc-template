@@ -4,6 +4,16 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **External Services & Platform Awareness (Cloudflare, SSL, Search Console, GA4/GTM, AWS/GCP)**:
+  - Expanded `charter.md` Stack & Sources of truth tables to explicitly register Cloud providers,
+    CDN/Edge/WAF (Cloudflare/CloudFront), SSL/TLS certificates, Search Console verification, and GTM/GA4.
+  - Added operational checks in `roles/devops-sre.md` for CDN cache invalidation, SSL termination
+    (preventing flexible SSL redirect loops), and Cloud IAM least-privilege.
+  - Added verification checks in `roles/seo.md` to prevent accidental clobbering of Search Console
+    ownership verification tags/files and ensure sitemap delivery.
+  - Added Tag Manager governance in `roles/cro-analyst.md` to prevent GTM scripts from violating CSP
+    and enforce environment separation for analytics stream IDs.
+  - Updated `templates/release-runbook.md` with post-deploy CDN cache purge and SSL/domain health smoke checks.
 - **Flexible Access Level Models & Opt-In MFA/OTP**:
   - Added explicit `Access level model` (`Public`, `Simple`, `RBAC`, `Workspace-Scoped`, `ABAC`)
     and `MFA / OTP policy` (`Not required`, `Optional`, `Enforced for Admin`, `Enforced for all`)

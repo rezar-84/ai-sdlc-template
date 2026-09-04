@@ -39,7 +39,7 @@ when it breaks at an inconvenient hour, someone can tell what happened and put i
 - [ ] No environment-specific value, hostname, path, or credential is compiled in.
 - [ ] Defaults are safe: the accidental configuration is the restrictive one.
 
-**Deployment**
+**Deployment & edge delivery**
 - [ ] The deployment is incremental and reversible. State the exact rollback procedure
       and confirm it has been executed at least once outside production.
 - [ ] Migrations are ordered relative to the deploy and are backward-compatible for the
@@ -50,6 +50,13 @@ when it breaks at an inconvenient hour, someone can tell what happened and put i
 - [ ] Startup, readiness, and liveness are distinguishable from outside the process.
 - [ ] Restart is safe at any point. Nothing depends on a specific instance's memory or
       local disk unless that is designed and documented.
+- [ ] **Edge / CDN & Caching (Cloudflare, CloudFront, Fastly):** Cache headers, asset
+      versioning (immutable hashing), and post-deploy purge policies are defined so old
+      HTML doesn't request purged chunks.
+- [ ] **SSL / TLS & Certificates:** Valid, auto-renewing certificates exist at edge and
+      origin; HTTP strictly redirects to HTTPS; avoid "flexible SSL" redirect loops.
+- [ ] **Cloud IAM & Service Accounts (AWS, GCP):** Infrastructure access uses scoped
+      roles / workload identity rather than root or permanently privileged API keys.
 
 **Observability**
 - [ ] You can answer from outside the process: is it up, is it serving, is it slow, is
