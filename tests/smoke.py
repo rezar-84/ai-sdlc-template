@@ -952,6 +952,87 @@ def test_deploy_platforms():
     shutil.rmtree(d, ignore_errors=True)
 
 
+def test_upgrade_ownership():
+    print("upgrade: AGENTS.md region, commands, charter rows")
+    d = tempfile.mkdtemp(prefix="sdlc-own-")
+    code, out = run([d, "OWN", "-y", "--effort-mode", "lean"])
+    charter = read(d, "docs/project/charter.md")
+    check("-y records an effort mode given as a flag",
+          "| **Default effort mode** | Lean |" in charter, out[-300:])
+    check("-y leaves an unasked acquisition profile undecided",
+          "| **Acquisition profile** | `Standard`" in charter)
+    manifest = json.loads(read(d, ".ai-sdlc/manifest.json"))
+    check("fresh install records the AGENTS.md region",
+          "AGENTS.md" in manifest.get("regions", {}), str(manifest.get("regions")))
+    check("fresh install manages the commands",
+          ".claude/commands/sdlc-plan.md" in manifest.get("files", {}))
+
+    # Turn it into what a pre-3.3 install looks like: no markers, unmanaged commands,
+    # an older charter, and a project rule in section 9.
+    agents_path = os.path.join(d, "AGENTS.md")
+    agents = read(d, "AGENTS.md")
+    agents = re.sub(r"<!-- ai-sdlc:kit-begin[^\n]*-->\n\n", "", agents)
+    agents = agents.replace("<!-- ai-sdlc:kit-end -->\n\n", "")
+    agents = agents.replace("When in doubt, tier up.", "When in doubt, tier up. OLDKIT")
+    agents += "\nPROJECT RULE\n"
+    with open(agents_path, "w") as fh:
+        fh.write(agents)
+    plan_path = os.path.join(d, ".claude", "commands", "sdlc-plan.md")
+    with open(plan_path, "a") as fh:
+        fh.write("\nOLDKIT\n")
+    charter_path = os.path.join(d, "docs", "project", "charter.md")
+    with open(charter_path, "w") as fh:
+        fh.write("\n".join(l for l in charter.split("\n")
+                           if not l.startswith("| **Deployment platforms**")
+                           and not l.startswith("| **MFA / OTP policy**")))
+    manifest.pop("regions")
+    manifest["files"] = dict((k, v) for k, v in manifest["files"].items()
+                             if not k.startswith(".claude/commands/"))
+    with open(os.path.join(d, ".ai-sdlc", "manifest.json"), "w") as fh:
+        json.dump(manifest, fh)
+
+    code, out = run([d, "OWN", "--upgrade"])
+    check("legacy AGENTS.md is left alone without --adopt",
+          code == 0 and "OLDKIT" in read(d, "AGENTS.md") and "--adopt" in out, out[-400:])
+    check("legacy commands are left alone without --adopt",
+          "OLDKIT" in read(d, ".claude/commands/sdlc-plan.md"))
+    charter = read(d, "docs/project/charter.md")
+    lines = charter.split("\n")
+    def after(label, neighbour):
+        idx = [i for i, l in enumerate(lines) if l.startswith("| **%s** |" % label)]
+        return idx and lines[idx[0] - 1].startswith("| **%s** |" % neighbour)
+    check("missing charter rows return in their own tables",
+          after("Deployment platforms", "Direct commits to it")
+          and after("MFA / OTP policy", "Access level model"), out[-400:])
+    check("existing charter answers are untouched",
+          "| **Default effort mode** | Lean |" in charter)
+
+    code, out = run([d, "OWN", "--upgrade", "--adopt"])
+    agents = read(d, "AGENTS.md")
+    check("--adopt replaces sections 1-8 and keeps section 9",
+          code == 0 and "OLDKIT" not in agents and "PROJECT RULE" in agents
+          and "ai-sdlc:kit-begin" in agents, out[-400:])
+    check("--adopt replaces the commands",
+          "OLDKIT" not in read(d, ".claude/commands/sdlc-plan.md"))
+    check("--adopt keeps a backup",
+          any("AGENTS.md" in f for _, _, fs in os.walk(os.path.join(d, ".ai-sdlc", "backups"))
+              for f in fs))
+
+    code, out = run([d, "OWN", "--upgrade"])
+    check("a second upgrade changes nothing", code == 0 and "Done: 0 updated" in out, out[-300:])
+    with open(agents_path, "a") as fh:
+        fh.write("more project rules\n")
+    code, out = run([d, "OWN", "--upgrade"])
+    check("section 9 edits never block an upgrade", code == 0, out[-300:])
+    edited = read(d, "AGENTS.md").replace("When in doubt, tier up.", "Never tier up.")
+    with open(agents_path, "w") as fh:
+        fh.write(edited)
+    code, out = run([d, "OWN", "--upgrade"])
+    check("an edit inside sections 1-8 stops the upgrade",
+          code != 0 and "kit-managed sections 1-8" in out, out[-300:])
+    shutil.rmtree(d, ignore_errors=True)
+
+
 def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
@@ -964,7 +1045,7 @@ def main():
                  test_multiselect_and_review, test_review_jump,
                  test_quit_writes_nothing,
                  test_multilingual, test_architecture,
-                 test_deploy_platforms):
+                 test_deploy_platforms, test_upgrade_ownership):
         test()
     print("")
     if failures:

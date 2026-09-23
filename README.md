@@ -443,24 +443,31 @@ process docs, so they go stale silently. Do not merge the directories.
 ./install.sh /path/to/your-project ACME --upgrade
 ```
 
-Upgrading to 3.0.0 additionally needs two things by hand, because both files are
-project-owned: merge the `AGENTS.md` changes with the printed `diff`, and copy the new
-charter sections (**Budgets**, **Model & data**, **Data ownership**, the three role rows,
-the four `checks.*` rows) from `template/docs/project/charter.md` if the project has
-those surfaces. See `CHANGELOG.md`.
+A project installed before 3.3 needs one extra run, once:
+
+```sh
+./install.sh /path/to/your-project ACME --upgrade --adopt
+```
+
+`--adopt` takes over the two things older versions left for you to merge by hand —
+sections 1–8 of `AGENTS.md` and the `/sdlc-*` commands — after backing up the current
+copies. A plain `--upgrade` never does this on its own, and says when it is needed.
 
 `--upgrade` manages `docs/README.md`, `docs/process/`, `docs/roles/`, `docs/templates/`,
-and any kit skill the project already has. It verifies their recorded checksums first and
+`docs/platforms/`, the `/sdlc-*` commands, and any kit skill the project already has. It verifies their recorded checksums first and
 stops if a managed file was locally modified or removed. It backs up affected files under
 `.ai-sdlc/backups/`, writes updates
 atomically, removes obsolete files previously owned by the manifest, and restores the old
 state if an update fails. Legacy installations receive a full portable-file backup on
 their first manifest-based upgrade.
 
-`docs/project/`, `AGENTS.md`, and `.claude/commands/` are never touched, because they may
-carry project edits; the installer prints a `diff` command for `AGENTS.md` so newer
-portable contract changes can be merged by hand. Skills the project did not choose are
-not added by an upgrade — `ls optional/skills` shows what a newer version ships.
+`AGENTS.md` is split in two by marker comments. Sections 1–8 are the kit's: an upgrade
+replaces them, and stops — like any other managed file — if they were edited. Section 9,
+"Project overrides", is yours and is never touched. The charter and the rest of
+`docs/project/` are yours too, with one additive exception: when a new kit version adds a
+charter row, the upgrade inserts it blank, in its own table, and lists it. An existing row
+is never changed. Skills the project did not choose are not added by an upgrade — `ls
+optional/skills` shows what a newer version ships.
 
 This only works if you keep project-specific rules where they belong: in `AGENTS.md`
 ("Project overrides") and in `docs/project/`, never inside `process/` or `roles/`. The

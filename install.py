@@ -324,6 +324,10 @@ USAGE = """usage: install.sh <target-project-dir> [PREFIX] [options]
                      file that already exists is appended to, never overwritten. Codex,
                      Jules, Zed, Factory and opencode read AGENTS.md directly and need
                      nothing.
+  --adopt            with --upgrade: take over kit files an older version left
+                     unmanaged -- sections 1-8 of AGENTS.md and the /sdlc-* commands.
+                     The previous copies are backed up first. Needed once per project
+                     installed before 3.3; the upgrade says when.
   --dry-run          list what would be written, write nothing
   --lang <code>      language for this setup's own prompts (default: en)
   --upgrade          refresh manifest-owned portable docs and installed skills. Stops
@@ -350,6 +354,9 @@ class Options(object):
         self.effort_mode = "normal"
         self.acquisition_profile = "standard"
         self.deploy = None          # None: not given; []: explicitly none
+        self.adopt = False
+        self.effort_given = False
+        self.acquisition_given = False
         self.hooks = False
         self.lang = "en"
 
@@ -379,6 +386,8 @@ def parse_args(argv):
             i += 1
         elif arg == "--upgrade":
             o.upgrade = True
+        elif arg == "--adopt":
+            o.adopt = True
         elif arg in ("-y", "--yes", "--non-interactive"):
             o.assume_yes = True
         elif arg == "--no-skills":
@@ -403,13 +412,13 @@ def parse_args(argv):
             if i + 1 >= len(argv) or argv[i + 1] not in ("lean", "normal", "beast"):
                 sys.stderr.write("--effort-mode requires lean, normal, or beast\n")
                 usage()
-            o.effort_mode = argv[i + 1]
+            o.effort_mode, o.effort_given = argv[i + 1], True
             i += 1
         elif arg == "--acquisition-profile":
             if i + 1 >= len(argv) or argv[i + 1] not in ("standard", "advanced"):
                 sys.stderr.write("--acquisition-profile requires standard or advanced\n")
                 usage()
-            o.acquisition_profile = argv[i + 1]
+            o.acquisition_profile, o.acquisition_given = argv[i + 1], True
             i += 1
         elif arg == "--deploy":
             if i + 1 >= len(argv):
@@ -2313,6 +2322,12 @@ def managed_source_texts(target, docs, ctx, profile="full"):
             if (platforms_root / src.name).is_file():
                 planned[str(Path(docs) / "platforms" / src.name)] = substitute(
                     src.read_text(encoding="utf-8"), ctx)
+    commands_root = Path(target) / ".claude" / "commands"
+    if commands_root.is_dir():
+        for src in sorted((SRC / "optional" / "claude-commands").glob("*.md")):
+            if (commands_root / src.name).is_file():
+                planned[str(Path(".claude") / "commands" / src.name)] = substitute(
+                    src.read_text(encoding="utf-8"), ctx)
     skills_root = Path(target) / ".claude" / "skills"
     if skills_root.is_dir():
         for base in sorted((SRC / "optional" / "skills").iterdir()):
@@ -2338,13 +2353,15 @@ def load_manifest(target):
     return None
 
 
-def write_manifest(target, docs, files):
+def write_manifest(target, docs, files, regions=None):
     payload = {
         "schema": 1,
         "kit_version": VERSION,
         "docs_dir": docs,
         "files": dict(sorted(files.items())),
     }
+    if regions:
+        payload["regions"] = dict(sorted(regions.items()))
     atomic_write_text(ensure_inside(target, Path(target) / MANIFEST_REL),
                       json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
@@ -2354,10 +2371,90 @@ def is_managed_rel(rel, docs):
     if path.is_absolute() or ".." in path.parts:
         return False
     prefixes = ((str(docs), "process"), (str(docs), "roles"), (str(docs), "templates"),
-                (str(docs), "platforms"), (".claude", "skills"))
+                (str(docs), "platforms"), (".claude", "skills"), (".claude", "commands"))
     return path.parts in ((str(docs), "README.md"), (str(docs), "CARD.md"),
                           (str(docs), "dashboard.html")) or any(
         path.parts[:2] == prefix for prefix in prefixes)
+
+
+AGENTS_BEGIN = "<!-- ai-sdlc:kit-begin"
+AGENTS_END = "<!-- ai-sdlc:kit-end -->"
+AGENTS_REL = "AGENTS.md"
+
+
+def agents_split(text):
+    """(head, region, tail) around the kit-managed region of AGENTS.md, or None when the
+    file has no markers. The region runs from the begin marker's line to the end marker,
+    inclusive, so replacing it also refreshes the marker text."""
+    start = text.find(AGENTS_BEGIN)
+    end = text.find(AGENTS_END)
+    if start < 0 or end < start:
+        return None
+    end += len(AGENTS_END)
+    return text[:start], text[start:end], text[end:]
+
+
+def agents_legacy_split(text):
+    """An AGENTS.md from before the markers: the title line, then the portable sections,
+    then section 9. None if the file does not have that shape."""
+    m = re.search(r"^## 9\. Project overrides", text, re.M)
+    if not m or not text.startswith("# "):
+        return None
+    title_end = text.find("\n") + 1
+    return text[:title_end] + "\n", text[title_end:m.start()], text[m.start():]
+
+
+def charter_row_labels(text):
+    return re.findall(r"^\| (\*\*[^*|]+\*\*) \|", text, re.M)
+
+
+def add_missing_charter_rows(installed, template):
+    """Append-only: a bold-labelled row the kit's charter has and this project's lacks is
+    inserted, as the kit writes it, next to a neighbour from the same kit table -- after
+    the nearest earlier one, else before the nearest later one. Existing rows, the
+    project's answers, are never touched. Returns (text, added, unplaced)."""
+    row = re.compile(r"^\| (\*\*[^*|]+\*\*) \|")
+    tables, current = [], []
+    for line in template.split("\n"):
+        if line.startswith("|"):
+            m = row.match(line)
+            if m:
+                current.append((m.group(1), line))
+        elif current:
+            tables.append(current)
+            current = []
+    if current:
+        tables.append(current)
+
+    lines = installed.split("\n")
+
+    def index_of(label):
+        for i, existing in enumerate(lines):
+            if existing.startswith("| %s |" % label):
+                return i
+        return -1
+
+    added, unplaced = [], []
+    for table in tables:
+        for pos, (label, text) in enumerate(table):
+            if index_of(label) >= 0:
+                continue
+            placed = False
+            for before, _ in reversed(table[:pos]):
+                i = index_of(before)
+                if i >= 0:
+                    lines.insert(i + 1, text)
+                    placed = True
+                    break
+            if not placed:
+                for after, _ in table[pos + 1:]:
+                    i = index_of(after)
+                    if i >= 0:
+                        lines.insert(i, text)
+                        placed = True
+                        break
+            (added if placed else unplaced).append(label.strip("*"))
+    return "\n".join(lines), added, unplaced
 
 
 def _cell(value):
@@ -3001,8 +3098,7 @@ class Installer(object):
         charter_rel = "%s/project/charter.md" % self.docs
         if not w.interactive:
             # --deploy is an answer given on the command line; nothing else is.
-            if (self.platforms and charter_rel in self.fresh
-                    and self.edit(charter_rel, self.platform_row)):
+            if charter_rel in self.fresh and self.edit(charter_rel, self.flag_rows):
                 return [charter_rel]
             return []
         touched = []
@@ -3026,8 +3122,25 @@ class Installer(object):
             path = self.target / rel
             if path.is_file() and sha256_file(path) == sha256_text(expected):
                 owned[rel] = sha256_file(path)
-        write_manifest(self.target, self.docs, owned)
+        regions = {}
+        agents = self.target / AGENTS_REL
+        if agents.is_file():
+            parts = agents_split(agents.read_text(encoding="utf-8"))
+            if parts:
+                regions[AGENTS_REL] = sha256_text(parts[1])
+        write_manifest(self.target, self.docs, owned, regions)
         print("  add            %s (%d managed files)" % (MANIFEST_REL, len(owned)))
+
+    def flag_rows(self, text):
+        """The rows a command-line flag answered. Anything left at its default stays
+        blank: the documented default applies, and nobody is recorded as choosing it."""
+        if self.platforms:
+            text = self.platform_row(text)
+        if self.o.effort_given:
+            text = fill_row(text, "**Default effort mode**", selected_effort(self.w))
+        if self.o.acquisition_given:
+            text = fill_row(text, "**Acquisition profile**", selected_acquisition(self.w))
+        return text
 
     def platform_row(self, text):
         return fill_row(text, "**Deployment platforms**", platform_cell(self.platforms))
@@ -3307,17 +3420,74 @@ def upgrade(target, o):
         sys.stderr.write("error: %s\n" % exc)
         return 1
 
+    # Commands a pre-3.3 install left unmanaged may carry project edits nobody can tell
+    # from an old kit version, so they change only when the project says --adopt.
+    unadopted = sorted(rel for rel in planned if rel.startswith(".claude/commands/")
+                       and rel not in previous_files and not o.adopt)
+    for rel in unadopted:
+        del planned[rel]
+
     modified = []
     if previous:
         for rel, old_hash in previous_files.items():
             if sha256_file(target / rel) != old_hash:
                 modified.append(rel)
+
+    # Files the kit owns only part of: AGENTS.md sections 1-8, and rows the charter lacks.
+    extra, notes, regions = {}, [], {}
+    agents_path = target / AGENTS_REL
+    kit_agents = substitute((SRC / "template" / "AGENTS.md").read_text(encoding="utf-8"),
+                            inst.ctx)
+    new_region = agents_split(kit_agents)[1]
+    if agents_path.is_file():
+        text = agents_path.read_text(encoding="utf-8")
+        parts = agents_split(text)
+        legacy = None if parts else agents_legacy_split(text)
+        if parts:
+            recorded = (previous or {}).get("regions", {}).get(AGENTS_REL)
+            if recorded and sha256_text(parts[1]) != recorded:
+                modified.append("%s (the kit-managed sections 1-8)" % AGENTS_REL)
+            else:
+                regions[AGENTS_REL] = sha256_text(new_region)
+                if parts[0] + new_region + parts[2] != text:
+                    extra[AGENTS_REL] = parts[0] + new_region + parts[2]
+        elif legacy and o.adopt:
+            regions[AGENTS_REL] = sha256_text(new_region)
+            extra[AGENTS_REL] = legacy[0] + new_region + "\n\n" + legacy[2]
+        elif legacy:
+            notes.append("AGENTS.md predates the kit-managed region, so sections 1-8 were "
+                         "not updated. Re-run with --upgrade --adopt to replace them (section "
+                         "9 is kept, and the old file is backed up).")
+        else:
+            notes.append("AGENTS.md has no '## 9. Project overrides' heading, so it cannot be "
+                         "merged safely. Diff it against %s by hand."
+                         % (SRC / "template" / "AGENTS.md"))
+    charter_rel = str(Path(docs) / "project" / "charter.md")
+    if (target / charter_rel).is_file():
+        kit_charter = substitute((SRC / "template" / "docs" / "project" / "charter.md")
+                                 .read_text(encoding="utf-8"), inst.ctx)
+        merged, added_rows, unplaced = add_missing_charter_rows(
+            (target / charter_rel).read_text(encoding="utf-8"), kit_charter)
+        if added_rows:
+            extra[charter_rel] = merged
+            notes.append("The charter gained blank rows for: %s. Fill them in; a blank row "
+                         "is Unknown." % ", ".join(added_rows))
+        if unplaced:
+            notes.append("The kit's charter has rows this one lacks and no neighbour to "
+                         "place them by: %s. Copy them from %s." % (", ".join(unplaced),
+                         SRC / "template" / "docs" / "project" / "charter.md"))
+    if unadopted:
+        notes.append("%d /sdlc-* commands predate managed upgrades and were not updated. "
+                     "Re-run with --upgrade --adopt to replace them (backed up first)."
+                     % len(unadopted))
+
     if modified:
         sys.stderr.write("error: upgrade stopped; kit-owned files were modified or removed:\n")
         for rel in modified:
             sys.stderr.write("       %s\n" % rel)
-        sys.stderr.write("       Move project rules to AGENTS.md/project docs, restore these "
-                         "files, or merge the new kit manually.\n")
+        sys.stderr.write("       Move project rules to section 9 of AGENTS.md or the project "
+                         "docs, restore these files from the kit, or merge the new kit "
+                         "manually.\n")
         return 1
 
     obsolete = sorted(set(previous_files) - set(planned))
@@ -3325,7 +3495,7 @@ def upgrade(target, o):
                      if sha256_file(target / rel) != sha256_text(content))
 
     if o.dry_run:
-        for rel in changed:
+        for rel in changed + sorted(extra):
             print("  would update   %s" % rel)
         for rel in obsolete:
             print("  would remove   %s" % rel)
@@ -3341,7 +3511,7 @@ def upgrade(target, o):
         print("  warning        legacy install has no manifest; backing up portable files "
               "before the first managed upgrade")
 
-    affected = changed + obsolete
+    affected = changed + obsolete + sorted(extra)
     originals = {}
     for rel in affected:
         path = target / rel
@@ -3368,13 +3538,18 @@ def upgrade(target, o):
             atomic_write_text(target / rel, planned[rel])
             inst.updated += 1
             print("  update         %s" % rel)
+        for rel in sorted(extra):
+            atomic_write_text(target / rel, extra[rel])
+            inst.updated += 1
+            print("  update         %s (%s)" % (rel, "kit-managed sections only"
+                                               if rel == AGENTS_REL else "rows added"))
         for rel in obsolete:
             path = target / rel
             if path.exists():
                 path.unlink()
                 print("  remove         %s (obsolete managed file)" % rel)
         hashes = dict((rel, sha256_text(content)) for rel, content in planned.items())
-        write_manifest(target, docs, hashes)
+        write_manifest(target, docs, hashes, regions)
         refresh_profile(target)
     except Exception as exc:
         for rel, data in originals.items():
@@ -3395,10 +3570,9 @@ def upgrade(target, o):
     print("Done: %d updated, %d obsolete managed files removed." %
           (inst.updated, len(obsolete)))
     print("")
-    print("AGENTS.md and .claude/commands/ were NOT touched -- they may carry project edits.")
-    print("Diff them against the kit if this version changed them:")
-    print("  diff %s %s" % (SRC / "template" / "AGENTS.md", target / "AGENTS.md"))
-    print("")
+    for note in notes:
+        print("note: %s" % note)
+        print("")
     print("New skills shipped by this version are not added by --upgrade. To see them:")
     print("  ls %s" % (SRC / "optional" / "skills"))
     return 0

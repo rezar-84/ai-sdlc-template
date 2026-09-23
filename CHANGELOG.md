@@ -4,6 +4,21 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **Upgrades reach `AGENTS.md`, the commands, and the charter**:
+  - `AGENTS.md` now marks sections 1–8 as kit-managed. `--upgrade` replaces them and
+    records their checksum, so a local edit there stops the upgrade instead of being
+    overwritten; section 9, "Project overrides", is never touched. Before this, an
+    upgraded project's process documents referred to effort modes and a solution ladder
+    that its `AGENTS.md` did not contain.
+  - The `/sdlc-*` commands are managed files, tracked in the manifest like the docs.
+  - The charter gains, blank and in the right table, any row a newer kit added — never an
+    edit to an existing row.
+  - `--adopt` takes over `AGENTS.md` and the commands in a project installed before this
+    version, once, after a backup. A plain `--upgrade` says when it is needed.
+  - `-y` writes a mode row only when `--effort-mode` or `--acquisition-profile` was given.
+    A row still listing every option is *undecided*, and `/sdlc-doctor` reports it as a
+    question rather than an invalid value.
+
 - **Deployment platform checklists; the core is stack-neutral again**:
   - The process documents, role playbooks, charter, and release runbook no longer name a
     vendor. The previous additions of Dokploy, Traefik, Cloudflare, GA4/GTM, Search

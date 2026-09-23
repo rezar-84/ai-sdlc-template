@@ -57,7 +57,9 @@ Report, in this order of severity:
   for a platform the charter no longer names. Either way, report it; do not delete a
   checklist or edit the row yourself.
 - Blank cells in **Model & data** or **Budgets** where the corresponding role is ticked.
-- Missing or invalid **Default effort mode** / **Acquisition profile** values. A legacy
+- Invalid **Default effort mode** / **Acquisition profile** values. A row still listing
+  every option is *undecided*, not invalid: the documented default (Normal / Standard)
+  applies, and you report it as a question, not an error. A legacy
   `Operating mode: Beast mode` row is ambiguous and must be migrated explicitly; do not
   guess whether it meant completeness or permissive acquisition.
 - **Unticked roles with an empty reason column.** A blank reason means nobody decided;

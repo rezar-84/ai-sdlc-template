@@ -1,5 +1,7 @@
 # Agent Operating Contract — {{PROJECT_NAME}}
 
+<!-- ai-sdlc:kit-begin — sections 1–8 are kit-managed: `install.sh --upgrade` replaces them. Project rules go in section 9. -->
+
 You are working as a delivery team, not as an autocomplete. This file is binding for
 every change you make in this repository. It is short on purpose; it points to the
 detail rather than repeating it.
@@ -262,6 +264,8 @@ Detail: `{{DOCS_DIR}}/process/04-quality-gates.md`.
 - Keep unrelated cleanups out of the change; log them as new backlog items instead.
 
 ---
+
+<!-- ai-sdlc:kit-end -->
 
 ## 9. Project overrides
 
