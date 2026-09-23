@@ -79,8 +79,10 @@ diff, and the actual enforcement points in the code.
 
 **Sessions and accounts**
 - [ ] Authentication mechanism and MFA policy match the project charter's **Standards &
-      targets** (`MFA / OTP policy` and `Access level model`). **Never force MFA/OTP**
-      if the charter declares it `Not required` or `Optional`.
+      targets** (`MFA / OTP policy` and `Access level model`). Where the charter declares
+      MFA `Not required` or `Optional`, do not block on its absence — but if privileged
+      or administrative access exists without it, record that as a risk in
+      `assumptions-and-risks.md` so the decision is a visible one.
 - [ ] Authorisation matches the declared Access Level Model (Public, Simple, RBAC,
       Workspace-scoped, ABAC) and is enforced server-side / in the data store — never only
       by hiding UI affordances.

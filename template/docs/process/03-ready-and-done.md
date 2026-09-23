@@ -28,8 +28,11 @@ planned yet, which is all of them.
       a human, made irrelevant by a stated assumption, or the item is blocked. It is
       never silently guessed.
 
-*(An upstream specification from GitHub Spec Kit, Kiro, or `templates/user-stories.md`
-directly satisfies the outcome, acceptance criteria, and bounded-unknown checks.)*
+*(An upstream specification — GitHub Spec Kit, Kiro, or `templates/user-stories.md` —
+satisfies the outcome, acceptance-criteria, and bounded-unknown checks **when it actually
+contains them**: an observable outcome, criteria a test can pass or fail, and its open
+questions listed. A spec that says "users can manage their account" satisfies nothing;
+check it against these items as you would any other request.)*
 
 **Checkable at BUILD entry, once the plan exists:**
 

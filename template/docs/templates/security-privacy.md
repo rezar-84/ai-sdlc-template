@@ -22,7 +22,7 @@ Every row needs a purpose. A row whose purpose is "might be useful" should not e
 
 - **Access level model:** _(None / Public · Simple Owner/User · RBAC · Multi-tenant Workspace-Scoped · ABAC)_
 - **Authentication:** _(mechanism, provider, session lifetime, revocation, or "None / Public")_
-- **Multi-factor (MFA / OTP):** _(Not required · Optional / User-enabled · Enforced for Admin · Enforced for all — do not force if charter says not required)_
+- **Multi-factor (MFA / OTP):** _(Not required · Optional / User-enabled · Enforced for Admin · Enforced for all — as the charter declares it; where privileged access has none, say so)_
 - **Roles and permissions:** _(the model, and where the matrix lives)_
 - **Where authorisation is enforced:** _(name the layer — data layer, service middleware, RPC gate — not "in the UI")_
 - **Isolation:** _(how one account's data is kept from another's, and where that is

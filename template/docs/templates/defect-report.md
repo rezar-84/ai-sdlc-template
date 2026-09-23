@@ -42,17 +42,12 @@ _(paste stack trace, network error, or server logs)_
 
 ---
 
-## Severity calibration
+## Severity
 
-Rated per `{{DOCS_DIR}}/process/04-quality-gates.md`:
-
-| Sev | Consequence | Justification here |
-| --- | --- | --- |
-| **S0** | Critical: data loss, credential leak, total downtime | |
-| **S1** | Major: core journey blocked, no workaround | |
-| **S2** | Significant: real harm, poor workaround | |
-| **S3** | Minor: localised defect, visual glitch | |
-| **S4** | Trivial: cosmetic, copy polish | |
+**Rated:** S_ — _(the one sentence that places it on the ladder in
+`{{DOCS_DIR}}/process/04-quality-gates.md` — by consequence to users and data, never by
+how easy the fix looks. A latent defect of S0 kind that has not fired yet is still S1 at
+least.)_
 
 ---
 

@@ -137,9 +137,11 @@ When a tester, user, or automated run files a bug report:
 1. **Reproduce & isolate:** Follow the steps in `templates/defect-report.md`. Isolate
    whether it is in the current diff or pre-existing.
 2. **Calibrate severity:** Match against the ladder (S0–S4) by consequence to users.
-3. **Assign work item ID:** Assign the next `{{PREFIX}}-###` and add a row to
-   `project/backlog.md`. S0/S1 items enter `Now`; S2 enters `Next` or `Blocked`; S3/S4 enter
-   `Next` or `Later`.
+3. **Assign work item ID:** Assign the next `{{PREFIX}}-###`, add a row to
+   `project/backlog.md`, and file the report as `project/defects/{{PREFIX}}-###.md`.
+   Placement follows what the severity means for a release: S0 and S1 enter `Now` (an S0
+   in production also starts the incident process); S2 enters `Now` unless a named human
+   waives it in writing with a tracked follow-up; S3 enters `Next`; S4 enters `Later`.
 4. **Link to test plan:** Add a failing regression scenario under `test-plan.md`
    (or note it as a known gap) so the fix cannot regress silently.
 

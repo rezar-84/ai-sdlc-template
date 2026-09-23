@@ -4,6 +4,20 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **Corrections to the 3.3 additions**:
+  - `project/defects/` now exists, with an index; two documents already pointed at it.
+  - `templates/defect-report.md` no longer carries its own copy of the severity ladder,
+    which had already drifted (it left out cross-tenant exposure and latent S0-class
+    defects). It points at `04-quality-gates.md` instead.
+  - `roles/qa.md` defect triage places an S2 in `Now` unless a named human waives it,
+    matching the ladder, instead of `Next`.
+  - `03-ready-and-done.md`: an upstream spec satisfies readiness only when it actually
+    contains an observable outcome, testable criteria, and its open questions — as
+    `sdlc-intake` already said.
+  - `roles/security.md`: a charter that does not require MFA means the reviewer does not
+    block on it, not that the reviewer may not mention it. Privileged access without MFA
+    is recorded as a risk.
+
 - **Upgrades reach `AGENTS.md`, the commands, and the charter**:
   - `AGENTS.md` now marks sections 1–8 as kit-managed. `--upgrade` replaces them and
     records their checksum, so a local edit there stops the upgrade instead of being
