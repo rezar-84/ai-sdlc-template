@@ -872,6 +872,86 @@ def test_architecture():
     shutil.rmtree(d, ignore_errors=True)
 
 
+def test_deploy_platforms():
+    print("deployment platforms")
+    cases = [
+        ({"wrangler.toml": 'name = "x"\n'}, ["cloudflare-workers"]),
+        ({"docker-compose.yml": "services:\n  web:\n    networks: [dokploy-network]\n"},
+         ["dokploy"]),
+        ({"compose.yaml": "services:\n  web:\n    environment:\n      - SERVICE_FQDN_WEB\n"},
+         ["coolify"]),
+        ({"docker-compose.yml": "services:\n  web:\n    labels:\n"
+                               "      - traefik.http.routers.web.rule=Host(`x`)\n"}, []),
+        ({"fly.toml": "app = 'x'\n", "vercel.json": "{}"}, ["vercel", "fly"]),
+        ({"Chart.yaml": "name: x\n"}, ["kubernetes"]),
+        ({"config/deploy.yml": "service: x\nimage: y/x\n"}, ["kamal"]),
+        ({"requirements.txt": "boto3\n"}, []),
+    ]
+    for fixture_files, want in cases:
+        d = tempfile.mkdtemp(prefix="sdlc-deploy-")
+        for rel, content in fixture_files.items():
+            write(d, rel, content)
+        found = installer.detect(d).deploy
+        check("detects %s from %s" % (want or "nothing", ", ".join(sorted(fixture_files))),
+              found == want, str(found))
+        shutil.rmtree(d, ignore_errors=True)
+
+    # -y: detection is reported, never installed.
+    d = tempfile.mkdtemp(prefix="sdlc-deploy-y-")
+    write(d, "fly.toml", "app = 'x'\n")
+    code, out = run([d, "DEP", "-y"])
+    check("-y installs no checklist from detection alone",
+          code == 0 and not os.path.isdir(os.path.join(d, "docs", "platforms")), out[-300:])
+    check("-y names the detected platform and the flag", "--deploy fly" in out, out[-300:])
+    check("charter row stays blank without an answer",
+          "| **Deployment platforms** | _(" in read(d, "docs/project/charter.md"))
+    shutil.rmtree(d, ignore_errors=True)
+
+    # --deploy is an answer: files, charter row, profile, manifest.
+    d = tempfile.mkdtemp(prefix="sdlc-deploy-flag-")
+    code, out = run([d, "DEP", "-y", "--deploy", "coolify,cloudflare-edge,other"])
+    installed = sorted(os.listdir(os.path.join(d, "docs", "platforms"))) \
+        if os.path.isdir(os.path.join(d, "docs", "platforms")) else []
+    check("--deploy installs exactly the named checklists",
+          installed == ["README.md", "cloudflare-edge.md", "coolify.md"], str(installed))
+    charter = read(d, "docs/project/charter.md")
+    check("--deploy fills the charter row",
+          "Coolify (`../platforms/coolify.md`)" in charter and "other — name it here" in charter)
+    profile = json.loads(read(d, ".ai-sdlc/profile.json") or "{}")
+    check("profile records the platforms",
+          profile.get("deploy_platforms") == ["cloudflare-edge", "coolify", "other"],
+          str(profile.get("deploy_platforms")))
+    manifest = json.loads(read(d, ".ai-sdlc/manifest.json") or "{}")
+    check("checklists are kit-managed and upgradeable",
+          "docs/platforms/coolify.md" in manifest.get("files", {}))
+    code, out = run([d, "DEP", "-y", "--deploy", "vps"])
+    profile = json.loads(read(d, ".ai-sdlc/profile.json") or "{}")
+    check("adding a platform later keeps the earlier ones",
+          {"coolify", "cloudflare-edge", "vps"} <= set(profile.get("deploy_platforms", [])),
+          str(profile.get("deploy_platforms")))
+    check("adding later says the charter needs the row by hand",
+          "add vps to its" in out, out[-400:])
+    code, out = run([d, "DEP", "--upgrade", "-y"])
+    check("upgrade accepts installed checklists", code == 0, out[-300:])
+    code, out = run([d, "DEP", "-y", "--deploy", "herokuu"])
+    check("unknown platform is rejected", code != 0 and "herokuu" in out, out[-200:])
+    shutil.rmtree(d, ignore_errors=True)
+
+    # The wizard pre-selects what it detected, and the answer decides.
+    d = fixture("next")
+    write(d, "wrangler.toml", 'name = "x"\n')
+    code, log = drive([d, "WIZ"], [("Where does it deploy", "1,9")])
+    check("wizard pre-selects the detected platform",
+          re.search(r"Where does it deploy\? \(numbers, comma-separated\) \[1\]", log),
+          log[-400:])
+    platforms = os.path.join(d, "docs", "platforms")
+    check("wizard answer installs its checklists",
+          os.path.isfile(os.path.join(platforms, "cloudflare-workers.md"))
+          and os.path.isfile(os.path.join(platforms, "dokploy.md")),
+          str(os.listdir(platforms)) if os.path.isdir(platforms) else "none")
+    shutil.rmtree(d, ignore_errors=True)
+
+
 def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
@@ -883,7 +963,8 @@ def main():
                  test_scaffolding,
                  test_multiselect_and_review, test_review_jump,
                  test_quit_writes_nothing,
-                 test_multilingual, test_architecture):
+                 test_multilingual, test_architecture,
+                 test_deploy_platforms):
         test()
     print("")
     if failures:

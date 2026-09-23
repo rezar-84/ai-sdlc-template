@@ -4,6 +4,26 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **Deployment platform checklists; the core is stack-neutral again**:
+  - The process documents, role playbooks, charter, and release runbook no longer name a
+    vendor. The previous additions of Dokploy, Traefik, Cloudflare, GA4/GTM, Search
+    Console, AWS, and GCP specifics — and the pre-filled environment rows and example
+    URLs in the charter and runbook, which an agent would have read as facts — are
+    replaced with neutral checks and blank rows.
+  - The platform-specific failure modes moved to `optional/platforms/`, one checklist per
+    platform: Cloudflare Workers & Pages, Cloudflare in front of an origin, Vercel,
+    Netlify, Fly.io, Railway, Render, Heroku/Dokku, Dokploy, Coolify, Kamal, a
+    self-managed VPS, Kubernetes, AWS, Google Cloud/Firebase, Azure, and DigitalOcean App
+    Platform. Each installs into `docs/platforms/` only for a platform the project uses.
+  - The installer detects platforms from deploy configuration (never from an SDK import,
+    and never from a bare Traefik label), pre-selects them in a new wizard question, and
+    records the answer in the charter's new **Deployment platforms** row and in
+    `profile.json` → `deploy_platforms`. `--deploy <list>` answers it for `-y` runs;
+    detection alone installs nothing.
+  - `roles/devops-sre.md`, `sdlc-release`, the release runbook, and `/sdlc-doctor` read
+    the row and its checklists. `validate.py` keeps the catalog, the files, and the index
+    in step.
+
 - **Lean / Normal / Beast effort modes**:
   - Added a project default plus explicit work-item override, resolved independently of
     risk tier. Lean minimises optional work, Normal keeps the balanced workflow, and

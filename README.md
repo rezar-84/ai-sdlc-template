@@ -26,7 +26,10 @@ tests, evidence, approvals, or another requirement imposed by the risk tier.
 - **No tech stack.** No framework, language, package manager, cloud, CI system, or test
   runner is named anywhere in the process docs. Each project declares its own in
   `docs/project/charter.md`, and everything else refers to it indirectly ("the project's
-  typecheck command").
+  typecheck command"). Where it deploys is the one place a platform's name is useful —
+  Vercel and a hand-run VPS fail in different ways — so those checks live in opt-in
+  [deployment checklists](#deployment-platforms), installed only for the platforms a
+  project names.
 - **No architecture.** Monolith, monorepo, serverless, microservices, a single script —
   all fine. The architect role reviews *whatever the project chose* against its own
   stated constraints.
@@ -177,7 +180,33 @@ in this mode — without a terminal there is nobody to ask. Other flags: `--docs
 to install the docs under a different directory, `--harness <list>`, `--profile
 <full|compact>`, `--effort-mode <lean|normal|beast>`, `--acquisition-profile
 <standard|advanced>`, `--hooks`, `--create`, `--no-skills`, `--dry-run`, `--lang <code>`,
-`--scaffold-tests`, `--scaffold-ci <github|gitlab>`, and `--upgrade`.
+`--scaffold-tests`, `--scaffold-ci <github|gitlab>`, `--deploy <list>`, and `--upgrade`.
+
+### Deployment platforms
+
+The process documents never name a platform. What differs between platforms — Vercel
+previews using production variables, a Dokploy bind mount wiped on redeploy, Cloudflare's
+*Flexible* TLS looping forever, a Kamal accessory that `deploy` never upgrades — lives in
+one checklist per platform, copied into `docs/platforms/` only when the project uses it:
+
+`cloudflare-workers` · `cloudflare-edge` · `vercel` · `netlify` · `fly` · `railway` ·
+`render` · `heroku` (and Dokku) · `dokploy` · `coolify` · `kamal` · `vps` · `kubernetes` ·
+`aws` · `gcp` (and Firebase) · `azure` · `digitalocean`
+
+The wizard detects what it can from the repository (`wrangler.toml`, `vercel.json`,
+`fly.toml`, a Compose file on `dokploy-network`, Coolify's `SERVICE_FQDN_` variables,
+`config/deploy.yml`, `Chart.yaml`, …), pre-selects it, and asks. Your answer decides and is
+written into the charter's **Deployment platforms** row, which the `devops-sre` review and
+the release runbook read. Anything unlisted is a valid answer (`other`): it is recorded,
+and the neutral playbook carries the review alone.
+
+```sh
+./install.sh /path/to/project ACME -y --deploy coolify,cloudflare-edge
+```
+
+With `-y` and no `--deploy`, nothing is installed from detection alone — the installer says
+what it found and which flag confirms it. Re-running with `--deploy <id>` later adds a
+checklist without touching anything else; `--upgrade` refreshes the ones installed.
 
 `Advanced` acquisition (displayed as **Black Widow**) enables browser automation, OCR,
 resilient extractors, and authorised session flows. It is a capability profile, not
@@ -382,6 +411,7 @@ optional/
   hooks/                     opt-in Claude Code enforcement (--hooks)
   claude-commands/           Claude Code slash commands that drive the loop
   skills/                    model-invoked skills, installed per project need
+  platforms/                 deployment checklists, installed per platform used (--deploy)
   locales/                   translations of the installer's own prompts
 install.py                   the installer; install.sh is a wrapper around it
 validate.py                  source and installed-output validation

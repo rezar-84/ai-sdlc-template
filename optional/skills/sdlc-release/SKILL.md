@@ -5,8 +5,11 @@ description: Prepare and run a release — build the runbook, take the go/no-go 
 
 # Release
 
-Template: `{{DOCS_DIR}}/templates/release-runbook.md`. Environments, deploy permissions, and
-the default branch: the charter. Playbook: `{{DOCS_DIR}}/roles/devops-sre.md`.
+Template: `{{DOCS_DIR}}/templates/release-runbook.md`. Environments, deploy permissions,
+deployment platforms, and the default branch: the charter. Playbook:
+`{{DOCS_DIR}}/roles/devops-sre.md`, plus `{{DOCS_DIR}}/platforms/<platform>.md` for each
+platform the charter names that has one — its deploy and rollback items are part of the
+go/no-go.
 
 A deploy is outward-facing and hard to reverse, so it needs explicit authorisation before it
 happens — not a report after.

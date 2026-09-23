@@ -128,6 +128,22 @@ def cross_references(errors):
     if set(install.ACQUISITION_KEYS.values()) != {"Standard", "Advanced"}:
         errors.append("install.py acquisition profiles must be Standard and Advanced")
 
+    # Deployment platforms: every id has a checklist, every checklist an id, and the
+    # index lists each one. A platform the wizard offers with no file installs nothing.
+    plat_dir = ROOT / "optional" / "platforms"
+    plat_disk = {p.stem for p in plat_dir.glob("*.md") if p.stem != "README"}
+    plat_ids = set(install.DEPLOY_IDS)
+    plat_index = set(re.findall(r"^\| `([a-z0-9-]+)\.md` \|",
+                                (plat_dir / "README.md").read_text(encoding="utf-8"), re.M))
+    for name in sorted(plat_ids - plat_disk):
+        errors.append("DEPLOY_PLATFORMS names %r with no optional/platforms/%s.md" % (name, name))
+    for name in sorted(plat_disk - plat_ids):
+        errors.append("optional/platforms/%s.md has no DEPLOY_PLATFORMS entry" % name)
+    for name in sorted(plat_disk ^ plat_index):
+        errors.append("optional/platforms/README.md and the checklists disagree on %r" % name)
+    if "**Deployment platforms**" not in charter:
+        errors.append("the charter has no Deployment platforms row for the installer to fill")
+
     # Facts: every fact has a label, and every type maps to known facts.
     for fid in install.FACT_IDS:
         if fid not in install.FACT_LABELS:

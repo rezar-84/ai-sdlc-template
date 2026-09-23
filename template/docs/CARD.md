@@ -174,7 +174,7 @@ Tier 3 → one line there.
 | Public pages, copy, routes, metadata | `roles/seo.md`, `roles/copywriter.md` |
 | Forms, analytics, tracking, logs, public claims | `roles/privacy-legal.md` |
 | Auth, uploads, payments, an external interface | `roles/security.md`, `templates/threat-model.md` |
-| Shipping to a real environment | `templates/release-runbook.md` |
+| Shipping to a real environment | `templates/release-runbook.md`, and `platforms/` for each platform the charter names |
 | Something broke, or a release was reverted | `templates/postmortem.md` |
 | A bug or tester defect is reported | `templates/defect-report.md`, `roles/qa.md` |
 | Strings, screens, or locales change | `process/08-content-and-translation.md` |

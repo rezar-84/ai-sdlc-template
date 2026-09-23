@@ -69,6 +69,14 @@ engage and when to skip, what it reads, a design-review checklist, a ship-review
 checklist, a severity calibration table, what it owns, and where it hands findings off.
 See `roles/README.md` for the roster and how to run a review.
 
+## `platforms/` — deployment checklists *(only if the project named a platform)*
+
+One checklist per deployment platform in the charter's **Deployment platforms** row —
+the failure modes specific to that platform, which the stack-neutral `devops-sre`
+playbook and release runbook cannot name. Installed only for platforms this project
+uses; absent when it deploys nowhere or on a platform the kit has no checklist for.
+`platforms/README.md` lists every checklist the kit offers.
+
 ## `templates/` — blank artifacts
 
 Copy these into `project/` when the project needs one. Never edit a file in `templates/`

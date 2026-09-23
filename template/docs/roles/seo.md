@@ -72,13 +72,14 @@ performance data if the charter names a source, and the rendered output.
 - [ ] Crawler directives (robots rules, meta directives) are checked against intent.
       Blocking a resource the renderer needs makes the page uninterpretable.
 
-**Technical health & Webmaster tools**
+**Technical health & webmaster tools**
 - [ ] Real-user performance metrics are within budget — they affect both ranking and
       the reason ranking exists.
-- [ ] **Search Console / Webmaster verification:** Domain verification methods (DNS TXT,
-      HTML verification file, `<meta name="google-site-verification">`) are preserved
-      and not overwritten during redesigns, routing changes, or deployments.
-- [ ] `sitemap.xml` and `robots.txt` are reachable, valid, and indexed in Search Console.
+- [ ] **Ownership verification:** whatever proves ownership to the search engines'
+      webmaster tools (a DNS record, a verification file, or a meta tag — see the
+      charter's Sources of truth) survives redesigns, routing changes, and deploys.
+- [ ] The sitemap and robots rules are reachable, valid, and submitted to the webmaster
+      tools the charter names.
 - [ ] No indexable duplicate of a staging, preview, or alternate host. Non-production
       environments must be blocked from indexing.
 - [ ] Authenticated and private areas are excluded from indexing and from the sitemap.

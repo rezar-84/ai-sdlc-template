@@ -131,6 +131,8 @@ EN = {
     "q.approval": "Human approval required for",
     "q.forbidden": "Forbidden in this project",
     "h.forbidden": "The specific shortcuts that would be tempting here. Blank = fill in later.",
+    "q.deploy": "Where does it deploy? (numbers, comma-separated)",
+    "h.deploy": "Each choice installs that platform's checklist into platforms/. Detected ones are pre-selected; pick Other for anything unlisted.",
     "q.platform": "Managed platform co-owning this repo",
     "h.platform": "An AI app builder or cloud IDE that also edits, syncs, or deploys this repo.",
     "q.a11y": "Accessibility target",
@@ -166,6 +168,7 @@ EN = {
     "l.approval": "Human approval for",
     "l.forbidden": "Forbidden here",
     "l.platform": "Managed platform",
+    "l.deploy": "Deployment platforms",
     "l.a11y": "Accessibility target",
     "l.outcome": "Primary outcome",
     "l.access_model": "Access level model",
@@ -308,6 +311,13 @@ USAGE = """usage: install.sh <target-project-dir> [PREFIX] [options]
                      standard (default) or advanced. Advanced enables additional data
                      acquisition techniques on authorized targets; it does not grant
                      permission to bypass authentication, CAPTCHA, or access controls.
+  --deploy <list>    deployment platforms, comma-separated: cloudflare-workers,
+                     cloudflare-edge, vercel, netlify, fly, railway, render, heroku,
+                     dokploy, coolify, kamal, vps, kubernetes, aws, gcp, azure,
+                     digitalocean, other, or none. Installs each one's checklist into
+                     <docs>/platforms/ and records it in the charter. Without it the
+                     wizard pre-selects what it detects; -y installs none, because
+                     detection is not a decision.
   --harness <list>   comma-separated agent tools to wire up (default: claude). One of
                      claude, gemini, amp, copilot, cursor, windsurf, cline, aider, or
                      "all". Each gets a pointer file naming AGENTS.md; an instruction
@@ -339,6 +349,7 @@ class Options(object):
         self.profile = "full"
         self.effort_mode = "normal"
         self.acquisition_profile = "standard"
+        self.deploy = None          # None: not given; []: explicitly none
         self.hooks = False
         self.lang = "en"
 
@@ -399,6 +410,17 @@ def parse_args(argv):
                 sys.stderr.write("--acquisition-profile requires standard or advanced\n")
                 usage()
             o.acquisition_profile = argv[i + 1]
+            i += 1
+        elif arg == "--deploy":
+            if i + 1 >= len(argv):
+                sys.stderr.write("--deploy requires a comma-separated list\n")
+                usage()
+            ids, bad = parse_deploy(argv[i + 1])
+            if bad is not None:
+                sys.stderr.write("unknown deployment platform: %s (known: %s, other, none)\n"
+                                 % (bad, ", ".join(DEPLOY_IDS)))
+                usage()
+            o.deploy = ids
             i += 1
         elif arg == "--harness":
             if i + 1 >= len(argv):
@@ -591,6 +613,32 @@ HARNESS_ALIASES = {
     "aider": ("CONVENTIONS.md",),
 }
 
+# Deployment platforms: (id, label). Each id has a checklist in optional/platforms/<id>.md
+# that installs into <docs>/platforms/ only when the project uses that platform -- the
+# process documents stay stack-neutral, and the platform-specific failure modes live here.
+DEPLOY_PLATFORMS = (
+    ("cloudflare-workers", "Cloudflare Workers & Pages"),
+    ("cloudflare-edge", "Cloudflare proxy / CDN / WAF in front of an origin"),
+    ("vercel", "Vercel"),
+    ("netlify", "Netlify"),
+    ("fly", "Fly.io"),
+    ("railway", "Railway"),
+    ("render", "Render"),
+    ("heroku", "Heroku / Dokku (Procfile buildpack)"),
+    ("dokploy", "Dokploy"),
+    ("coolify", "Coolify"),
+    ("kamal", "Kamal"),
+    ("vps", "Self-managed server (VPS / bare metal, systemd, PM2, nginx, Caddy)"),
+    ("kubernetes", "Kubernetes (Helm, Kustomize, manifests)"),
+    ("aws", "AWS (Lambda, ECS, App Runner, Amplify, EC2)"),
+    ("gcp", "Google Cloud / Firebase (Cloud Run, App Engine, Hosting)"),
+    ("azure", "Azure (App Service, Functions, Static Web Apps)"),
+    ("digitalocean", "DigitalOcean App Platform"),
+)
+DEPLOY_IDS = tuple(pid for pid, _ in DEPLOY_PLATFORMS)
+DEPLOY_LABELS = dict(DEPLOY_PLATFORMS)
+DEPLOY_OTHER = "other"
+
 WEB_FRAMEWORKS = ("Next.js", "Nuxt", "Astro", "Remix", "TanStack Start", "Angular",
                   "Svelte", "Vue", "React")
 API_FRAMEWORKS = ("NestJS", "Express", "Fastify", "FastAPI", "Django", "Flask",
@@ -617,6 +665,7 @@ class Detected(object):
         self.cmds = {}
         self.command_sources = {}
         self.platforms = []
+        self.deploy = []           # DEPLOY_PLATFORMS ids with repository evidence
         self.mono_tool = ""
         self.components = []       # (name, kind, path)
         self.services = []
@@ -721,6 +770,79 @@ def adapter_command(detected, adapter, key, command):
     else:
         detected.cmds[key] = command
     sources.append(adapter)
+
+
+def detect_deploy(repo, dep):
+    """Deployment platforms with evidence in the repository. Only files that exist to
+    configure a deploy count -- an SDK import says the code talks to a cloud, not that it
+    runs there -- and a Traefik label alone names no platform: every Docker PaaS uses it."""
+    found = []
+
+    def has_any(*rels):
+        return any(repo.has(rel) for rel in rels)
+
+    compose = "\n".join(repo.text(f) for f in ("docker-compose.yml", "docker-compose.yaml",
+                                               "compose.yml", "compose.yaml"))
+    kamal = repo.text("config/deploy.yml")
+    sam = repo.text("template.yaml") + repo.text("template.yml")
+    app_yaml = repo.text("app.yaml")
+
+    if (has_any("wrangler.toml", "wrangler.json", "wrangler.jsonc")
+            or dep("@cloudflare/workers-types") or dep("@opennextjs/cloudflare")
+            or dep("@cloudflare/next-on-pages")):
+        add(found, "cloudflare-workers")
+    if has_any("vercel.json", ".vercel/project.json"):
+        add(found, "vercel")
+    if has_any("netlify.toml"):
+        add(found, "netlify")
+    if has_any("fly.toml"):
+        add(found, "fly")
+    if has_any("railway.json", "railway.toml"):
+        add(found, "railway")
+    if has_any("render.yaml"):
+        add(found, "render")
+    if has_any("Procfile") or "heroku" in repo.text("app.json"):
+        add(found, "heroku")
+    if "dokploy" in compose.lower() or has_any("dokploy.json"):
+        add(found, "dokploy")
+    if ("coolify" in compose.lower() or "SERVICE_FQDN_" in compose
+            or "SERVICE_URL_" in compose):
+        add(found, "coolify")
+    if has_any(".kamal") or (re.search(r"^service:", kamal, re.M)
+                             and re.search(r"^image:", kamal, re.M)):
+        add(found, "kamal")
+    if (has_any("Caddyfile", "nginx.conf", "ecosystem.config.js", "ecosystem.config.cjs")
+            or [p for p in repo.root.glob("*.service") if p.is_file()]):
+        add(found, "vps")
+    if (has_any("Chart.yaml", "kustomization.yaml", "skaffold.yaml", "helmfile.yaml")
+            or repo.subdirs("k8s") or repo.subdirs("helm")):
+        add(found, "kubernetes")
+    if (has_any("cdk.json", "samconfig.toml", "amplify.yml", "apprunner.yaml",
+                "serverless.yml", "serverless.yaml", ".ebextensions")
+            or repo.subdirs("copilot") or "AWSTemplateFormatVersion" in sam
+            or "AWS::Serverless" in sam):
+        add(found, "aws")
+    if (has_any("cloudbuild.yaml", "firebase.json", ".firebaserc")
+            or re.search(r"^runtime:", app_yaml, re.M)):
+        add(found, "gcp")
+    if has_any("azure.yaml", "staticwebapp.config.json", "host.json"):
+        add(found, "azure")
+    if has_any(".do/app.yaml", ".do/deploy.template.yaml"):
+        add(found, "digitalocean")
+    return found
+
+
+def parse_deploy(raw):
+    """--deploy value -> list of ids, or an error message."""
+    ids = []
+    for part in raw.replace(";", ",").split(","):
+        part = part.strip().lower()
+        if not part or part == "none":
+            continue
+        if part not in DEPLOY_IDS and part != DEPLOY_OTHER:
+            return None, part
+        add(ids, part)
+    return ids, None
 
 
 def detect(root):
@@ -1044,25 +1166,17 @@ def detect(root):
             add(d.migrations, "EF Core migrations")
 
     # -- hosting, CI, platforms ------------------------------------------------
-    for f, label in (("vercel.json", "Vercel"), ("netlify.toml", "Netlify"),
-                     ("fly.toml", "Fly.io"), ("wrangler.toml", "Cloudflare Workers"),
-                     ("render.yaml", "Render"), ("Procfile", "Heroku-style buildpack host"),
-                     ("app.yaml", "Google App Engine")):
-        if repo.has(f):
-            add(d.host, label)
-    if (dep("@aws-sdk/client-s3") or repo.pydep("boto3") or repo.has("cdk.json")
-            or repo.has("template.yaml")):
-        add(d.host, "AWS")
-    if (dep("@google-cloud/storage") or dep("@google-cloud/bigquery")
-            or repo.pydep("google-cloud-storage") or repo.pydep("google-cloud-bigquery")):
+    d.deploy = detect_deploy(repo, dep)
+    for pid in d.deploy:
+        add(d.host, DEPLOY_LABELS[pid].split(" (")[0])
+    if not d.deploy and (dep("@aws-sdk/client-s3") or repo.pydep("boto3")):
+        add(d.host, "AWS")           # a client library: uses AWS, not proven to run there
+    if not d.deploy and (dep("@google-cloud/storage") or dep("@google-cloud/bigquery")
+                         or repo.pydep("google-cloud-storage")
+                         or repo.pydep("google-cloud-bigquery")):
         add(d.host, "Google Cloud")
-    if dep("@cloudflare/workers-types") or repo.has("wrangler.toml") or repo.has("wrangler.json"):
-        add(d.host, "Cloudflare")
     if repo.has("Dockerfile") or repo.has("docker-compose.yml") or repo.has("compose.yaml"):
         add(d.host, "Docker")
-    compose_text = repo.text("docker-compose.yml") + "\n" + repo.text("compose.yaml")
-    if repo.has("dokploy.json") or "traefik.http.routers" in compose_text:
-        add(d.host, "Dokploy")
     for f, label in ((".github/workflows", "GitHub Actions"), (".gitlab-ci.yml", "GitLab CI"),
                      ("Jenkinsfile", "Jenkins"), (".circleci", "CircleCI"),
                      ("azure-pipelines.yml", "Azure Pipelines")):
@@ -1915,6 +2029,48 @@ def validate_docsdir(w, value):
     return True, value
 
 
+def deploy_options():
+    return [label for _, label in DEPLOY_PLATFORMS] + [
+        "Other / not listed (describe it in the charter)"]
+
+
+def default_deploy(w):
+    ids = w.o.deploy if w.o.deploy is not None else w.det.deploy
+    order = list(DEPLOY_IDS) + [DEPLOY_OTHER]
+    return [order.index(pid) + 1 for pid in ids if pid in order]
+
+
+def selected_platforms(w):
+    """Platform ids whose checklists install. An answer or --deploy selects one;
+    detection only pre-fills the question, so -y alone installs none."""
+    answer = w.a.get("deploy_targets")
+    if w.interactive and w.fact("deploy") and answer is not None:
+        order = list(DEPLOY_IDS) + [DEPLOY_OTHER]
+        return [order[i - 1] for i in answer if 1 <= i <= len(order)]
+    return list(w.o.deploy or [])
+
+
+def installed_platforms(target, docs, extra=()):
+    """Platform ids with a checklist on disk, plus any just selected. The profile is
+    derived from this rather than from one run's flags, so adding a platform later does
+    not erase the ones installed before it."""
+    root = Path(target) / docs / "platforms"
+    ids = [pid for pid in DEPLOY_IDS if (root / ("%s.md" % pid)).is_file()]
+    for pid in extra:
+        add(ids, pid)
+    return ids
+
+
+def platform_cell(ids):
+    parts = []
+    for pid in ids:
+        if pid == DEPLOY_OTHER:
+            parts.append("other — name it here; no kit checklist covers it")
+        else:
+            parts.append("%s (`../platforms/%s.md`)" % (DEPLOY_LABELS[pid], pid))
+    return ", ".join(parts)
+
+
 def build_steps(w):
     steps = [
         Step("dest", "sec.dest", "dest", "q.dest", help="h.dest", cascade=True,
@@ -1992,6 +2148,9 @@ def build_steps(w):
         Step("forbidden", "sec.process", "text", "q.forbidden", help="h.forbidden", label="l.forbidden"),
         Step("platform", "sec.process", "text", "q.platform", help="h.platform", label="l.platform",
              default=lambda w: ", ".join(w.det.platforms) or "none"),
+        Step("deploy_targets", "sec.process", "multichoice", "q.deploy", help="h.deploy",
+             label="l.deploy", options=deploy_options(), default=default_deploy,
+             when=lambda w: w.fact("deploy")),
 
         Step("a11y", "sec.standards", "text", "q.a11y", default="WCAG 2.2 AA", label="l.a11y",
              when=lambda w: w.fact("ui")),
@@ -2148,6 +2307,12 @@ def managed_source_texts(target, docs, ctx, profile="full"):
                 continue
             rel = Path(docs) / sub / src.relative_to(base)
             planned[str(rel)] = substitute(src.read_text(encoding="utf-8"), ctx)
+    platforms_root = Path(target) / docs / "platforms"
+    if platforms_root.is_dir():
+        for src in sorted((SRC / "optional" / "platforms").glob("*.md")):
+            if (platforms_root / src.name).is_file():
+                planned[str(Path(docs) / "platforms" / src.name)] = substitute(
+                    src.read_text(encoding="utf-8"), ctx)
     skills_root = Path(target) / ".claude" / "skills"
     if skills_root.is_dir():
         for base in sorted((SRC / "optional" / "skills").iterdir()):
@@ -2188,8 +2353,8 @@ def is_managed_rel(rel, docs):
     path = Path(rel)
     if path.is_absolute() or ".." in path.parts:
         return False
-    prefixes = ((str(docs), "process"), (str(docs), "roles"),
-                (str(docs), "templates"), (".claude", "skills"))
+    prefixes = ((str(docs), "process"), (str(docs), "roles"), (str(docs), "templates"),
+                (str(docs), "platforms"), (".claude", "skills"))
     return path.parts in ((str(docs), "README.md"), (str(docs), "CARD.md"),
                           (str(docs), "dashboard.html")) or any(
         path.parts[:2] == prefix for prefix in prefixes)
@@ -2287,6 +2452,7 @@ class Installer(object):
         self.fresh = set()
         self.wired = []
         self.harnesses = set()
+        self.platforms = selected_platforms(w)
         for name in (w.a.get("harnesses") or w.o.harnesses or ["claude"]):
             self.harnesses.update(HARNESS_ALIASES.get(name, ()))
         self.ctx = {
@@ -2314,6 +2480,14 @@ class Installer(object):
                 continue
             keep.append(path)
         return keep
+
+    def platform_sources(self):
+        """The checklists for the platforms this project named, plus the index that
+        explains them. None at all when it named none: an unused checklist is reading
+        that competes with the ones that apply."""
+        base = SRC / "optional" / "platforms"
+        paths = [base / ("%s.md" % pid) for pid in self.platforms if pid in DEPLOY_IDS]
+        return ([base / "README.md"] + paths) if paths else []
 
     def rel(self, dest):
         try:
@@ -2389,6 +2563,8 @@ class Installer(object):
         if w.a.get("commands", True):
             candidates.extend(self.target / ".claude" / "commands" / path.name
                               for path in (SRC / "optional" / "claude-commands").glob("*.md"))
+        candidates.extend(self.target / self.docs / "platforms" / path.name
+                          for path in self.platform_sources())
         for name in w.chosen_skills():
             base = SRC / "optional" / "skills" / name
             candidates.extend(self.target / ".claude" / "skills" / name / path.relative_to(base)
@@ -2411,6 +2587,8 @@ class Installer(object):
         for path in self.doc_sources():
             self.install_file(path, self.target / self.docs
                               / path.relative_to(SRC / "template" / "docs"))
+        for path in self.platform_sources():
+            self.install_file(path, self.target / self.docs / "platforms" / path.name)
         if w.a.get("commands", True):
             for path in sorted((SRC / "optional" / "claude-commands").glob("*.md")):
                 self.install_file(path, self.target / ".claude" / "commands" / path.name)
@@ -2693,6 +2871,7 @@ class Installer(object):
             "acquisition_profile": selected_acquisition(w).lower(),
             "harnesses": sorted(self.wired),
             "platform": w.a.get("platform", "") if w.a.get("platform", "none") != "none" else "",
+            "deploy_platforms": installed_platforms(self.target, self.docs, self.platforms),
             "detected": {
                 "adapters": d.adapters,
                 "languages": d.lang,
@@ -2705,6 +2884,7 @@ class Installer(object):
                 "messaging": d.messaging,
                 "infrastructure": d.iac,
                 "acquisition": d.scrape,
+                "deploy_platforms": d.deploy,
                 "load_tooling": d.load,
             },
         }
@@ -2818,10 +2998,14 @@ class Installer(object):
         """Only for files this run created, and only when a human answered the questions:
         an answer nobody gave must not be written down as a decision."""
         w = self.w
+        charter_rel = "%s/project/charter.md" % self.docs
         if not w.interactive:
+            # --deploy is an answer given on the command line; nothing else is.
+            if (self.platforms and charter_rel in self.fresh
+                    and self.edit(charter_rel, self.platform_row)):
+                return [charter_rel]
             return []
         touched = []
-        charter_rel = "%s/project/charter.md" % self.docs
         if charter_rel in self.fresh and self.edit(charter_rel, self.charter):
             touched.append(charter_rel)
         if "AGENTS.md" in self.fresh and self.edit("AGENTS.md", self.agents):
@@ -2845,8 +3029,12 @@ class Installer(object):
         write_manifest(self.target, self.docs, owned)
         print("  add            %s (%d managed files)" % (MANIFEST_REL, len(owned)))
 
+    def platform_row(self, text):
+        return fill_row(text, "**Deployment platforms**", platform_cell(self.platforms))
+
     def charter(self, text):
         w, a = self.w, self.w.a
+        text = self.platform_row(text)
         if a.get("owner"):
             text = fill_line(text, "owner:", "owner: %s" % json.dumps(plain_text(a["owner"])))
         text = fill_line(text, "last-reviewed:", "last-reviewed: %s" % today())
@@ -3039,6 +3227,9 @@ def refresh_profile(target):
         changed = True
     if "acquisition_profile" not in data:
         data["acquisition_profile"] = "standard"
+        changed = True
+    if "deploy_platforms" not in data:
+        data["deploy_platforms"] = installed_platforms(target, data.get("docs_dir") or "docs")
         changed = True
     if not changed:
         return
@@ -3244,6 +3435,21 @@ def report(w, inst, skills, tailored):
         print("      - Point the platform's instruction file or knowledge base (e.g. replit.md,")
         print("        Lovable project knowledge) at AGENTS.md instead of duplicating it.")
         print("      - See 'Managed platforms' in %s/process/05-change-control.md." % docs)
+        print("")
+    installed = [pid for pid in inst.platforms if pid in DEPLOY_IDS]
+    if installed:
+        print("Deployment checklists: %s" % ", ".join(
+            "%s/platforms/%s.md" % (docs, pid) for pid in installed))
+        if ("%s/project/charter.md" % docs) not in tailored:
+            print("      The charter already existed, so it was not edited: add %s to its"
+                  % ", ".join(installed))
+            print("      'Deployment platforms' row yourself -- the row is authoritative.")
+        print("")
+    elif w.det.deploy and not w.interactive:
+        print("note: deployment detected for %s. Detection is not a decision, so no"
+              % ", ".join(w.det.deploy))
+        print("      platform checklist was installed. Confirm it with --deploy %s"
+              % ",".join(w.det.deploy))
         print("")
     if inst.wired:
         print("Wired to read AGENTS.md: %s" % " ".join(inst.wired))

@@ -18,8 +18,11 @@ when it breaks at an inconvenient hour, someone can tell what happened and put i
 
 ## Reads
 
-`project/charter.md` (environments, commands), `project/release-runbook.md`,
-`project/architecture.md`, the pipeline configuration, and the diff.
+`project/charter.md` (environments, commands, deployment platforms),
+`project/release-runbook.md`, `project/architecture.md`, the pipeline configuration, the
+diff, and `platforms/<platform>.md` for each platform the charter names that has one.
+Those checklists carry the platform-specific failure modes; this playbook stays
+platform-neutral and applies everywhere.
 
 ---
 
@@ -53,19 +56,19 @@ when it breaks at an inconvenient hour, someone can tell what happened and put i
 - [ ] Startup, readiness, and liveness are distinguishable from outside the process.
 - [ ] Restart is safe at any point. Nothing depends on a specific instance's memory or
       local disk unless that is designed and documented.
-- [ ] **Dokploy / Self-hosted PaaS:**
-      - Persistent data (uploads, sqlite/db files) is bound to named volumes or host paths,
-        not the ephemeral container layer.
-      - Traefik routing rules and SSL challenge resolvers (Let's Encrypt) are verified.
-      - Container healthcheck (`HEALTHCHECK` or Dokploy health probe) gates traffic routing
-        to enable zero-downtime rolling updates.
-- [ ] **Edge / CDN & Caching (Cloudflare, CloudFront, Fastly):** Cache headers, asset
-      versioning (immutable hashing), and post-deploy purge policies are defined so old
-      HTML doesn't request purged chunks.
-- [ ] **SSL / TLS & Certificates:** Valid, auto-renewing certificates exist at edge and
-      origin; HTTP strictly redirects to HTTPS; avoid "flexible SSL" redirect loops.
-- [ ] **Cloud IAM & Service Accounts (AWS, GCP):** Infrastructure access uses scoped
-      roles / workload identity rather than root or permanently privileged API keys.
+- [ ] Persistent data lives on storage that survives a redeploy — a volume, a managed
+      store, or object storage — never the container's or instance's own disk.
+- [ ] A health check gates traffic, so a new version that cannot serve never receives it.
+- [ ] **Caching and edge:** cache headers, content-hashed asset names, and the post-deploy
+      purge are defined, so cached HTML never requests assets the deploy removed, and no
+      personalised response is cached for another user.
+- [ ] **TLS:** certificates are valid and renew automatically at every hop that
+      terminates TLS; HTTP redirects to HTTPS; the edge-to-origin leg is encrypted and
+      verified, not merely redirected.
+- [ ] **Deploy credentials:** the pipeline and the workloads use scoped, short-lived
+      identities where the platform offers them, never an owner or root key.
+- [ ] Every item in the matching `platforms/` checklist is checked or marked `n/a` with a
+      reason.
 
 **Observability**
 - [ ] You can answer from outside the process: is it up, is it serving, is it slow, is

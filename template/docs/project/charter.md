@@ -38,9 +38,9 @@ table, so it cannot drift.
 | Framework(s) | |
 | Data store(s) | |
 | Auth & Identity | |
-| Hosting & Cloud provider | _(AWS / GCP / Cloudflare / Dokploy / Vercel / Fly.io / bare-metal)_ |
-| CDN / Edge / WAF | _(Cloudflare / CloudFront / Fastly / none)_ |
-| SSL / TLS & Certificates | _(Let's Encrypt / Cloudflare Managed / AWS ACM / cert-manager)_ |
+| Hosting & Cloud provider | |
+| CDN / Edge / WAF | |
+| TLS certificates | |
 | CI | |
 | Test tooling | |
 
@@ -99,15 +99,13 @@ repeating this table.
 
 | Environment | Purpose | Deployed from | Who may deploy |
 | --- | --- | --- | --- |
-| local | Local developer workstation / Docker Compose / seed data | Working tree | Developer |
-| staging / preview | Preview PRs or persistent pre-release staging mirror | Branch / PR | CI / CD pipeline |
-| production | Live public/customer traffic | Default branch tag / release | Protected CI / CD / Authorized release manager |
-| backup / dr | Automated data backup snapshot & disaster recovery mirror | Cron / Storage replication | Automated system / SRE |
+| | | | |
 
 | | |
 | --- | --- |
 | **Default branch** | _(name)_ |
 | **Direct commits to it** | _(allowed / not allowed — `../process/05-change-control.md` forbids them unless this says otherwise)_ |
+| **Deployment platforms** | _(where each environment runs — a PaaS, a cloud, a container host, or a server you operate. A platform with a checklist in `../platforms/` names its file; `none` if nothing is deployed from here)_ |
 
 ### Managed platform
 
@@ -283,8 +281,8 @@ Where the authoritative version of each thing lives, so nobody guesses.
 | --- | --- |
 | Brand guidelines | |
 | Design tokens | |
-| Analytics / Tag Manager | _(GA4 stream ID, GTM container ID, PostHog, or Plausible)_ |
-| Search Console / Webmaster | _(Google Search Console, Bing Webmaster, verification DNS/meta source)_ |
+| Analytics / tag manager | _(the tool, and its property or container ID per environment)_ |
+| Search engine webmaster tools | _(which ones, and where ownership verification lives — DNS record, file, or meta tag)_ |
 | Content source | |
 | Secrets | |
 | Issue tracker _(if not `backlog.md`)_ | |

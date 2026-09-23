@@ -52,6 +52,10 @@ Report, in this order of severity:
 - Blank rows in **Commands** — each one is a stage that cannot be run or reported.
   Distinguish blank (nobody filled it in) from the word "absent" (deliberate).
 - Blank **approvers**, **default branch**, or **staleness window**.
+- **Deployment platforms** that disagree with `{{DOCS_DIR}}/platforms/`: a platform named
+  in the charter with a kit checklist that is not installed, or an installed checklist
+  for a platform the charter no longer names. Either way, report it; do not delete a
+  checklist or edit the row yourself.
 - Blank cells in **Model & data** or **Budgets** where the corresponding role is ticked.
 - Missing or invalid **Default effort mode** / **Acquisition profile** values. A legacy
   `Operating mode: Beast mode` row is ambiguous and must be migrated explicitly; do not
