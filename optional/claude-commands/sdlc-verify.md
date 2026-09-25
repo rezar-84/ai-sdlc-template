@@ -54,5 +54,10 @@ $ARGUMENTS
    exercise the refusal path and the empty-retrieval path
    (`{{DOCS_DIR}}/process/09-probabilistic-and-data-systems.md`).
 
-7. **Summarise** as a table of stage → result, then state plainly what is verified, what
+7. **Tear down ephemeral test environments.** If any stage or behavioural check spun up
+   Docker containers, background servers, or mock daemons, stop and tear them down now
+   (`docker compose down`, stopping test containers, killing spawned background
+   processes). Confirm no orphaned test processes or containers remain running.
+
+8. **Summarise** as a table of stage → result, then state plainly what is verified, what
    is not, and what you could not check from here.

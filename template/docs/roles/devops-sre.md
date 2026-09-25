@@ -44,6 +44,10 @@ platform-neutral and applies everywhere.
 - [ ] **Git hygiene (`.gitignore`):** Environment files (`.env*`), runtime state, ephemeral
       logs, and build artifacts are explicitly gitignored. No uncommitted local config
       leaks into git.
+- [ ] **Host and test-environment hygiene:** Ephemeral test environments (Docker
+      containers, Compose services, local databases, mock servers) have automated
+      startup and guaranteed teardown on exit (pass or fail). Test runners do not leak
+      background processes or host memory.
 
 **Deployment & edge delivery**
 - [ ] The deployment is incremental and reversible. State the exact rollback procedure
@@ -100,6 +104,8 @@ platform-neutral and applies everywhere.
 - [ ] Confirm health checks reflect real health, not merely that a process is listening.
 - [ ] Confirm the rollback works from the deployed state.
 - [ ] Confirm logs and metrics for the new behaviour appear where they are expected.
+- [ ] Ephemeral test environments are stopped; no orphaned test containers or background
+      processes remain running after verification.
 - [ ] `project/release-runbook.md` updated with anything new an operator must know.
 
 ---
@@ -115,6 +121,7 @@ platform-neutral and applies everywhere.
 | An irreversible migration with no written acceptance from a named human | S1 |
 | A deploy requiring an undocumented manual step, or a hand-edit of production data | S1 |
 | A new critical path with no monitoring — an outage nobody would notice | S2 |
+| Orphaned test containers or leaked test processes consuming host resources | S3 (or S2 if exhausting memory/blocking ports) |
 | Configuration that differs between environments with no record of why | S3 |
 
 "Tested" means executed, in a non-production environment, with the result recorded under

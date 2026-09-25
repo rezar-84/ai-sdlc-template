@@ -241,6 +241,12 @@ Write the test with the change, not after. Include the failure paths, not only t
 path — for anything Tier 1, include the *denied* / *unauthorised* / *malformed input*
 cases explicitly.
 
+Clean up test environments promptly. When verification starts ephemeral containers,
+daemons, or background services (e.g. Docker, Compose, test databases, or local servers),
+stop and tear them down immediately upon completion — whether checks pass, fail, or
+abort. Never leave idle test containers or orphaned processes consuming host memory,
+CPU, or ports.
+
 Detail: `{{DOCS_DIR}}/process/04-quality-gates.md`.
 
 ---
@@ -262,6 +268,8 @@ Detail: `{{DOCS_DIR}}/process/04-quality-gates.md`.
   hardcoded values pretending to be real data. If something is a placeholder, it must be
   visibly labelled as one and logged.
 - Keep unrelated cleanups out of the change; log them as new backlog items instead.
+- Leave no orphaned test processes or containers: stop and clean up any test environment
+  or background server you start before finishing.
 
 ---
 

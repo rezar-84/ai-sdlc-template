@@ -4,6 +4,24 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **Ephemeral test environment lifecycle and teardown**:
+  - `AGENTS.md` (§7 & §8) and `CARD.md`: added a binding rule requiring agents to
+    tear down ephemeral test environments (Docker containers, compose services,
+    mock daemons, local test servers) immediately upon completion (pass, fail,
+    or abort), leaving no idle containers or orphaned processes on the dev host.
+  - `process/00-operating-model.md`: step 5 (`VERIFY`) mandates environment teardown
+    before entering `SHIP REVIEW`.
+  - `process/03-ready-and-done.md`: added a Definition of Done gate under Quality
+    requiring all test environments to be stopped and host resources released.
+  - `process/04-quality-gates.md`: added an Ephemeral test environments & resource
+    teardown section with lifecycle encapsulation, resource bounds, and an S3/S2
+    severity rating for orphaned test resources.
+  - `roles/devops-sre.md` and `roles/qa.md`: added host & test-environment hygiene
+    to design-review, ship-review, and severity calibration tables.
+  - `templates/test-plan.md` and `charter.md`: added a dedicated test environment
+    lifecycle table and command encapsulation guidance.
+  - `optional/claude-commands/sdlc-verify.md`: added step 7 for teardown.
+
 - **Corrections to the 3.3 additions**:
   - `project/defects/` now exists, with an index; two documents already pointed at it.
   - `templates/defect-report.md` no longer carries its own copy of the severity ladder,

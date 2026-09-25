@@ -39,6 +39,16 @@ testing is the data in them:
 | --- | --- | --- |
 | | _(synthetic / anonymised / production copy)_ | _(required if production data)_ |
 
+## Ephemeral test environments & teardown
+
+When tests require external dependencies (Docker containers, compose services, mock daemons, local test servers):
+
+| Service / Container | Startup command | Readiness / Health check | Teardown command | Memory / CPU limit |
+| --- | --- | --- | --- | --- |
+| | _(e.g. `docker compose up -d db`)_ | _(e.g. `pg_isready` / HTTP 200)_ | _(e.g. `docker compose down -v`)_ | _(e.g. 512MB / 1 CPU)_ |
+
+**Cleanup guarantee:** _(how teardown is guaranteed on failure/abort — e.g. test runner `afterAll` hook, pytest fixture `yield` teardown, shell `trap ... EXIT`, or Testcontainers auto-reap)_.
+
 ## What is covered
 
 ### Acceptance criteria scenarios

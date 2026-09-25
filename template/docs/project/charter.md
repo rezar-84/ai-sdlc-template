@@ -92,6 +92,11 @@ reason. A blank cell is not "absent" — it is "nobody has filled this in", and 
 must treat it as *Unknown* and say so rather than proceeding as though the stage were
 absent (`../process/06-evidence-and-claims.md`).
 
+**Ephemeral test environments:** Stage commands for `checks.integration` and `checks.e2e`
+must encapsulate their own teardown (e.g. `docker compose run --rm`, `trap 'docker compose down' EXIT`,
+or test runner fixtures), or agents must explicitly stop any started containers/services
+immediately upon completion.
+
 ## Environments
 
 **Authoritative.** `test-plan.md` and `release-runbook.md` link here rather than

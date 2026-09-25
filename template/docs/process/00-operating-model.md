@@ -92,6 +92,10 @@ actual result.
   "mostly passing".
 - For anything user-facing, verify the behaviour, not only the build: exercise the actual
   path, in the actual states (empty, loading, error, unauthorised, long content).
+- Tear down ephemeral test environments: if verification spun up containers, background
+  servers, or mock daemons (e.g. Docker, Compose, local databases), stop and clean them
+  up before proceeding to SHIP REVIEW, whether the checks passed or failed. Never leave
+  idle test services consuming memory or holding ports.
 
 ### 6. SHIP REVIEW
 

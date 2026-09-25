@@ -65,6 +65,8 @@ becomes a tracked follow-up named in the worklog entry — never an unstated gap
 - [ ] Tests written and passing, covering the happy path *and* the refusals.
 - [ ] The project's full check sequence run, with real output reported
       (`04-quality-gates.md`).
+- [ ] Ephemeral test environments torn down: all containers, background servers, and test
+      daemons stopped; host memory, CPU, and ports released.
 - [ ] No new lint/type/security-scan warnings introduced, or each one justified in
       writing.
 - [ ] Performance within the budgets the charter names, where budgets exist.

@@ -38,6 +38,9 @@ the running system.
       time and randomness are injectable, and external services can be substituted.
 - [ ] Test data is defined and does not depend on production data or a specific
       developer's machine.
+- [ ] Ephemeral test environments have an automated, guaranteed teardown path so test
+      runs (whether passing or failing) never leave orphaned containers or background
+      processes consuming host resources.
 - [ ] The change is observable enough to verify — you can tell from outside whether it
       did the thing.
 
@@ -69,6 +72,8 @@ the running system.
 
 **Reporting**
 - [ ] Every check reported with its real result. Not-run means not-run.
+- [ ] Ephemeral test environments torn down: confirm all spawned containers, mock servers,
+      or background processes stopped and host resources/ports are released.
 - [ ] Defects have: what you did, what you expected, what happened, how consistently,
       and severity by consequence (`../process/04-quality-gates.md`).
 - [ ] `project/test-plan.md` updated to record what is actually covered — including the
@@ -118,6 +123,7 @@ not become untestable; it becomes tested differently.
 | A known defect shipped with no record of it | S2 |
 | A stage the charter names, not run, with no reason given | S2 |
 | A test that passes with the feature deleted | S2 |
+| Ephemeral test environment or containers left running after verification | S3 (or S2 if exhausting host memory/ports) |
 | Coverage gaps on non-critical paths | S3 |
 
 This role does not re-rate other roles' findings. "Any open S0 or S1" is not a QA

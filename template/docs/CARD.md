@@ -97,6 +97,10 @@ A `[data]` failure stops the pipeline; it never publishes and warns.
 Tier 1 and 2 run everything. Tier 3 runs what can plausibly be affected and reports the
 rest **Not run — Tier 3, no code path affected**.
 
+Tear down ephemeral test environments immediately: stop and clean up containers, test
+databases, and mock daemons on completion (pass or fail). Leaving containers or
+background servers running is a defect.
+
 Never disable, skip, or loosen a check to make a change pass. A flaky test is a defect
 with a measured failure rate — characterise it, do not re-run until green.
 

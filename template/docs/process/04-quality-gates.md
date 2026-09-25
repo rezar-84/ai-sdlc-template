@@ -66,6 +66,10 @@ mutation checks; it does not turn every possible check into mandatory ceremony.
   normalise re-running until green.
 - Anything running in CI must be runnable locally, and vice versa. A check only one of
   them can run will drift.
+- **Ephemeral test environments:** Any container, service, mock daemon, or local server
+  started for a check must be stopped and torn down when the check finishes, whether it
+  passed, failed, or timed out. Leaving containers or background processes idling on the
+  host machine is a defect.
 
 ---
 
@@ -90,6 +94,20 @@ Not a re-implementation of the unit suite through a browser or shell.
 **Manual / human** — what automation genuinely cannot judge: language quality by a
 native speaker, screen-reader experience, visual/brand judgement, and acceptance by the
 person who asked for the thing.
+
+### Ephemeral test environments & resource teardown
+
+When integration, contract, or end-to-end suites require real services (e.g. Docker
+containers, Compose services, databases, mock APIs, local dev servers):
+
+- **Encapsulate lifecycle:** Prefer commands that manage their own teardown (e.g.
+  `docker compose run --rm`, test fixtures with automatic teardown hooks,
+  Testcontainers, or runner scripts using shell `trap ... EXIT`).
+- **Guaranteed teardown:** Teardown must execute even when tests fail, throw an
+  unhandled exception, or abort. Ephemeral test services must never be left running to
+  consume host memory, CPU, or bind ports after the check finishes.
+- **Resource bounds:** Where test containers run locally or on shared runners, set
+  explicit CPU and memory limits so a runaway test cannot starve the host.
 
 ### Non-negotiable test cases for high-risk surfaces
 
@@ -148,6 +166,7 @@ calls:
 - A whole production section is accidentally blocked from indexing → S1: not one broken
   URL, but the site's discoverability gone, with no workaround.
 - `architecture.md` now describes a structure the code does not have → S3.
+- An orphaned test container or background test server left running on the host machine → S3, or S2 if it exhausts memory, blocks required ports, or hangs subsequent runs.
 - A button is 2px misaligned on one breakpoint → S4.
 
 Each role playbook in `../roles/` carries a **Severity calibration** table pre-rating its
