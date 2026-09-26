@@ -4,6 +4,20 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **Kit-value benchmark** (`benchmarks/kit-value/`): a pinned, repeatable comparison of
+  no kit, the kit, and the kit with `--hooks`, over five fixture tasks (a shared-caller
+  bug, a trust boundary, a one-word typo, a refactor, and a verification trap whose suite
+  cannot pass). Besides correctness and cost it measures fabricated verification claims
+  (commands claimed as passing that the transcript never ran), commit and worklog
+  traceability, and records created for a Tier 3 change. `run.py` isolates each run in a
+  fresh workspace and a throwaway Claude config; `score.py` refuses N<4 and reports each
+  arm against the control. No result is claimed yet.
+  - The effort-mode scorer's validation now lives in `benchmarks/lib/scoring.py`, shared
+    by both benchmarks. Its CLI and output are unchanged.
+  - `validate.py` runs both scorers' and the measurement self-tests, and checks each task
+    has its prompt, fixture and checks. `tests/smoke.py` drives the runner end to end
+    with a fake agent.
+
 - **Ephemeral test environment lifecycle and teardown**:
   - `AGENTS.md` (§7 & §8) and `CARD.md`: added a binding rule requiring agents to
     tear down ephemeral test environments (Docker containers, compose services,

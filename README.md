@@ -417,6 +417,7 @@ install.py                   the installer; install.sh is a wrapper around it
 validate.py                  source and installed-output validation
 tests/smoke.py               installer boundary and workflow tests
 benchmarks/effort-modes/     optional isolated-run protocol and measurement scorer
+benchmarks/kit-value/        does the kit change agent behaviour? no kit vs kit vs kit + hooks
 .github/workflows/           continuous validation and tag-based releases
 VERSION                      the kit version, stamped into installed AGENTS.md
 LICENSE · SECURITY.md · CONTRIBUTING.md · CHANGELOG.md
@@ -484,7 +485,13 @@ python3 validate.py
 python3 tests/smoke.py
 python3 -m py_compile install.py validate.py tests/smoke.py
 python3 benchmarks/effort-modes/score.py --selftest
+python3 benchmarks/kit-value/score.py --selftest
 ```
+
+Whether the kit is worth its context cost is an open question, not a claim this README
+makes. [`benchmarks/kit-value/`](benchmarks/kit-value/README.md) is the protocol for
+answering it: the same tasks with no kit, with the kit, and with the kit plus hooks, scored
+on correctness, safety, fabricated verification claims, traceability, and ceremony.
 
 `validate.py` also cross-checks the pairings the kit maintains by hand — every role has a
 playbook, a charter row, and a README entry; every template is in the docs map; every

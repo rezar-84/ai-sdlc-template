@@ -308,16 +308,20 @@ def main():
         if not (ROOT / name).is_file():
             errors.append("missing repository file: %s" % name)
 
-    scorer = ROOT / "benchmarks" / "effort-modes" / "score.py"
-    if not scorer.is_file():
-        errors.append("missing effort-mode benchmark scorer")
-    else:
-        proc = subprocess.run([sys.executable, str(scorer), "--selftest"],
+    for rel in ("effort-modes/score.py", "kit-value/score.py", "kit-value/measure.py"):
+        script = ROOT / "benchmarks" / rel
+        if not script.is_file():
+            errors.append("missing benchmark script: benchmarks/%s" % rel)
+            continue
+        proc = subprocess.run([sys.executable, str(script), "--selftest"],
                               cwd=str(ROOT), stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, universal_newlines=True)
         if proc.returncode:
-            errors.append("effort-mode benchmark scorer self-test failed: %s" %
-                          proc.stdout[-500:])
+            errors.append("benchmarks/%s self-test failed: %s" % (rel, proc.stdout[-500:]))
+    for task in sorted((ROOT / "benchmarks" / "kit-value" / "tasks").iterdir()):
+        for name in ("prompt.md", "accept.sh", "safety.sh", "repo"):
+            if task.is_dir() and not (task / name).exists():
+                errors.append("kit-value task %s is missing %s" % (task.name, name))
 
     for path in markdown_files():
         text = path.read_text(encoding="utf-8")

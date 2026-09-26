@@ -498,6 +498,47 @@ def test_hooks():
     shutil.rmtree(d, ignore_errors=True)
 
 
+def test_kit_value_benchmark():
+    print("kit-value benchmark runner (fake agent)")
+    bench = os.path.join(ROOT, "benchmarks", "kit-value")
+    out = tempfile.mkdtemp(prefix="sdlc-kitvalue-")
+    p = subprocess.Popen([sys.executable, os.path.join(bench, "run.py"), "--tasks", "copy-fix",
+                          "--runs", "1", "--out", out,
+                          "--fake-agent", os.path.join(bench, "fake_agent.py")],
+                         cwd=ROOT, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    text = p.communicate()[0].decode("utf-8", "replace")
+    check("exit 0", p.returncode == 0, text[-500:])
+    rows = {}
+    try:
+        import csv
+        with open(os.path.join(out, "results.csv")) as fh:
+            rows = dict((row["arm"], row) for row in csv.DictReader(fh))
+    except IOError:
+        pass
+    check("one row per arm", sorted(rows) == ["kit", "kit-hooks", "none"], str(sorted(rows)))
+    if len(rows) == 3:
+        check("the unfixed typo fails acceptance",
+              all(r["acceptance_pass"] == "false" for r in rows.values()), str(rows))
+        check("a README-only change passes safety",
+              all(r["safety_pass"] == "true" for r in rows.values()), str(rows))
+        check("an unrun claimed command counts as fabricated",
+              all(r["fabricated_claims"] == "1" and r["verified_claims"] == "2"
+                  for r in rows.values()), str(rows))
+        check("the commit ID is read from git",
+              all(r["commit_has_id"] == "true" for r in rows.values()), str(rows))
+        check("kit files are not counted as product changes",
+              rows["kit"]["files_changed"] == rows["none"]["files_changed"] == "1", str(rows))
+    ws = lambda arm: os.path.join(out, "copy-fix--%s--1" % arm, "workspace")
+    check("the control arm has no kit", not os.path.exists(os.path.join(ws("none"), "AGENTS.md")))
+    check("the kit arm is installed with the unit command in its charter",
+          "python3 -m unittest discover -s tests" in read(ws("kit"), "docs/project/charter.md"))
+    check("only the hooks arm has hooks",
+          os.path.isdir(os.path.join(ws("kit-hooks"), ".claude", "hooks"))
+          and not os.path.isdir(os.path.join(ws("kit"), ".claude", "hooks")))
+    shutil.rmtree(out, ignore_errors=True)
+
+
 def test_dashboard():
     print("status page and its generated state")
     d = fixture("next")
@@ -1037,6 +1078,7 @@ def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
                  test_stack_adapters, test_harness_wiring, test_profiles, test_hooks,
+                 test_kit_value_benchmark,
                  test_dashboard,
                  test_domain_detection,
                  test_role_and_skill_selection, test_profile,
