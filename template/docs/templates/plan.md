@@ -22,6 +22,21 @@ link to upstream spec: `specs/...md`)_
 _(How. Concrete enough that someone else could implement it. Name the actual files,
 modules, endpoints, tables, or screens. Reference upstream specification if one exists.)_
 
+## Files that change
+
+_(One backticked path or glob per line — `src/billing/**`, `db/migrations/0042_*.sql`.
+`sdlc.py plan-check` compares this list with the branch's diff, so a file the build touches
+that is not here, or a file here the build never touched, is a question the reviewer asks.)_
+
+- `path/or/glob`
+
+## Order of work
+
+_(Numbered steps in the order they land, each small enough to verify on its own. Say which
+step is the riskiest.)_
+
+1. _(step)_
+
 ## Alternatives rejected
 
 | Option | Why not |
@@ -30,7 +45,7 @@ modules, endpoints, tables, or screens. Reference upstream specification if one 
 
 ## Affected surfaces
 
-- **Code:** _(files/modules)_
+- **Code:** _(modules — the files themselves are listed under "Files that change")_
 - **Data:** _(schema, migrations, backfills)_
 - **Contracts:** _(APIs, events, formats others depend on)_
 - **Docs to update:** _(which `project/` artifacts this will falsify)_
@@ -47,6 +62,9 @@ people act at once, the migration half-applies.)_
 - **Integration:** _(what boundary)_
 - **Negative cases:** _(what must be refused — required for Tier 1)_
 - **Manual:** _(what automation cannot judge)_
+- **Proof:** _(the exact commands or checks whose passing output shows this is done — the
+  evidence `/sdlc-verify` will record. For a defect, the reproducing test named here fails
+  before the fix.)_
 
 ## Rollback
 

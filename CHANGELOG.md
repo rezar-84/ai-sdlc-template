@@ -4,6 +4,58 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **Rules the kit only asked for are now enforced** (from a gap analysis against
+  Anthropic's AI-native SDLC playbook, whose core rule is "a skill is advisory, a hook is
+  deterministic"):
+  - Three new opt-in hooks (`--hooks`), all deny-only, since a `deny` holds in every
+    permission mode and a documented `ask` does not:
+    - `test-lock.sh` denies edits to a reproducing test listed in
+      `.ai-sdlc/test-lock.txt`, and to that list.
+    - `secret-guard.sh` denies a commit whose staged additions carry a provider-shaped
+      credential. It names the kind, never the value.
+    - `approval-gate.sh` denies a command matching `.ai-sdlc/gates.txt` unless the session
+      was started with `AI_SDLC_APPROVAL=<ticket>`, and denies edits to that list.
+  - Each list file is seeded with comments only, so no hook does anything until the
+    project adds a line.
+  - `05-change-control.md` gains "Fixing a defect": commit the failing reproducing test
+    first, lock it, then fix without editing it. `roles/qa.md` defect triage points
+    there.
+  - `AGENTS.md` §9 says which approvals get a gate. Existing installs keep their §9, as
+    `--upgrade` never touches it.
+- **Plans can be checked against the diff**:
+  - `templates/plan.md` gains "Files that change", "Order of work" and a **Proof** line
+    in the test strategy.
+  - `sdlc.py plan-check <ID>` lists files the branch changed that the plan does not
+    name, and planned paths nothing touched. Plans that predate the new section are read
+    from their "Affected surfaces → Code" bullet, `{a,b}` sets included, and
+    `<ID>-<slug>.md` names are found.
+  - Tried read-only on tasario and lawkin plans.
+- **Review has a conformance pass and a nit cap**:
+  - `02-role-reviews.md`, `/sdlc-review` and `templates/role-review.md` open every Tier
+    1/2 ship review with a conformance pass: plan-check, each acceptance criterion traced
+    to code and test, and out of scope held. It carries its own severity table.
+  - Reviews report at most five S4 findings; the rest are given as a count.
+  - The Important/Nit vocabulary is mapped onto the S0–S4 ladder.
+
+- **A runtime for the mechanical half of doctor and verify** (`.ai-sdlc/bin/sdlc.py`,
+  installed always, kit-managed, added to older installs by `--upgrade`):
+  - `sdlc.py doctor` checks from the files what `/sdlc-doctor` used to ask the model to
+    read: unsubstituted placeholders, a missing contract pointer, blank charter commands
+    and approvers, undecided modes and roles, stale `last-reviewed` dates, Done items with
+    no worklog entry, IDs that do not join across the backlog, worklog and git, worklog
+    size, and profile drift. Findings are `fail` or `warn`, and `--strict` exits 1 only on
+    `fail`, so a fresh install does not break CI.
+  - `sdlc.py verify` runs the charter's `checks.*` commands in the verify order, and writes
+    each stage's raw output, exit code, duration and log hash to
+    `.ai-sdlc/evidence/<timestamp>/`, which git ignores. A "Verified" claim can now cite a
+    file the script wrote.
+  - `/sdlc-doctor`, `/sdlc-verify`, and the `sdlc-doctor` and `sdlc-evidence-check` skills
+    run the script first and keep only the judgment: severity, behaviour, what to fix
+    first. By hand is the fallback when the script or `python3` is absent.
+  - Tried read-only on two existing installs. On tasario it found six worklog IDs missing
+    from the backlog, a 3,272-line worklog past rotation, and a profile whose commands were
+    never filled in. On lawkin it found a charter that predates the mode rows.
+
 - **Kit-value benchmark** (`benchmarks/kit-value/`): a pinned, repeatable comparison of
   no kit, the kit, and the kit with `--hooks`, over five fixture tasks (a shared-caller
   bug, a trust boundary, a one-word typo, a refactor, and a verification trap whose suite

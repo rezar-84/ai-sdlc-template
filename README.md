@@ -355,6 +355,40 @@ unused skill is a description competing for attention in every future context wi
 one later by copying its directory into `.claude/skills/` and replacing the placeholders.
 See `optional/skills/README.md` for how to write your own.
 
+## Scripts for what does not need judgment
+
+Research on agent instruction files finds that longer or better-organised prose does not
+make an agent follow rules more reliably, and that deterministic checks do. So the parts
+of the process a machine can decide are a script, not a paragraph. Every install gets
+`.ai-sdlc/bin/sdlc.py`: standard-library Python, kit-managed, and refreshed by `--upgrade`.
+
+```sh
+python3 .ai-sdlc/bin/sdlc.py doctor            # blank commands, stale records, IDs that
+                                               # do not join, profile drift, no contract pointer
+python3 .ai-sdlc/bin/sdlc.py doctor --strict   # exit 1 on a fail-level finding, for CI
+python3 .ai-sdlc/bin/sdlc.py verify            # run the charter's checks in order and record
+                                               # the output under .ai-sdlc/evidence/
+python3 .ai-sdlc/bin/sdlc.py plan-check ACME-12 # files the branch changed that the Tier 1
+                                               # plan does not name, and planned paths untouched
+```
+
+`verify` exists so a "Verified" claim can cite a file the script wrote instead of the
+agent's memory of a run. `/sdlc-doctor` and `/sdlc-verify` call the script first and keep
+the judgment for themselves: severity, behavioural checks, and what to fix first. It works
+with any agent tool that can run `python3`. `/sdlc-review` opens every Tier 1 ship review
+with `plan-check`, so a diff that drifted from its approved plan is visible before any role
+reads it.
+
+The opt-in `--hooks` go one step further for Claude Code. They deny the tool call itself:
+
+- a commit with no work item ID, or with a credential in it
+- an edit to a single-writer path
+- an edit to a reproducing test locked while its defect is fixed
+- a command, such as a production deploy, that `.ai-sdlc/gates.txt` says a human must pass
+
+A skill makes a violation rare, and a hook makes it close to impossible. See
+`optional/hooks/README.md` for what each hook can and cannot see.
+
 ## Installing into a managed platform (Lovable, Replit, Bolt, …)
 
 A project that lives on an AI app builder or cloud IDE is co-owned by another agent: the
@@ -413,6 +447,7 @@ optional/
   skills/                    model-invoked skills, installed per project need
   platforms/                 deployment checklists, installed per platform used (--deploy)
   locales/                   translations of the installer's own prompts
+  runtime/                   sdlc.py doctor/verify, installed to .ai-sdlc/bin/ (always)
 install.py                   the installer; install.sh is a wrapper around it
 validate.py                  source and installed-output validation
 tests/smoke.py               installer boundary and workflow tests
@@ -483,7 +518,8 @@ The kit validates itself with standard-library-only commands:
 ```sh
 python3 validate.py
 python3 tests/smoke.py
-python3 -m py_compile install.py validate.py tests/smoke.py
+python3 -m py_compile install.py validate.py tests/smoke.py optional/runtime/sdlc.py
+python3 optional/runtime/sdlc.py --selftest
 python3 benchmarks/effort-modes/score.py --selftest
 python3 benchmarks/kit-value/score.py --selftest
 ```

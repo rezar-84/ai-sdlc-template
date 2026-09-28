@@ -33,6 +33,8 @@ VERSION = (SRC / "VERSION").read_text(encoding="utf-8").strip()
 MANIFEST_REL = Path(".ai-sdlc") / "manifest.json"
 PROFILE_REL = Path(".ai-sdlc") / "profile.json"
 STATE_REL = "dashboard-state.js"
+# The mechanical half of /sdlc-doctor and /sdlc-verify. Kit-managed: --upgrade refreshes it.
+RUNTIME_REL = ".ai-sdlc/bin/sdlc.py"
 
 # Writing direction is derived from the language tag, never asked: a project that lists
 # `fa` is right-to-left whether or not anyone remembered to say so.
@@ -294,8 +296,10 @@ USAGE = """usage: install.sh <target-project-dir> [PREFIX] [options]
   --scaffold-ci <provider>
                      create CI for github or gitlab from detected quality commands
   --hooks            install the opt-in Claude Code hooks: deny a commit with no work
-                     item ID, and deny an edit to a path listed in
-                     .ai-sdlc/protected.txt. Merged into .claude/settings.json without
+                     item ID or with a credential in it, an edit to a path in
+                     .ai-sdlc/protected.txt or to a test locked in
+                     .ai-sdlc/test-lock.txt, and a command matching
+                     .ai-sdlc/gates.txt. Merged into .claude/settings.json without
                      touching anything already there. Needs jq at runtime; without it
                      the hooks allow the call and say so. Never implied by another flag.
   --profile <name>   full (default) or compact. compact installs the operating card,
@@ -2337,6 +2341,8 @@ def managed_source_texts(target, docs, ctx, profile="full"):
                 if src.is_file():
                     rel = Path(".claude") / "skills" / base.name / src.relative_to(base)
                     planned[str(rel)] = substitute(src.read_text(encoding="utf-8"), ctx)
+    planned[RUNTIME_REL] = substitute(
+        (SRC / "optional" / "runtime" / "sdlc.py").read_text(encoding="utf-8"), ctx)
     return planned
 
 
@@ -2371,7 +2377,8 @@ def is_managed_rel(rel, docs):
     if path.is_absolute() or ".." in path.parts:
         return False
     prefixes = ((str(docs), "process"), (str(docs), "roles"), (str(docs), "templates"),
-                (str(docs), "platforms"), (".claude", "skills"), (".claude", "commands"))
+                (str(docs), "platforms"), (".claude", "skills"), (".claude", "commands"),
+                (".ai-sdlc", "bin"))
     return path.parts in ((str(docs), "README.md"), (str(docs), "CARD.md"),
                           (str(docs), "dashboard.html")) or any(
         path.parts[:2] == prefix for prefix in prefixes)
@@ -2654,7 +2661,7 @@ class Installer(object):
         print("Installing AI SDLC kit v%s into %s" % (VERSION, self.target))
         print("")
         candidates = [self.target / "AGENTS.md", self.target / "CLAUDE.md",
-                      self.target / MANIFEST_REL]
+                      self.target / MANIFEST_REL, self.target / RUNTIME_REL]
         candidates.extend(self.target / self.docs / path.relative_to(SRC / "template" / "docs")
                           for path in self.doc_sources())
         if w.a.get("commands", True):
@@ -2681,6 +2688,7 @@ class Installer(object):
         if not self.o.dry_run:
             self.target.mkdir(parents=True, exist_ok=True)
         self.install_file(SRC / "template" / "AGENTS.md", self.target / "AGENTS.md")
+        self.install_file(SRC / "optional" / "runtime" / "sdlc.py", self.target / RUNTIME_REL)
         for path in self.doc_sources():
             self.install_file(path, self.target / self.docs
                               / path.relative_to(SRC / "template" / "docs"))
@@ -2713,6 +2721,44 @@ class Installer(object):
          "Checking the commit carries a work item ID"),
         ("protected-paths.sh", "PreToolUse", "Write|Edit", None,
          "Checking the path is not single-writer"),
+        ("test-lock.sh", "PreToolUse", "Write|Edit", None,
+         "Checking the path is not a locked reproducing test"),
+        ("secret-guard.sh", "PreToolUse", "Bash", "Bash(git commit*)",
+         "Checking the commit adds no credential"),
+        ("approval-gate.sh", "PreToolUse", "Bash|Write|Edit", None,
+         "Checking the command needs no human approval"),
+    )
+
+    # Seeded with comments only: until a project adds a line, each hook does nothing.
+    HOOK_LISTS = (
+        ("protected.txt",
+         "# One shell glob per line. An edit to a matching path is denied.\n"
+         "# Seeded empty on purpose: only this project knows which files a\n"
+         "# managed platform owns, which are generated, and which another\n"
+         "# agent holds. Until there is a line here the hook does nothing.\n"
+         "#\n"
+         "# e.g.  .replit\n"
+         "#       replit.nix\n"
+         "#       package-lock.json\n"
+         "#       **/generated/**\n"),
+        ("test-lock.txt",
+         "# Reproducing tests locked while a defect is fixed: one shell glob per line.\n"
+         "# The agent appends a line from the shell once the failing test is committed\n"
+         "# (process/05-change-control.md, \"Fixing a defect\"). Edits to a listed\n"
+         "# path, and to this file, are denied; a human removes the line when the fix\n"
+         "# is verified.\n"
+         "#\n"
+         "# e.g.  tests/billing/test_rounding_regression.py\n"),
+        ("gates.txt",
+         "# Commands that need a named human's approval: one shell glob per line,\n"
+         "# matched against the whole command. Mirror AGENTS.md section 9 and the\n"
+         "# charter's Environments table. A matching command is denied unless the\n"
+         "# session was started with AI_SDLC_APPROVAL=<ticket or ID>.\n"
+         "#\n"
+         "# e.g.  *deploy*prod*\n"
+         "#       *terraform apply*\n"
+         "#       *kubectl*--context*prod*\n"
+         "#       *db:migrate*production*\n"),
     )
 
     def install_hooks(self):
@@ -2724,17 +2770,9 @@ class Installer(object):
         for name, _, _, _, _ in self.HOOK_SPECS:
             self.install_file(SRC / "optional" / "hooks" / name, dest_dir / name)
         self.install_file(SRC / "optional" / "hooks" / "README.md", dest_dir / "README.md")
-        protected = ensure_inside(self.target, self.target / ".ai-sdlc" / "protected.txt")
-        self.install_text(protected,
-                          "# One shell glob per line. An edit to a matching path is denied.\n"
-                          "# Seeded empty on purpose: only this project knows which files a\n"
-                          "# managed platform owns, which are generated, and which another\n"
-                          "# agent holds. Until there is a line here the hook does nothing.\n"
-                          "#\n"
-                          "# e.g.  .replit\n"
-                          "#       replit.nix\n"
-                          "#       package-lock.json\n"
-                          "#       **/generated/**\n")
+        for name, text in self.HOOK_LISTS:
+            self.install_text(ensure_inside(self.target, self.target / ".ai-sdlc" / name),
+                              text)
         settings = ensure_inside(self.target, self.target / ".claude" / "settings.json")
         if self.o.dry_run:
             print("  would merge    .claude/settings.json (hooks)")

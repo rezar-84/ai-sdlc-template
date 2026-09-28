@@ -15,7 +15,10 @@ reviewable: the approach, the alternatives rejected and why, the blast radius, t
 strategy, and what is deliberately *not* being done.
 
 A plan the build then departs from is updated, not abandoned. Record the deviation and
-why, in the plan and in the worklog entry.
+why, in the plan and in the worklog entry — in the same commit as the change that departs,
+so the plan never describes code that does not exist. `python3 .ai-sdlc/bin/sdlc.py
+plan-check <ID>` compares the plan's "Files that change" with the branch's diff and lists
+the gaps; `/sdlc-review` runs it before the conformance pass.
 
 Full rules: `../../process/00-operating-model.md` (step 2, PLAN).
 

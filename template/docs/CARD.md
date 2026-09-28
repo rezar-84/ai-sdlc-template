@@ -102,7 +102,8 @@ databases, and mock daemons on completion (pass or fail). Leaving containers or
 background servers running is a defect.
 
 Never disable, skip, or loosen a check to make a change pass. A flaky test is a defect
-with a measured failure rate — characterise it, do not re-run until green.
+with a measured failure rate — characterise it, do not re-run until green. For a defect,
+commit the failing reproducing test **before** the fix, and do not edit it while fixing.
 
 ---
 
@@ -131,7 +132,9 @@ politely and continuing is worse than not reviewing: it launders the problem int
 document that looks like diligence.
 
 A review that finds nothing must say what it checked and how, and what it did **not**
-cover.
+cover. A Tier 1/2 ship review opens with the **conformance pass**: the diff against the plan
+(`sdlc.py plan-check <ID>`) and each acceptance criterion. At most five S4 findings; count
+the rest.
 
 ---
 

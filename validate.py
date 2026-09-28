@@ -308,16 +308,21 @@ def main():
         if not (ROOT / name).is_file():
             errors.append("missing repository file: %s" % name)
 
-    for rel in ("effort-modes/score.py", "kit-value/score.py", "kit-value/measure.py"):
-        script = ROOT / "benchmarks" / rel
+    runtime = ROOT / "optional" / "runtime" / "sdlc.py"
+    if runtime.is_file() and "{{" in runtime.read_text(encoding="utf-8"):
+        errors.append("optional/runtime/sdlc.py contains a double brace, which the installer "
+                      "would substitute; spell it '[{][{]'")
+    for rel in ("optional/runtime/sdlc.py", "benchmarks/effort-modes/score.py",
+                "benchmarks/kit-value/score.py", "benchmarks/kit-value/measure.py"):
+        script = ROOT / rel
         if not script.is_file():
-            errors.append("missing benchmark script: benchmarks/%s" % rel)
+            errors.append("missing script: %s" % rel)
             continue
         proc = subprocess.run([sys.executable, str(script), "--selftest"],
                               cwd=str(ROOT), stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, universal_newlines=True)
         if proc.returncode:
-            errors.append("benchmarks/%s self-test failed: %s" % (rel, proc.stdout[-500:]))
+            errors.append("%s self-test failed: %s" % (rel, proc.stdout[-500:]))
     for task in sorted((ROOT / "benchmarks" / "kit-value" / "tasks").iterdir()):
         for name in ("prompt.md", "accept.sh", "safety.sh", "repo"):
             if task.is_dir() and not (task / name).exists():
@@ -378,6 +383,19 @@ def main():
                 errors.append("installed manifest has wrong version or no managed files")
         except (IOError, OSError, ValueError):
             errors.append("installed manifest is missing or invalid")
+        # The runtime finds the custom docs directory from the profile, not a baked path.
+        proc = subprocess.run(
+            [sys.executable, str(target / ".ai-sdlc" / "bin" / "sdlc.py"), "doctor", "--json"],
+            cwd=str(target), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            universal_newlines=True)
+        try:
+            findings = json.loads(proc.stdout)
+        except ValueError:
+            findings = None
+        if proc.returncode or not isinstance(findings, list):
+            errors.append("installed runtime doctor failed: %s" % proc.stdout[-500:])
+        elif any("charter is missing" in f.get("message", "") for f in findings):
+            errors.append("installed runtime did not find handbook/project/charter.md")
     finally:
         shutil.rmtree(str(target), ignore_errors=True)
 

@@ -52,6 +52,28 @@ security finding, not a formality.
 Design review is cheap and prevents expensive rework. Do not skip it to "just start
 coding" on a Tier 1 or Tier 2 item.
 
+### The conformance pass
+
+Every ship review of a Tier 1 or Tier 2 item starts with one pass that belongs to no role:
+**does the diff do what the plan and the acceptance criteria said, and nothing else?**
+
+- For Tier 1, run `python3 .ai-sdlc/bin/sdlc.py plan-check <ID>` first. It lists the files
+  the branch changed that the plan's "Files that change" does not name, and the planned
+  paths nothing touched. Each gap is either a plan the build should have updated or a
+  change nobody reviewed the approach for. The script finds the gaps and the reviewer
+  decides which they are.
+- Walk each acceptance criterion to the code and the test that proves it.
+- Read the plan's "Out of scope" against the diff.
+
+| Finding | Sev |
+| --- | --- |
+| An acceptance criterion not met, with the work called done | S1 (as in `roles/qa.md`) |
+| Behaviour the plan put out of scope, shipped without a decision | S2 |
+| A file or surface changed outside the plan, with the plan not updated | S3 |
+| The plan describes code that does not exist (a planned step silently dropped) | S3 |
+
+Record the conformance pass in the review file as its own section, before the roles.
+
 ---
 
 ## Who reviews what
@@ -103,6 +125,9 @@ otherwise is wrong, and the ladder wins.
 The same three words are used for the review's overall outcome: it is the most severe
 verdict any single role returned.
 
+If you know the Important/Nit vocabulary, S0–S2 are *Important*: they block. S3 is tracked
+work, and S4 is a *nit*: a real observation that changes no verdict.
+
 ### On a Block
 
 1. Stop building. Do not "note and proceed".
@@ -135,6 +160,9 @@ than not reviewing — it launders the problem into a document that looks like d
   fifteen padded ones, and padding trains the reader to skim.
 - Repeat the same finding across roles. Assign it to the role that owns it and reference
   it from the others.
+- Bury the review in nits. Report at most **five S4 findings per review**, choosing the
+  ones most worth fixing, and give the rest as a count. Never report what the charter's
+  checks already enforce (a lint rule, a formatter) or anything in generated files.
 - Review your own plan sympathetically. The purpose is to find what you missed. Actively
   try to break your own approach; assume it is wrong and look for the reason.
 

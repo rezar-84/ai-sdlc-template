@@ -9,6 +9,20 @@ $ARGUMENTS
 
 (If no argument is given, run the full sequence against the current working tree.)
 
+**Run the script, not the commands by hand:**
+
+```sh
+python3 .ai-sdlc/bin/sdlc.py verify            # every stage
+python3 .ai-sdlc/bin/sdlc.py verify --stage unit,lint
+```
+
+It does steps 1 and 2 below mechanically. It takes the commands from the charter, reports
+any profile drift, runs each stage in order, and writes the raw output, exit codes and a
+`summary.md` to `.ai-sdlc/evidence/<timestamp>/`. **Quote that summary for step 3**; its
+Verified, Not run and Absent results are the evidence words, and the log files hold the
+real output to paste. Steps 3–8 remain yours. Do steps 1 and 2 by hand only if the script
+is missing or `python3` is not available.
+
 1. **Get the command list.** Read `.ai-sdlc/profile.json` → `commands` if it exists: it is
    the charter's Commands table in machine-readable form, and it is the fastest route to
    the exact strings. Then read `{{DOCS_DIR}}/project/charter.md` → Commands and reconcile.

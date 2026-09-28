@@ -452,14 +452,15 @@ def test_hooks():
     check("existing settings survive the merge",
           settings.get("permissions", {}).get("allow") == ["Bash(npm *)"], str(settings))
     entries = settings.get("hooks", {}).get("PreToolUse", [])
-    check("both hooks are registered", len(entries) == 2, str(entries))
+    check("all five hooks are registered", len(entries) == 5, str(entries))
     check("the commit hook is filtered to git commit",
           any(h.get("if") == "Bash(git commit*)"
               for e in entries for h in e.get("hooks", [])), str(entries))
-    check("protected list is seeded but empty of rules",
-          all(l.startswith("#") or not l.strip()
-              for l in read(d, ".ai-sdlc/protected.txt").splitlines()),
-          read(d, ".ai-sdlc/protected.txt"))
+    for name in ("protected.txt", "test-lock.txt", "gates.txt"):
+        check("%s is seeded but empty of rules" % name,
+              all(l.startswith("#") or not l.strip()
+                  for l in read(d, ".ai-sdlc/" + name).splitlines()),
+              read(d, ".ai-sdlc/" + name))
 
     # The behaviour, not just the wiring.
     def fire(script, payload):
@@ -482,19 +483,165 @@ def test_hooks():
             fh.write("package-lock.json\n")
         out = fire("protected-paths.sh", {"tool_input": {"file_path": "package-lock.json"}})
         check("a listed path is denied", '"permissionDecision":"deny"' in out, out)
+
+        out = fire("test-lock.sh", {"tool_input": {"file_path": "tests/test_bug.py"}})
+        check("an unlocked test may be edited", "deny" not in out, out)
+        with open(os.path.join(d, ".ai-sdlc", "test-lock.txt"), "a") as fh:
+            fh.write("tests/test_bug.py\n")
+        out = fire("test-lock.sh", {"tool_input": {"file_path": os.path.join(d, "tests/test_bug.py")}})
+        check("a locked test is denied", '"permissionDecision":"deny"' in out, out)
+        out = fire("test-lock.sh", {"tool_input": {"file_path": ".ai-sdlc/test-lock.txt"}})
+        check("the lock list itself is denied", '"permissionDecision":"deny"' in out, out)
+        out = fire("test-lock.sh", {"tool_input": {"file_path": "src/bug.py"}})
+        check("the code under test may be edited", "deny" not in out, out)
+
+        out = fire("approval-gate.sh", {"tool_input": {"command": "make deploy ENV=prod"}})
+        check("no gates, nothing denied", "deny" not in out, out)
+        with open(os.path.join(d, ".ai-sdlc", "gates.txt"), "a") as fh:
+            fh.write("*deploy*prod*\n")
+        out = fire("approval-gate.sh", {"tool_input": {"command": "make deploy ENV=prod"}})
+        check("a gated command is denied", '"permissionDecision":"deny"' in out, out)
+        json.loads(out)  # the reason is quoted by jq, so the decision is valid JSON
+        out = fire("approval-gate.sh", {"tool_input": {"command": "make deploy ENV=staging"}})
+        check("an ungated command is allowed", "deny" not in out, out)
+        out = fire("approval-gate.sh", {"tool_input": {"file_path": ".ai-sdlc/gates.txt"}})
+        check("the gate list itself is denied", '"permissionDecision":"deny"' in out, out)
+        env = dict(os.environ, AI_SDLC_APPROVAL="CHG-42")
+        p = subprocess.Popen(["sh", os.path.join(d, ".claude", "hooks", "approval-gate.sh")],
+                             cwd=d, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        o = p.communicate(json.dumps({"tool_input": {"command": "make deploy ENV=prod"}}).encode())[0].decode()
+        check("an approval passes the gate and is announced",
+              "deny" not in o and "CHG-42" in o, o)
+
+        git = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
+        subprocess.call(git + ["init", "-q"], cwd=d)
+        write(d, "cfg.py", "KEY = 'AKIA" + "ABCDEFGHIJKLMNOP'\n")
+        subprocess.call(git + ["add", "cfg.py"], cwd=d)
+        out = fire("secret-guard.sh", {"tool_input": {"command": 'git commit -m "HKT-1 x"'}})
+        check("a staged credential is denied", '"permissionDecision":"deny"' in out, out)
+        check("the denial never echoes the value", "ABCDEFGHIJKLMNOP" not in out, out)
+        write(d, "cfg.py", "KEY = 'AKIAIOSFODNN7EXAMPLE'\n")
+        subprocess.call(git + ["add", "cfg.py"], cwd=d)
+        out = fire("secret-guard.sh", {"tool_input": {"command": 'git commit -m "HKT-1 x"'}})
+        check("a marked fixture is allowed", "deny" not in out, out)
     else:
         check("jq present for hook behaviour tests", True, "skipped: jq not installed")
 
     code, out = run([d, "HKT", "-y", "--hooks"])
     settings = json.loads(read(d, ".claude/settings.json"))
     check("re-running does not duplicate the hooks",
-          len(settings.get("hooks", {}).get("PreToolUse", [])) == 2, str(settings))
+          len(settings.get("hooks", {}).get("PreToolUse", [])) == 5, str(settings))
     shutil.rmtree(d, ignore_errors=True)
 
     d = tempfile.mkdtemp(prefix="sdlc-nohooks-")
     run([d, "HKT", "-y"])
     check("hooks are never installed without the flag",
           not os.path.exists(os.path.join(d, ".claude", "hooks")))
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def test_runtime():
+    print("doctor and verify runtime")
+    d = tempfile.mkdtemp(prefix="sdlc-runtime-")
+    subprocess.call(["git", "init", "-q", d])
+    code, out = run([d, "RTX", "-y"])
+    check("exit 0", code == 0, out[-300:])
+    script = os.path.join(d, ".ai-sdlc", "bin", "sdlc.py")
+    check("the runtime is installed", os.path.isfile(script))
+    manifest = json.loads(read(d, ".ai-sdlc/manifest.json") or "{}")
+    check("the runtime is kit-managed", ".ai-sdlc/bin/sdlc.py" in manifest.get("files", {}))
+    check("the runtime survives substitution intact", "{" + "{" not in read(d, ".ai-sdlc/bin/sdlc.py"))
+
+    def sdlc(*args):
+        p = subprocess.Popen([sys.executable, script] + list(args), cwd=d,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        o, _ = p.communicate()
+        return p.returncode, o.decode("utf-8", "replace")
+
+    code, out = sdlc("doctor")
+    check("doctor reports blank check rows on a fresh install", "checks.unit" in out, out)
+    check("doctor exits 0 by default", code == 0, out)
+    code, out = sdlc("doctor", "--strict")
+    check("a fresh install has warnings, not failures", code == 0, out)
+
+    charter = os.path.join(d, "docs", "project", "charter.md")
+    text = read(d, "docs/project/charter.md")
+    text = text.replace("| `checks.unit` | |", "| `checks.unit` | `true` |")
+    text = text.replace("| `checks.lint` | |", "| `checks.lint` | `echo lint-output && false` |")
+    text = text.replace("| `checks.build` | |", "| `checks.build` | absent |")
+    with open(charter, "w") as fh:
+        fh.write(text)
+    code, out = sdlc("verify")
+    check("verify fails when a stage fails", code == 1, out)
+    runs = sorted(os.listdir(os.path.join(d, ".ai-sdlc", "evidence")))
+    evidence = os.path.join(d, ".ai-sdlc", "evidence", [r for r in runs if r[0].isdigit()][-1])
+    summary = json.loads(read(evidence, "summary.json") or "{}")
+    results = dict((e["stage"], e["result"]) for e in summary.get("stages", []))
+    check("each stage gets its evidence word",
+          results.get("unit") == "Verified: pass" and results.get("lint") == "Verified: fail"
+          and results.get("build") == "Absent (declared)"
+          and results.get("e2e") == "Absent (no command in the charter)", str(results))
+    check("the real output is kept", "lint-output" in read(evidence, "lint.log"))
+    check("evidence is ignored by git",
+          "*" in read(d, ".ai-sdlc/evidence/.gitignore"))
+    check("profile drift is reported during verify", summary.get("drift"), str(summary))
+    code, out = sdlc("verify", "--stage", "unit")
+    check("a scoped run passes and marks the rest not run",
+          code == 0 and "Not run (not selected)" in out, out)
+
+    write(d, "docs/project/worklog.md", read(d, "docs/project/worklog.md")
+          + "\nRTX-7 shipped.\n")
+    backlog = read(d, "docs/project/backlog.md").replace(
+        "| ID | Task | Tier | Owner role | Depends on | Status | Completed |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n",
+        "| ID | Task | Tier | Owner role | Depends on | Status | Completed |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n"
+        "| RTX-3 | Ship a thing | 2 | qa | | Done | 2026-01-01 |\n")
+    write(d, "docs/project/backlog.md", backlog)
+    os.remove(os.path.join(d, "CLAUDE.md"))
+    code, out = sdlc("doctor", "--strict")
+    check("a Done item with no worklog entry fails", "RTX-3" in out, out)
+    check("a worklog ID missing from the backlog is reported", "RTX-7" in out, out)
+    check("no contract pointer fails", "no instruction file names AGENTS.md" in out
+          and code == 1, out)
+    check("profile drift is reported by doctor", "profile.json commands" in out, out)
+
+    # plan-check: the plan's file list against the branch's diff.
+    git = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
+    subprocess.call(git + ["add", "-A"], cwd=d)
+    subprocess.call(git + ["commit", "-qm", "RTX-1 install"], cwd=d)
+    base = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                                   cwd=d).decode().strip()
+    subprocess.call(["git", "checkout", "-qb", "rtx-9"], cwd=d)
+    write(d, "docs/project/plans/RTX-9.md",
+          "# Plan\n## Files that change\n- `src/pay/**`\n- `docs/api.md`\n## Order of work\n")
+    write(d, "src/pay/a.py", "x = 1\n")
+    write(d, "stray.py", "y = 2\n")
+    code, out = sdlc("plan-check", "RTX-9", "--base", base, "--json")
+    try:
+        result = json.loads(out)
+    except ValueError:
+        result = {}
+    check("plan-check names the unplanned file", result.get("unplanned") == ["stray.py"], out)
+    check("plan-check names the untouched planned path",
+          result.get("untouched") == ["docs/api.md"], out)
+    code, out = sdlc("plan-check", "RTX-9", "--base", base, "--strict")
+    check("plan-check --strict fails on a gap", code == 1, out)
+    code, out = sdlc("plan-check", "RTX-404", "--base", base)
+    check("plan-check explains a missing plan", code == 2 and "no plan" in out, out)
+
+    # An older install gains the runtime on upgrade; a local edit blocks it.
+    os.remove(script)
+    manifest["files"].pop(".ai-sdlc/bin/sdlc.py", None)
+    write(d, ".ai-sdlc/manifest.json", json.dumps(manifest))
+    code, out = run([d, "RTX", "--upgrade"])
+    check("upgrade adds the runtime to an older install",
+          code == 0 and os.path.isfile(script), out[-400:])
+    with open(script, "a") as fh:
+        fh.write("# local edit\n")
+    code, out = run([d, "RTX", "--upgrade"])
+    check("a local edit to the runtime blocks the upgrade",
+          code == 1 and "local edit" in read(d, ".ai-sdlc/bin/sdlc.py"), out[-400:])
     shutil.rmtree(d, ignore_errors=True)
 
 
@@ -1078,7 +1225,7 @@ def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
                  test_stack_adapters, test_harness_wiring, test_profiles, test_hooks,
-                 test_kit_value_benchmark,
+                 test_runtime, test_kit_value_benchmark,
                  test_dashboard,
                  test_domain_detection,
                  test_role_and_skill_selection, test_profile,

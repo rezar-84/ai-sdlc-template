@@ -36,7 +36,10 @@ the spread, or the honest sentence is: *unmeasured.*
 3. Take commands from the charter's **Commands** table verbatim
    (`{{DOCS_DIR}}/project/charter.md`). Never infer one from the ecosystem: a guessed
    command that happens to exit zero produces a confidently false verification.
-4. Paste or summarise real results — counts, failures, durations. A failing suite is
+4. Paste or summarise real results — counts, failures, durations. Where
+   `.ai-sdlc/bin/sdlc.py` exists, `python3 .ai-sdlc/bin/sdlc.py verify` produces them.
+   Cite its evidence directory, `.ai-sdlc/evidence/<timestamp>/`, beside each Verified
+   claim: a result a script recorded outranks one you remember. A failing suite is
    reported as failing, with its output, in the same message as everything else.
 5. Facts you cannot source get the marker `_(unverified — needs confirmation: <what, from
    whom>)_` and a line in `{{DOCS_DIR}}/project/assumptions-and-risks.md`. Never invent a

@@ -115,4 +115,7 @@ scorer changes.
   show it generalises.
 - One harness only (Claude Code). The other harnesses read the same `AGENTS.md`, but they
   are not measured.
+- The kit arms install whatever the pinned kit commit installs, including the
+  `.ai-sdlc/bin/sdlc.py` runtime from 3.4 on. To measure the runtime's effect, run the
+  same protocol at a commit from before it (`6166ad0`) and compare the two `repo_commit`s.
 - `fake_agent.py` exists to test the runner. Its numbers mean nothing.

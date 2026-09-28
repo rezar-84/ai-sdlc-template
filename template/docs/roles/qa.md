@@ -150,6 +150,9 @@ When a tester, user, or automated run files a bug report:
    waives it in writing with a tracked follow-up; S3 enters `Next`; S4 enters `Later`.
 4. **Link to test plan:** Add a failing regression scenario under `test-plan.md`
    (or note it as a known gap) so the fix cannot regress silently.
+5. **Test before fix:** The reproducing test is committed, seen failing, and locked
+   before the fix starts, and the fix does not edit it
+   (`process/05-change-control.md`, "Fixing a defect").
 
 ## Hands off to
 

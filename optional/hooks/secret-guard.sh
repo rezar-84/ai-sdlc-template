@@ -1,0 +1,55 @@
+#!/bin/sh
+# Deny a commit whose staged changes add a credential.
+# AGENTS.md ("Never commit secrets") and {{DOCS_DIR}}/roles/security.md: secrets never enter the
+# repository. Only high-confidence shapes are matched -- provider-prefixed tokens and
+# private-key headers -- so a hit is almost never a false alarm. Generic "password = ..."
+# lines are the security review's job, not this hook's.
+#
+# stdin: the PreToolUse hook payload. stdout: a PreToolUse permission decision.
+set -u
+
+command -v jq >/dev/null 2>&1 || {
+  printf '{"systemMessage":"ai-sdlc: secret-guard hook inactive (jq not installed)."}\n'
+  exit 0
+}
+
+payload=$(cat)
+cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // ""')
+
+case "$cmd" in
+  *"git commit"*) ;;
+  *) exit 0 ;;
+esac
+
+# What the commit will contain. `-a`, or a `git add` earlier in the same command, stages
+# tracked changes the index does not hold yet, so look at the whole working tree then.
+# A brand-new file added in the same command is not visible yet: stage it first.
+case "$cmd" in
+  *"git add"*|*" -a"*|*" --all"*|*" -am"*) diff=$(git diff HEAD --unified=0 2>/dev/null) ;;
+  *) diff=$(git diff --cached --unified=0 2>/dev/null) ;;
+esac
+[ -n "$diff" ] || exit 0
+
+added=$(printf '%s\n' "$diff" | grep -E '^\+' | grep -vE '^\+\+\+ ' | grep -v 'EXAMPLE')
+[ -n "$added" ] || exit 0
+
+found=""
+check() {
+  if printf '%s\n' "$added" | grep -Eq -- "$2"; then
+    found="${found}${found:+, }$1"
+  fi
+}
+check "private key"            '-----BEGIN ([A-Z]+ )?PRIVATE KEY-----'
+check "AWS access key"         '(AKIA|ASIA)[0-9A-Z]{16}'
+check "GitHub token"           'gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,}'
+check "GitLab token"           'glpat-[A-Za-z0-9_-]{20,}'
+check "Slack token"            'xox[abposr]-[A-Za-z0-9-]{10,}'
+check "Stripe live key"        '(sk|rk)_live_[A-Za-z0-9]{20,}'
+check "Anthropic API key"      'sk-ant-[A-Za-z0-9_-]{20,}'
+check "OpenAI API key"         'sk-(proj-)?[A-Za-z0-9_-]{40,}'
+check "Google API key"         'AIza[0-9A-Za-z_-]{35}'
+[ -n "$found" ] || exit 0
+
+# The reason names the kind, never the value: the value is what must not travel further.
+printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"The staged changes add what looks like a credential (%s). Secrets never enter the repository: move it to the environment or the secret store the charter names, unstage it, and rotate it if it was ever pushed. A deliberate fake in a test fixture passes if its line contains EXAMPLE."}}\n' "$found"
+exit 0

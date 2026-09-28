@@ -14,6 +14,10 @@ where the answer changes what you are about to do.
 
 ## Check before you rely on it
 
+`python3 .ai-sdlc/bin/sdlc.py doctor` checks 0, 1, 3, 4 and 5 below mechanically, in about
+a second. Run it and read its findings instead of reading the tables yourself. Check 2,
+about the specific artifact you are about to trust, stays with you.
+
 0. **Is anything pointing at the contract?** Nothing here runs unless a file the agent
    tool actually loads says to read `AGENTS.md` — `CLAUDE.md`, `GEMINI.md`, `AGENT.md`,
    `.github/copilot-instructions.md`, `.cursor/rules/`, and so on. If none does, the kit

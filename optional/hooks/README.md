@@ -1,7 +1,9 @@
 # Hooks — the rules that are not persuasion
 
-Everything else in this kit asks an agent to follow a rule. These make two of them
-mechanical, by running before the tool call rather than after the fact.
+Everything else in this kit asks an agent to follow a rule. These make five of them
+mechanical, by running before the tool call rather than after the fact. A skill or a
+process document is advisory, since it makes the violation rare. A hook is what makes it
+close to impossible, so any rule that must hold without exception belongs here as well.
 
 **Claude Code only**, and **opt-in**: `./install.sh <dir> <PREFIX> --hooks`. Nothing
 installs them by accident, because a hook executes on your machine on every matching tool
@@ -13,8 +15,23 @@ call and that is not something to acquire without deciding to.
 | --- | --- | --- |
 | `work-item-id.sh` | `git commit` | Denies a commit whose message carries no `<PREFIX>-###`. `AGENTS.md` §6 requires the ID in the branch, the commit and the worklog; this is the one of the three a machine can check. |
 | `protected-paths.sh` | `Write` / `Edit` | Denies an edit to a path listed in `.ai-sdlc/protected.txt` — the charter's platform-owned files, generated files, or anything else single-writer. Does nothing until that file has entries. |
+| `test-lock.sh` | `Write` / `Edit` | Denies an edit to a reproducing test listed in `.ai-sdlc/test-lock.txt` while its defect is fixed, and an edit to that list itself. `process/05-change-control.md`, "Fixing a defect": the agent appends the lock from the shell after committing the failing test, and a human removes it. |
+| `secret-guard.sh` | `git commit` | Denies a commit whose staged additions contain a provider-shaped credential (private-key header, AWS, GitHub, GitLab, Slack, Stripe live, Anthropic, OpenAI, Google keys). Names the kind and never the value. A line containing `EXAMPLE` is skipped, for deliberate fixtures. |
+| `approval-gate.sh` | `Bash`, and `Write` / `Edit` of its list | Denies a command matching a glob in `.ai-sdlc/gates.txt` (production deploys, `terraform apply`, production migrations: whatever `AGENTS.md` §9 says needs a human), and tells the agent to hand the exact command to a human. It passes when the session was started with `AI_SDLC_APPROVAL=<ticket or ID>`, which the agent cannot set from inside the session. |
 
-Both are **deterministic**. Neither asks a model whether the rule was followed.
+All five are **deterministic**. None asks a model whether the rule was followed. The three
+list files are seeded with comments only, so until the project adds a line, the hooks that
+read them do nothing.
+
+**Deny, never ask.** A `deny` is honoured in every permission mode, including bypass mode
+and headless `claude -p` runs. The harness documents no such guarantee for `ask`, and a
+gate that is only sometimes shut is not a gate.
+
+**What they cannot see.** They check the tool call, not the shell's side effects. A
+`sed -i` on a locked test, a new file staged and committed in one command, or a deploy
+wrapped in a script with an innocent name all get past them. These hooks are guard rails
+for an agent that is trying to comply. Anything that must hold against an agent that is not
+trying belongs in `permissions.deny` and the sandbox.
 
 ## What is deliberately not here
 
@@ -23,7 +40,9 @@ and dropped. A hook cannot reliably tell whether the command that mattered ran t
 session, so it would fire on turns that did nothing wrong. A guard that cries wolf gets
 switched off within a day, and it takes the two working guards with it when it goes.
 Evidence stays enforced where it can be enforced honestly: `sdlc-evidence-check`, and
-`/sdlc-verify` running the charter's real commands.
+`/sdlc-verify` running the charter's real commands through `.ai-sdlc/bin/sdlc.py verify`,
+which records each stage's output and exit code under `.ai-sdlc/evidence/` for a claim to
+cite.
 
 The same reasoning applies to anything you add here. **Only automate a rule whose
 violation is decidable from the tool call itself.**

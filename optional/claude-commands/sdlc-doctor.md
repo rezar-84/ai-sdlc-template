@@ -12,6 +12,28 @@ $ARGUMENTS
 This command **reports**; it does not fix. Findings become backlog items, and the ones
 that need a human decision — an unticked role, a missing approver — stay with the human.
 
+## 0. Run the mechanical checks first
+
+```sh
+python3 .ai-sdlc/bin/sdlc.py doctor
+```
+
+It decides from the files what does not need judgment: sections 1, 2, 4 (dates), 5, 6
+and 7 below, and in section 3 the blank rows, the modes and the roles with no reason.
+**Report its findings as they are; do not redo those checks by reading the files
+yourself.** A script that reads every row is more reliable than a model that skims them.
+Your part is what it cannot decide:
+- the severity of each finding;
+- in section 3, deployment platforms against `{{DOCS_DIR}}/platforms/`, blank Model & data
+  or Budgets cells, and whether the artifacts that ticked roles own exist;
+- in section 4, whether a `status: stale` document has a backlog item;
+- section 8;
+- what to do first.
+
+If the script is missing (installed before the runtime existed) or `python3` is not
+available, do every section by hand, as written. The sections below are the
+specification either way.
+
 ## 1. Substitution
 
 ```sh

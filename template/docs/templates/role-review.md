@@ -11,6 +11,18 @@ last-reviewed: YYYY-MM-DD
 
 ---
 
+## Conformance (ship review, Tier 1 and 2)
+
+**plan-check:** _(the output of `sdlc.py plan-check <ID>` for Tier 1, and for each
+unplanned or untouched path, whether it is a plan to update or a change to question)_
+
+**Acceptance criteria:** _(each criterion → the code and the test that prove it, or the
+finding that it is not met)_
+
+**Out of scope held:** _(yes, or what shipped that the plan excluded)_
+
+---
+
 ## <role-name>
 
 **Verdict:** Pass | Pass with conditions | Block

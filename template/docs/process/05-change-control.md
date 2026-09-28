@@ -163,6 +163,24 @@ Whenever the charter declares a platform:
 
 ---
 
+## Fixing a defect
+
+The test comes first, and the fixer does not get to rewrite it.
+
+1. Write a test that reproduces the defect. Run it and confirm it fails **for the reason
+   the report describes** — a test that fails on an import error reproduces nothing.
+2. Commit that test on its own, with the item's ID, before any fix.
+3. Where the opt-in hooks are installed, lock it: append its path to
+   `.ai-sdlc/test-lock.txt`. The `test-lock` hook then denies edits to it.
+4. Fix the code until the test passes, without editing the test. If the test turns out
+   to be wrong, stop and say so; changing it is a human decision, like releasing the lock.
+5. After verification, a human removes the lock line.
+
+A test that existed before the fix and that the fixer could not change is the evidence
+that the defect is gone. Editing it to pass is the S1 in `roles/qa.md`.
+
+---
+
 ## Rollback and hotfix
 
 - Prefer rolling back over rolling forward when the cause is not understood within the
