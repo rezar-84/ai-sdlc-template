@@ -8,24 +8,17 @@
 # Adding a lock is the agent's job (append a line from the shell when the reproducing test
 # is committed). Removing one is a human's: an edit to the lock file itself is denied.
 set -u
-
-command -v jq >/dev/null 2>&1 || {
-  printf '{"systemMessage":"ai-sdlc: test-lock hook inactive (jq not installed)."}\n'
-  exit 0
-}
+. "$(dirname "$0")/lib.sh"
+hook_init test-lock
 
 list=.ai-sdlc/test-lock.txt
 [ -f "$list" ] || exit 0
 
-payload=$(cat)
-path=$(printf '%s' "$payload" | jq -r '.tool_input.file_path // ""')
-[ -n "$path" ] || exit 0
-
-rel=${path#"$PWD"/}
+rel=$(hook_rel_path "$(cat)")
+[ -n "$rel" ] || exit 0
 
 if [ "$rel" = "$list" ]; then
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s is the list of tests locked for a defect fix. Adding a lock is done from the shell when the reproducing test is committed; releasing one is a human decision, taken after the fix is verified. Ask for it."}}\n' "$list"
-  exit 0
+  hook_deny "$list is the list of tests locked for a defect fix. Adding a lock is done from the shell when the reproducing test is committed; releasing one is a human decision, taken after the fix is verified. Ask for it."
 fi
 
 while IFS= read -r pattern || [ -n "$pattern" ]; do
@@ -33,8 +26,7 @@ while IFS= read -r pattern || [ -n "$pattern" ]; do
   # shellcheck disable=SC2254  # the glob is the point
   case "$rel" in
     $pattern)
-      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s is locked in .ai-sdlc/test-lock.txt: it is the reproducing test for a defect being fixed. Make it pass by changing the code under test, not the test. If the test itself is wrong, stop and say why; a human releases the lock."}}\n' "$rel"
-      exit 0
+      hook_deny "$rel is locked in .ai-sdlc/test-lock.txt: it is the reproducing test for a defect being fixed. Make it pass by changing the code under test, not the test. If the test itself is wrong, stop and say why; a human releases the lock."
       ;;
   esac
 done < "$list"

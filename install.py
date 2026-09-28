@@ -2341,9 +2341,49 @@ def managed_source_texts(target, docs, ctx, profile="full"):
                 if src.is_file():
                     rel = Path(".claude") / "skills" / base.name / src.relative_to(base)
                     planned[str(rel)] = substitute(src.read_text(encoding="utf-8"), ctx)
+    hooks_root = Path(target) / ".claude" / "hooks"
+    if hooks_root.is_dir() and any(p.suffix == ".sh" for p in hooks_root.iterdir()):
+        # The hooks this project chose, plus the library every current hook sources.
+        for src in sorted((SRC / "optional" / "hooks").iterdir()):
+            if src.is_file() and ((hooks_root / src.name).is_file() or src.name == "lib.sh"):
+                planned[str(Path(".claude") / "hooks" / src.name)] = substitute(
+                    src.read_text(encoding="utf-8"), ctx)
     planned[RUNTIME_REL] = substitute(
         (SRC / "optional" / "runtime" / "sdlc.py").read_text(encoding="utf-8"), ctx)
     return planned
+
+
+def hook_command(name):
+    """Anchored on the project root: a relative path fails open the moment the session's
+    working directory is a subdirectory."""
+    return 'sh "$CLAUDE_PROJECT_DIR"/.claude/hooks/%s' % name
+
+
+def repair_hook_commands(target):
+    """Rewrite hook registrations an older kit wrote as `sh .claude/hooks/x.sh`. Touches
+    nothing else in settings.json; returns how many were rewritten."""
+    settings = Path(target) / ".claude" / "settings.json"
+    if not settings.is_file():
+        return 0
+    try:
+        data = json.loads(settings.read_text(encoding="utf-8"))
+    except ValueError:
+        return 0
+    hooks = data.get("hooks") if isinstance(data, dict) else None
+    if not isinstance(hooks, dict):
+        return 0
+    legacy = re.compile(r"^sh \.claude/hooks/([A-Za-z0-9_.-]+\.sh)$")
+    count = 0
+    for entries in hooks.values():
+        for entry in entries if isinstance(entries, list) else []:
+            for spec in (entry.get("hooks") or []) if isinstance(entry, dict) else []:
+                match = legacy.match(str(spec.get("command", ""))) if isinstance(spec, dict) else None
+                if match:
+                    spec["command"] = hook_command(match.group(1))
+                    count += 1
+    if count:
+        atomic_write_text(settings, json.dumps(data, indent=2, sort_keys=True) + "\n")
+    return count
 
 
 def load_manifest(target):
@@ -2378,7 +2418,7 @@ def is_managed_rel(rel, docs):
         return False
     prefixes = ((str(docs), "process"), (str(docs), "roles"), (str(docs), "templates"),
                 (str(docs), "platforms"), (".claude", "skills"), (".claude", "commands"),
-                (".ai-sdlc", "bin"))
+                (".claude", "hooks"), (".ai-sdlc", "bin"))
     return path.parts in ((str(docs), "README.md"), (str(docs), "CARD.md"),
                           (str(docs), "dashboard.html")) or any(
         path.parts[:2] == prefix for prefix in prefixes)
@@ -2769,7 +2809,8 @@ class Installer(object):
         dest_dir = ensure_inside(self.target, self.target / ".claude" / "hooks")
         for name, _, _, _, _ in self.HOOK_SPECS:
             self.install_file(SRC / "optional" / "hooks" / name, dest_dir / name)
-        self.install_file(SRC / "optional" / "hooks" / "README.md", dest_dir / "README.md")
+        for name in ("lib.sh", "README.md"):
+            self.install_file(SRC / "optional" / "hooks" / name, dest_dir / name)
         for name, text in self.HOOK_LISTS:
             self.install_text(ensure_inside(self.target, self.target / ".ai-sdlc" / name),
                               text)
@@ -2796,11 +2837,20 @@ class Installer(object):
             return
         added = 0
         for name, event, matcher, guard, status in self.HOOK_SPECS:
-            command = "sh .claude/hooks/%s" % name
+            command = hook_command(name)
+            legacy = "sh .claude/hooks/%s" % name
             entries = hooks.setdefault(event, [])
             if not isinstance(entries, list):
                 continue
-            if any(command in json.dumps(entry) for entry in entries):
+            found = False
+            for entry in entries:
+                for spec in (entry.get("hooks") or []) if isinstance(entry, dict) else []:
+                    if isinstance(spec, dict) and spec.get("command") in (command, legacy):
+                        if spec["command"] == legacy:
+                            spec["command"] = command    # an older install, repaired
+                            added += 1
+                        found = True
+            if found:
                 continue          # already installed; re-running must not duplicate it
             spec = {"type": "command", "command": command, "statusMessage": status}
             if guard:
@@ -3460,7 +3510,9 @@ def upgrade(target, o):
 
     # Commands a pre-3.3 install left unmanaged may carry project edits nobody can tell
     # from an old kit version, so they change only when the project says --adopt.
-    unadopted = sorted(rel for rel in planned if rel.startswith(".claude/commands/")
+    unadopted = sorted(rel for rel in planned
+                       if rel.startswith((".claude/commands/", ".claude/hooks/"))
+                       and (target / rel).is_file()
                        and rel not in previous_files and not o.adopt)
     for rel in unadopted:
         del planned[rel]
@@ -3514,10 +3566,17 @@ def upgrade(target, o):
             notes.append("The kit's charter has rows this one lacks and no neighbour to "
                          "place them by: %s. Copy them from %s." % (", ".join(unplaced),
                          SRC / "template" / "docs" / "project" / "charter.md"))
-    if unadopted:
+    stale_commands = [r for r in unadopted if r.startswith(".claude/commands/")]
+    stale_hooks = [r for r in unadopted if r.startswith(".claude/hooks/")]
+    if stale_commands:
         notes.append("%d /sdlc-* commands predate managed upgrades and were not updated. "
                      "Re-run with --upgrade --adopt to replace them (backed up first)."
-                     % len(unadopted))
+                     % len(stale_commands))
+    if stale_hooks:
+        notes.append("%d hook files predate managed upgrades and were not updated. Older "
+                     "hooks fail open when run from a subdirectory, on a `..` path, or on "
+                     "a filename containing a quote. Re-run with --upgrade --adopt "
+                     "to replace them (backed up first)." % len(stale_hooks))
 
     if modified:
         sys.stderr.write("error: upgrade stopped; kit-owned files were modified or removed:\n")
@@ -3589,6 +3648,10 @@ def upgrade(target, o):
         hashes = dict((rel, sha256_text(content)) for rel, content in planned.items())
         write_manifest(target, docs, hashes, regions)
         refresh_profile(target)
+        repaired = repair_hook_commands(target)
+        if repaired:
+            print("  update         .claude/settings.json (%d hook command%s anchored on "
+                  "$CLAUDE_PROJECT_DIR)" % (repaired, "" if repaired == 1 else "s"))
     except Exception as exc:
         for rel, data in originals.items():
             path = target / rel

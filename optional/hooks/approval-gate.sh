@@ -12,11 +12,8 @@
 # AI_SDLC_APPROVAL set to the change ticket or work item that authorises it. The agent
 # cannot set that variable for the harness from inside the session.
 set -u
-
-command -v jq >/dev/null 2>&1 || {
-  printf '{"systemMessage":"ai-sdlc: approval-gate hook inactive (jq not installed)."}\n'
-  exit 0
-}
+. "$(dirname "$0")/lib.sh"
+hook_init approval-gate
 
 list=.ai-sdlc/gates.txt
 [ -f "$list" ] || exit 0
@@ -24,11 +21,9 @@ list=.ai-sdlc/gates.txt
 payload=$(cat)
 
 # The gate list is the human's: removing a gate is itself a change that needs approval.
-path=$(printf '%s' "$payload" | jq -r '.tool_input.file_path // ""')
-if [ -n "$path" ]; then
-  if [ "${path#"$PWD"/}" = "$list" ]; then
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s lists the commands that need a named human'"'"'s approval. Changing that list is the human'"'"'s decision: propose the edit instead of making it."}}\n' "$list"
-  fi
+rel=$(hook_rel_path "$payload")
+if [ -n "$rel" ]; then
+  [ "$rel" = "$list" ] && hook_deny "$list lists the commands that need a named human's approval. Changing that list is the human's decision: propose the edit instead of making it."
   exit 0
 fi
 
@@ -41,13 +36,10 @@ while IFS= read -r pattern || [ -n "$pattern" ]; do
   case "$cmd" in
     $pattern)
       if [ -n "${AI_SDLC_APPROVAL:-}" ]; then
-        reason=$(printf 'ai-sdlc: gated command allowed under approval %s (matched %s). Record the approval in the worklog entry.' "$AI_SDLC_APPROVAL" "$pattern" | jq -Rs .)
-        printf '{"systemMessage":%s}\n' "$reason"
+        hook_note "ai-sdlc: gated command allowed under approval $AI_SDLC_APPROVAL (matched $pattern). Record the approval in the worklog entry."
         exit 0
       fi
-      reason=$(printf 'This command matches %s in .ai-sdlc/gates.txt: it needs a named human'"'"'s approval (AGENTS.md section 9). Do not look for another route to the same effect. Stop, and hand the human the exact command, what it will change, and the rollback. They run it themselves, or restart the session with AI_SDLC_APPROVAL=<ticket or ID>.' "$pattern" | jq -Rs .)
-      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$reason"
-      exit 0
+      hook_deny "This command matches $pattern in .ai-sdlc/gates.txt: it needs a named human's approval (AGENTS.md section 9). Do not look for another route to the same effect. Stop, and hand the human the exact command, what it will change, and the rollback. They run it themselves, or restart the session with AI_SDLC_APPROVAL=<ticket or ID>."
       ;;
   esac
 done < "$list"

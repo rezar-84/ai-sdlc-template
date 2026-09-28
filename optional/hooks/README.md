@@ -47,6 +47,19 @@ cite.
 The same reasoning applies to anything you add here. **Only automate a rule whose
 violation is decidable from the tool call itself.**
 
+## How they hold up
+
+Each hook sources `lib.sh` and runs from the project root, which it gets from the
+harness's `$CLAUDE_PROJECT_DIR`. The installer registers them the same way. A path is
+resolved against the caller's directory, its `.` and `..` segments are collapsed, and
+only then is it compared with a list. Every decision is built by `jq`, so no filename or
+command can break the JSON. A hook that could not produce a decision would allow the
+call, so all three rules are pinned by smoke tests.
+
+`--upgrade` keeps installed hooks current and re-anchors older `sh .claude/hooks/…`
+registrations. Hooks from before they were kit-managed are replaced only with `--adopt`,
+like the commands.
+
 ## Requirements and failure mode
 
 The scripts need `jq` and POSIX `sh`. **If `jq` is missing they allow the call** and say

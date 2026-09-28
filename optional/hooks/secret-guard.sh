@@ -7,11 +7,8 @@
 #
 # stdin: the PreToolUse hook payload. stdout: a PreToolUse permission decision.
 set -u
-
-command -v jq >/dev/null 2>&1 || {
-  printf '{"systemMessage":"ai-sdlc: secret-guard hook inactive (jq not installed)."}\n'
-  exit 0
-}
+. "$(dirname "$0")/lib.sh"
+hook_init secret-guard
 
 payload=$(cat)
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // ""')
@@ -51,5 +48,4 @@ check "Google API key"         'AIza[0-9A-Za-z_-]{35}'
 [ -n "$found" ] || exit 0
 
 # The reason names the kind, never the value: the value is what must not travel further.
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"The staged changes add what looks like a credential (%s). Secrets never enter the repository: move it to the environment or the secret store the charter names, unstage it, and rotate it if it was ever pushed. A deliberate fake in a test fixture passes if its line contains EXAMPLE."}}\n' "$found"
-exit 0
+hook_deny "The staged changes add what looks like a credential ($found). Secrets never enter the repository: move it to the environment or the secret store the charter names, unstage it, and rotate it if it was ever pushed. A deliberate fake in a test fixture passes if its line contains EXAMPLE."

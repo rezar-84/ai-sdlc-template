@@ -456,6 +456,14 @@ def test_hooks():
     check("the commit hook is filtered to git commit",
           any(h.get("if") == "Bash(git commit*)"
               for e in entries for h in e.get("hooks", [])), str(entries))
+    check("every hook is anchored on the project root",
+          all(h.get("command", "").startswith('sh "$CLAUDE_PROJECT_DIR"/.claude/hooks/')
+              for e in entries for h in e.get("hooks", [])), str(entries))
+    check("the shared hook library is installed",
+          os.path.isfile(os.path.join(d, ".claude", "hooks", "lib.sh")))
+    manifest = json.loads(read(d, ".ai-sdlc/manifest.json") or "{}")
+    check("hooks are kit-managed", ".claude/hooks/test-lock.sh" in manifest.get("files", {})
+          and ".claude/hooks/lib.sh" in manifest.get("files", {}), str(manifest)[:300])
     for name in ("protected.txt", "test-lock.txt", "gates.txt"):
         check("%s is seeded but empty of rules" % name,
               all(l.startswith("#") or not l.strip()
@@ -463,10 +471,12 @@ def test_hooks():
               read(d, ".ai-sdlc/" + name))
 
     # The behaviour, not just the wiring.
-    def fire(script, payload):
+    def fire(script, payload, cwd=None, **extra):
+        # CLAUDE_PROJECT_DIR is set explicitly: under Claude Code it names the kit.
+        env = dict(os.environ, CLAUDE_PROJECT_DIR=d, **extra)
         p = subprocess.Popen(["sh", os.path.join(d, ".claude", "hooks", script)],
-                             cwd=d, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT)
+                             cwd=cwd or d, env=env, stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         o, _ = p.communicate(json.dumps(payload).encode())
         return o.decode("utf-8", "replace")
 
@@ -494,6 +504,26 @@ def test_hooks():
         check("the lock list itself is denied", '"permissionDecision":"deny"' in out, out)
         out = fire("test-lock.sh", {"tool_input": {"file_path": "src/bug.py"}})
         check("the code under test may be edited", "deny" not in out, out)
+        os.makedirs(os.path.join(d, "src"), exist_ok=True)
+        out = fire("test-lock.sh", {"tool_input": {"file_path": "../tests/test_bug.py"}},
+                   cwd=os.path.join(d, "src"))
+        check("a lock holds when the call comes from a subdirectory",
+              '"permissionDecision":"deny"' in out, out)
+        out = fire("test-lock.sh", {"tool_input": {"file_path": "x/../tests/./test_bug.py"}})
+        check("a lock holds through . and .. segments",
+              '"permissionDecision":"deny"' in out, out)
+        with open(os.path.join(d, ".ai-sdlc", "test-lock.txt"), "a") as fh:
+            fh.write("tests/q*\n")
+        out = fire("test-lock.sh", {"tool_input": {"file_path": 'tests/q"uote.py'}})
+        try:
+            decision = json.loads(out)["hookSpecificOutput"]["permissionDecision"]
+        except (ValueError, KeyError, TypeError):
+            decision = None
+        check("a quote in the filename still yields a valid deny", decision == "deny", out)
+        out = fire("protected-paths.sh", {"tool_input": {"file_path": "../package-lock.json"}},
+                   cwd=os.path.join(d, "src"))
+        check("a protected path named from a subdirectory is denied",
+              '"permissionDecision":"deny"' in out, out)
 
         out = fire("approval-gate.sh", {"tool_input": {"command": "make deploy ENV=prod"}})
         check("no gates, nothing denied", "deny" not in out, out)
@@ -506,12 +536,14 @@ def test_hooks():
         check("an ungated command is allowed", "deny" not in out, out)
         out = fire("approval-gate.sh", {"tool_input": {"file_path": ".ai-sdlc/gates.txt"}})
         check("the gate list itself is denied", '"permissionDecision":"deny"' in out, out)
-        env = dict(os.environ, AI_SDLC_APPROVAL="CHG-42")
-        p = subprocess.Popen(["sh", os.path.join(d, ".claude", "hooks", "approval-gate.sh")],
-                             cwd=d, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        o = p.communicate(json.dumps({"tool_input": {"command": "make deploy ENV=prod"}}).encode())[0].decode()
+        o = fire("approval-gate.sh", {"tool_input": {"command": "make deploy ENV=prod"}},
+                 AI_SDLC_APPROVAL="CHG-42")
         check("an approval passes the gate and is announced",
               "deny" not in o and "CHG-42" in o, o)
+        o = fire("approval-gate.sh", {"tool_input": {"command": "make deploy ENV=prod"}},
+                 cwd=os.path.join(d, "src"))
+        check("a gate holds when the call comes from a subdirectory",
+              '"permissionDecision":"deny"' in o, o)
 
         git = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
         subprocess.call(git + ["init", "-q"], cwd=d)
@@ -531,6 +563,22 @@ def test_hooks():
     settings = json.loads(read(d, ".claude/settings.json"))
     check("re-running does not duplicate the hooks",
           len(settings.get("hooks", {}).get("PreToolUse", [])) == 5, str(settings))
+
+    # An older install registered relative commands; both routes repair them in place.
+    legacy = read(d, ".claude/settings.json").replace('sh \\"$CLAUDE_PROJECT_DIR\\"/', "sh ")
+    check("fixture: legacy commands written", "sh .claude/hooks/" in legacy, legacy[:300])
+    write(d, ".claude/settings.json", legacy)
+    run([d, "HKT", "-y", "--hooks"])
+    settings = json.loads(read(d, ".claude/settings.json"))
+    commands = [h["command"] for e in settings["hooks"]["PreToolUse"] for h in e["hooks"]]
+    check("--hooks rewrites legacy commands without duplicating them",
+          len(commands) == 5 and all("$CLAUDE_PROJECT_DIR" in c for c in commands), str(commands))
+    write(d, ".claude/settings.json", legacy)
+    code, out = run([d, "HKT", "--upgrade"])
+    settings = json.loads(read(d, ".claude/settings.json"))
+    commands = [h["command"] for e in settings["hooks"]["PreToolUse"] for h in e["hooks"]]
+    check("--upgrade anchors legacy hook commands",
+          code == 0 and all("$CLAUDE_PROJECT_DIR" in c for c in commands), out[-400:])
     shutil.rmtree(d, ignore_errors=True)
 
     d = tempfile.mkdtemp(prefix="sdlc-nohooks-")

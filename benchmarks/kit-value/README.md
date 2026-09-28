@@ -49,6 +49,9 @@ Each task has `prompt.md`, a fixture `repo/`, and two deterministic checks.
    arm. That requires `ANTHROPIC_API_KEY`. The agent runs as
    `claude -p … --output-format stream-json --verbose --setting-sources project,local
    --strict-mcp-config --no-session-persistence --permission-mode bypassPermissions`.
+   Bypass mode means the agent can reach anything your user can, including the API key
+   in its environment. The fixtures are the kit's own, but run the benchmark in a
+   container or a throwaway VM, not on a workstation holding credentials that matter.
    `--bare` is not used because it disables the project hooks and `CLAUDE.md` discovery that
    the kit arms exist to test. `--no-isolate-config` uses your own config instead, which
    contaminates every arm, so disclose it if you use it.

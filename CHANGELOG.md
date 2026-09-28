@@ -4,6 +4,21 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **Security: the hooks failed open** in three cases an agent can hit by accident. All three
+  are fixed and pinned by smoke tests.
+  - **Run from a subdirectory:** the hooks were registered as `sh .claude/hooks/x.sh` and
+    read `.ai-sdlc/*.txt` relatively. They are now registered through
+    `$CLAUDE_PROJECT_DIR` and run from the project root.
+  - **A path through `.` or `..`:** it slipped past the glob. Paths are now normalised
+    before matching.
+  - **A filename containing a quote:** it produced invalid JSON, which the harness treats
+    as allow. Every decision is now built by `jq`, through the new shared
+    `.claude/hooks/lib.sh`.
+  - **Upgrades:** hooks are now kit-managed. `--upgrade` refreshes them and re-anchors
+    older registrations in `.claude/settings.json`. Hook files from before this need
+    `--upgrade --adopt`, and the upgrade says so.
+  - The kit-value benchmark README now says to run bypass-mode runs in a container or VM.
+
 - **Rules the kit only asked for are now enforced** (from a gap analysis against
   Anthropic's AI-native SDLC playbook, whose core rule is "a skill is advisory, a hook is
   deterministic"):
