@@ -100,10 +100,9 @@ this to govern the change; the process documents here never dictate how a requir
 written. When you have a spec file, pass it directly to `/sdlc-plan <path-to-spec>` — the
 command ingests its acceptance criteria and scope without re-asking questions.
 
-**AI app builders are a place to install this, not a thing to replace.** Independent
-research puts roughly 80% of AI-generated applications as containing at least one
-exploitable flaw, and the standing advice for Lovable, Bolt and v0 output is to budget
-20–30% of development time for security review. That review is what this kit is. So the
+**AI app builders are a place to install this, not a thing to replace.** An app builder
+produces code faster than anyone reviews it, and the review, verification and record of
+why each change was made are exactly what it leaves out. That is what this kit is. So the
 installer detects a managed platform, the charter declares the sync model and the files
 the platform owns, and `05-change-control.md` yields to that table where they conflict —
 see [Installing into a managed platform](#installing-into-a-managed-platform-lovable-replit-bolt-)
@@ -228,7 +227,7 @@ With `-y` and no `--deploy`, nothing is installed from detection alone — the i
 what it found and which flag confirms it. Re-running with `--deploy <id>` later adds a
 checklist without touching anything else; `--upgrade` refreshes the ones installed.
 
-`Advanced` acquisition (displayed as **Black Widow**) enables browser automation, OCR,
+`Advanced` acquisition enables browser automation, OCR,
 resilient extractors, and authorised session flows. It is a capability profile, not
 permission: authentication, paywalls, CAPTCHA, explicit denial, or other access controls
 still require target-owner authorisation or an approved API/export route.
@@ -377,9 +376,9 @@ See `optional/skills/README.md` for how to write your own.
 
 ## Scripts for what does not need judgment
 
-Research on agent instruction files finds that longer or better-organised prose does not
-make an agent follow rules more reliably, and that deterministic checks do. So the parts
-of the process a machine can decide are a script, not a paragraph. Every install gets
+A rule written as prose is a request the agent may or may not honour. The same rule as a
+check either passes or fails. So the parts of the process a machine can decide are a
+script, not a paragraph. Every install gets
 `.ai-sdlc/bin/sdlc.py`: standard-library Python, kit-managed, and refreshed by `--upgrade`.
 
 ```sh
@@ -390,6 +389,8 @@ python3 .ai-sdlc/bin/sdlc.py verify            # run the charter's checks in ord
                                                # the output under .ai-sdlc/evidence/
 python3 .ai-sdlc/bin/sdlc.py plan-check ACME-12 # files the branch changed that the Tier 1
                                                # plan does not name, and planned paths untouched
+python3 .ai-sdlc/bin/sdlc.py view              # draw the records as an interactive page
+python3 .ai-sdlc/bin/sdlc.py metrics           # process measures, leading and lagging
 ```
 
 `verify` exists so a "Verified" claim can cite a file the script wrote instead of the
@@ -398,6 +399,32 @@ the judgment for themselves: severity, behavioural checks, and what to fix first
 with any agent tool that can run `python3`. `/sdlc-review` opens every Tier 1 ship review
 with `plan-check`, so a diff that drifted from its approved plan is visible before any role
 reads it.
+
+### Seeing the work
+
+Records written for an agent are hard for a person to read once a project is real: a
+worklog runs to thousands of lines, and one item's story is spread over a backlog row, a
+plan, two reviews and a worklog entry. `sdlc.py view` reads them all at the moment you run
+it and opens one page, joined by work item ID:
+
+- **Map:** the whole project as a mind map (status, owner role, documents), folding and
+  unfolding, with each label a link.
+- **Board:** Now, Next, Blocked, Parked, Later and Done, filtered by owner or tier. Cards
+  show what each item still waits on.
+- **Activity:** what is in flight, and the latest worklog entries with what they left
+  undone.
+- **Waiting on you:** Parked and Blocked items, who they wait on, and for how long.
+- **Item:** the backlog row, plan, reviews, worklog entries, commits and every record
+  that mentions it, with a lifecycle stepper that shows which step has no record yet.
+- **Documents:** any record with a clickable outline, where IDs and relative links
+  become links.
+
+It writes nothing into the records and adds no format for the agent to keep. The page
+goes to `.ai-sdlc/view/index.html`, which git ignores, and works offline. Rows the view
+cannot read are listed on the page rather than dropped. `sdlc.py metrics` prints the
+process measures the page also shows (work in progress, time waiting on a human, verify
+pass rate, throughput, lead time, lifecycle gaps), each labelled leading or lagging, with
+the record it came from.
 
 The opt-in `--hooks` go one step further for Claude Code. They deny the tool call itself:
 
@@ -467,7 +494,9 @@ optional/
   skills/                    model-invoked skills, installed per project need
   platforms/                 deployment checklists, installed per platform used (--deploy)
   locales/                   translations of the installer's own prompts
-  runtime/                   sdlc.py doctor/verify, installed to .ai-sdlc/bin/ (always)
+  runtime/                   sdlc.py (doctor, verify, plan-check, metrics) and the view,
+                             installed to .ai-sdlc/bin/ (always)
+  harness/claude/            examples to adapt, never installed: settings, verifier subagent
 install.py                   the installer; install.sh is a wrapper around it
 validate.py                  source and installed-output validation
 tests/smoke.py               installer boundary and workflow tests

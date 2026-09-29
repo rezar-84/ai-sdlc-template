@@ -2,7 +2,61 @@
 
 This project follows semantic versioning. User-visible changes are recorded here.
 
-## Unreleased
+## 3.4.0 — 2026-09-29
+
+This release also carries the 3.3.0 changes below, which went out under that version
+number without their own heading.
+
+- **`sdlc.py view`: the records drawn as an interactive page.** It reads the backlog,
+  worklog, plans, reviews, defects, postmortems, ADRs and git history each time it runs, and
+  joins them by work item ID. The page has a map, board, activity feed, waiting-on-you
+  queue, item pages with a lifecycle stepper, documents with an outline, and search.
+  - The page goes to `.ai-sdlc/view/index.html`, which git ignores, and works offline.
+    Record text is only ever inserted as text.
+  - Rows it cannot read are listed on the page rather than dropped.
+  - `view.py` and `view.html` are installed and upgraded with the runtime.
+- **`sdlc.py metrics`: process measures from the records and git.** Each is labelled
+  leading or lagging and names its source: work in progress, time waiting on a human,
+  verify pass rate, throughput, lead time, Done items with a lifecycle gap, and plans
+  updated after the build started. The view's home page shows them too.
+- **The lessons loop:**
+  - `AGENTS.md` §9 gains "Known agent mistakes".
+  - `/sdlc-review` and `sdlc-postmortem` add a line there when a finding is seen a second
+    time, and propose a hook or check when the mistake is decidable from a tool call.
+  - `doctor` warns when the list passes 30 lines.
+- **Evaluating the agent's own setup** (`04-quality-gates.md`): 20–50 real tasks, run when
+  `AGENTS.md`, skills, hooks or the model change. Every S0/S1 caused by the agent's
+  behaviour adds one.
+- **Agents in pipelines and environments** (`04-quality-gates.md`):
+  - The agent acts up to the production gate and never past it.
+  - Agent CI jobs start read-only and write only as PRs, with short-lived scoped
+    credentials.
+  - Rollback is rehearsed; `doctor` warns when a runbook's "Last executed" date is missing
+    or stale.
+  - The charter's Environments table gains "What an agent may do there".
+- **Findings enter as intake items** (G6, `sdlc-intake`): alerts, scheduled scans and
+  pipeline triage get the same five-line intake as a person's request. Dismissals are
+  recorded with a reason.
+- **One system of record per kind of record**: a charter row and a rule in
+  `07-traceability.md`.
+- **OPSEC:**
+  - Secrets and personal data never go into a record (`AGENTS.md`).
+  - `security.md` gains a checklist for the coding agent's own access, and severity rows
+    for pasted secrets, readable secrets and unvetted agent tooling.
+  - `sdlc.py verify` masks credential-shaped strings in saved logs and says so.
+- **Skill, instruction or check?** A decision rule and a "test that it fires" step in
+  `optional/skills/README.md`.
+- **Worktrees** (`10-multi-agent.md`): one claimed item per working tree, split by the
+  plan's files.
+- **Claude harness examples** (`optional/harness/claude/`, never installed): a
+  `settings.example.json` that keeps secrets out of reach, with the sandbox on, and a
+  `verifier` subagent that reports and never fixes.
+- **Fixes:**
+  - `secret-guard` missed a credential in a repository's first commit made with
+    `commit -a`.
+  - "Black Widow" is gone as a display name for the Advanced acquisition profile.
+  - Two README claims that cited no source were rewritten to rest on the kit's own
+    reasoning.
 
 - **The kit is now called Nuhut** (chickpea), with a logo and a lifecycle diagram in
   `assets/`. Only the name in prose changed: installer messages, the README, the
