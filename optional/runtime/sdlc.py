@@ -9,7 +9,7 @@ markdown commands that call this.
     python3 .ai-sdlc/bin/sdlc.py doctor [--json] [--strict]
     python3 .ai-sdlc/bin/sdlc.py verify [--stage unit,lint] [--timeout 1800]
     python3 .ai-sdlc/bin/sdlc.py plan-check ACME-12 [--base main] [--json] [--strict]
-    python3 .ai-sdlc/bin/sdlc.py view [--no-open] [--json]
+    python3 .ai-sdlc/bin/sdlc.py view [--no-open] [--json] [--serve [--port 8765]]
     python3 .ai-sdlc/bin/sdlc.py metrics [--json]
 
 Standard library only. Installed and upgraded by the kit, so a local edit blocks
@@ -858,6 +858,12 @@ def main(argv):
                         "(.ai-sdlc/view/index.html, git-ignored)")
     vw.add_argument("--no-open", action="store_true", help="write the page, do not open it")
     vw.add_argument("--json", action="store_true", help="print the model instead")
+    vw.add_argument("--serve", action="store_true", help="live mode: serve the page on "
+                    "127.0.0.1 and update it as the records change")
+    vw.add_argument("--port", type=int, default=8765, help="live mode port (default 8765; "
+                    "0 picks a free one)")
+    vw.add_argument("--interval", type=int, default=2, help="live mode: seconds between "
+                    "checks for changes (default 2)")
     met = sub.add_parser("metrics", help="process measures from the records and git")
     met.add_argument("--json", action="store_true", help="print as JSON")
     opts = parser.parse_args(argv)

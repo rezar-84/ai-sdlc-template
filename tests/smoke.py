@@ -792,6 +792,47 @@ def test_view():
     status = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=all"],
                                      cwd=d).decode()
     check("nothing under .ai-sdlc/view/ shows up in git", ".ai-sdlc/view" not in status, status)
+
+    # Live mode: a local server whose page follows the records.
+    import http.client
+    import re as _re
+    import time as _time
+    server = subprocess.Popen([sys.executable, script, "view", "--serve", "--no-open",
+                               "--port", "0", "--interval", "1"], cwd=d,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    try:
+        line = server.stdout.readline().decode("utf-8", "replace")
+        port = int(_re.search(r"127\.0\.0\.1:([0-9]+)", line).group(1)) if "127.0.0.1:" in line else 0
+        check("--serve binds to 127.0.0.1 and says where", port > 0, line)
+
+        def get(path, host=None):
+            c = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            c.request("GET", path, headers={"Host": host or "127.0.0.1:%d" % port})
+            r = c.getresponse()
+            return r.status, r.read().decode("utf-8", "replace"), dict(r.getheaders())
+
+        code, page, headers = get("/")
+        check("the live page is served with the model inside",
+              code == 200 and "VWX-2" in page and "/*NUHUT_MODEL*/" not in page, str(code))
+        check("the live page is never cached", headers.get("Cache-Control") == "no-store", str(headers))
+        code, v1, _ = get("/version")
+        code, body, _ = get("/model.json")
+        check("the model endpoint carries the same version",
+              json.loads(body).get("version") == v1 and len(v1) == 16, v1)
+        write(d, "docs/project/backlog.md", read(d, "docs/project/backlog.md").replace(
+            "| VWX-2 | Checkout", "| VWX-2 | Checkout v2"))
+        _time.sleep(1.5)
+        code, v2, _ = get("/version")
+        code, body, _ = get("/model.json")
+        check("a changed record moves the version and rebuilds the model",
+              v2 != v1 and "Checkout v2" in json.loads(body)["items"]["VWX-2"]["title"], v2)
+        code, _, _ = get("/", host="evil.example:%d" % port)
+        check("a request for another host is refused (DNS rebinding)", code == 403, str(code))
+        code, _, _ = get("/../../AGENTS.md")
+        check("nothing but the page, version and model is served", code == 404, str(code))
+    finally:
+        server.terminate()
+        server.wait(timeout=10)
     shutil.rmtree(d, ignore_errors=True)
 
 

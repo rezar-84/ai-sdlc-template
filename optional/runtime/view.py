@@ -11,9 +11,13 @@ This file must never contain two opening braces in a row (see sdlc.py).
 """
 
 import datetime
+import hashlib
 import json
 import os
 import re
+import sys
+import threading
+import time
 import webbrowser
 
 # Backlog statuses, in the order the board shows them, and the column each belongs to.
@@ -430,12 +434,149 @@ def print_metrics(rt, project, opts):
     return 0
 
 
+# ---------------------------------------------------------------- live mode
+
+def watched_paths(project):
+    """Every file the model is read from. A change to any of them, or a new commit,
+    changes the fingerprint."""
+    paths = [project.path("AGENTS.md"), project.path(os.path.join(project.docs, "CARD.md"))]
+    for base, _, files in os.walk(project.path(os.path.join(project.docs, "project"))):
+        paths.extend(os.path.join(base, n) for n in files if n.endswith(".md"))
+    evidence = project.path(os.path.join(".ai-sdlc", "evidence"))
+    if os.path.isdir(evidence):
+        paths.extend(os.path.join(evidence, n, "summary.json") for n in os.listdir(evidence))
+    return sorted(paths)
+
+
+def fingerprint(project):
+    digest = hashlib.sha256()
+    for path in watched_paths(project):
+        try:
+            st = os.stat(path)
+        except OSError:
+            continue
+        digest.update(("%s %d %d\n" % (path, st.st_mtime_ns, st.st_size)).encode("utf-8"))
+    digest.update(project.git("rev-parse", "HEAD").encode("utf-8"))
+    return digest.hexdigest()[:16]
+
+
+class Live(object):
+    """The current model, rebuilt only when the fingerprint moves, and at most once per
+    interval however many tabs are polling."""
+
+    def __init__(self, rt, project, template, interval):
+        self.rt, self.project, self.template, self.interval = rt, project, template, interval
+        self.lock = threading.Lock()
+        self.checked = 0.0
+        self.version = None
+        self.model_json = b""
+        self.page = b""
+        self.refresh(force=True)
+
+    def refresh(self, force=False):
+        with self.lock:
+            now = time.time()
+            if not force and now - self.checked < self.interval:
+                return self.version
+            self.checked = now
+            version = fingerprint(self.project)
+            if version == self.version and not force:
+                return self.version
+            try:
+                model = build(self.rt, self.project)
+            except Exception as exc:  # a record caught half-written; keep the last good one
+                sys.stderr.write("view: rebuild failed, keeping the last model: %s\n" % exc)
+                return self.version
+            model["version"] = version
+            model["live_interval"] = self.interval
+            self.version = version
+            self.model_json = json.dumps(model, ensure_ascii=False,
+                                         separators=(",", ":")).encode("utf-8")
+            self.page = render(model, self.template).encode("utf-8")
+            if not force:
+                sys.stderr.write("view: records changed, model rebuilt (%s)\n"
+                                 % time.strftime("%H:%M:%S"))
+            return self.version
+
+
+def serve(rt, project, template, opts):
+    try:
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    except ImportError:  # Python < 3.7
+        raise SystemExit("--serve needs Python 3.7 or newer")
+    interval = max(1, int(getattr(opts, "interval", 2) or 2))
+    live = Live(rt, project, template, interval)
+
+    class Handler(BaseHTTPRequestHandler):
+        server_version = "nuhut-view"
+
+        def _send(self, code, body, ctype):
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(body)
+
+        def do_GET(self):
+            # The page carries the records' contents. Refuse any Host but this machine,
+            # so a web page cannot reach it through DNS rebinding.
+            host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]").lower()
+            if host not in ("127.0.0.1", "localhost", "::1"):
+                return self._send(403, b"forbidden\n", "text/plain; charset=utf-8")
+            path = self.path.split("?", 1)[0]
+            if path in ("/", "/index.html"):
+                live.refresh()
+                return self._send(200, live.page, "text/html; charset=utf-8")
+            if path == "/version":
+                return self._send(200, (live.refresh() or "").encode("utf-8"),
+                                  "text/plain; charset=utf-8")
+            if path == "/model.json":
+                live.refresh()
+                return self._send(200, live.model_json, "application/json; charset=utf-8")
+            return self._send(404, b"not found\n", "text/plain; charset=utf-8")
+
+        do_HEAD = do_GET
+
+        def log_message(self, *args):  # the terminal shows rebuilds, not every poll
+            pass
+
+    port = int(getattr(opts, "port", 8765))
+    server = None
+    for candidate in ([port] if port == 0 else range(port, port + 10)):
+        try:
+            server = ThreadingHTTPServer(("127.0.0.1", candidate), Handler)
+            break
+        except OSError:
+            continue
+    if server is None:
+        raise SystemExit("view: ports %d-%d are all in use; pass --port" % (port, port + 9))
+    url = "http://127.0.0.1:%d/" % server.server_address[1]
+    print("view: live at %s (local only). The page follows the records as they change; "
+          "Ctrl+C stops it." % url)
+    sys.stdout.flush()
+    if not getattr(opts, "no_open", False):
+        webbrowser.open(url)
+    try:
+        server.serve_forever(poll_interval=0.5)
+    except KeyboardInterrupt:
+        print("\nview: stopped")
+    finally:
+        server.server_close()
+    return 0
+
+
 def run(rt, project, opts):
     here = os.path.dirname(os.path.abspath(__file__))
     template = rt.read(os.path.join(here, "view.html"))
     if not template:
         raise SystemExit("view.html is missing next to view.py; re-run the installer "
                          "with --upgrade")
+    if getattr(opts, "serve", False):
+        return serve(rt, project, template, opts)
     model = build(rt, project)
     out_dir = project.path(os.path.join(".ai-sdlc", "view"))
     if not os.path.isdir(out_dir):

@@ -2,6 +2,21 @@
 
 This project follows semantic versioning. User-visible changes are recorded here.
 
+## Unreleased
+
+- **Live mode: `sdlc.py view --serve`.** The view is served on 127.0.0.1 and redraws
+  within a couple of seconds of a record changing or a new commit. It keeps the open tab,
+  folds, filters, open panels and scroll, and waits while you type in a filter.
+  - The page checks a cheap fingerprint and fetches the model only when it moves. The
+    server rebuilds at most once per interval, however many tabs are open, and keeps the
+    last good model if a record is caught half-written.
+  - The header shows "Live" or "Disconnected". A stopped server leaves the last data on
+    screen.
+  - It serves exactly three read-only paths and refuses a Host header that is not this
+    machine. The page carries record contents, so DNS rebinding cannot reach it.
+  - `--port` (default 8765, the next free one if taken, `0` for any) and `--interval`
+    tune it. It needs Python 3.7 or newer.
+
 ## 3.4.0 — 2026-09-29
 
 This release also carries the 3.3.0 changes below, which went out under that version

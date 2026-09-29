@@ -390,6 +390,7 @@ python3 .ai-sdlc/bin/sdlc.py verify            # run the charter's checks in ord
 python3 .ai-sdlc/bin/sdlc.py plan-check ACME-12 # files the branch changed that the Tier 1
                                                # plan does not name, and planned paths untouched
 python3 .ai-sdlc/bin/sdlc.py view              # draw the records as an interactive page
+python3 .ai-sdlc/bin/sdlc.py view --serve      # the same page, live: it follows the records
 python3 .ai-sdlc/bin/sdlc.py metrics           # process measures, leading and lagging
 ```
 
@@ -420,7 +421,12 @@ it and opens one page, joined by work item ID:
   become links.
 
 It writes nothing into the records and adds no format for the agent to keep. The page
-goes to `.ai-sdlc/view/index.html`, which git ignores, and works offline. Rows the view
+goes to `.ai-sdlc/view/index.html`, which git ignores, and works offline.
+
+With `--serve` the page is live instead: leave it open while agents work, and it redraws
+within a couple of seconds of any record changing or a new commit, keeping your place, folds
+and filters. It serves only on 127.0.0.1, refuses requests addressed to any other host,
+and has no way to write. Ctrl+C stops it; `--port` and `--interval` tune it. Rows the view
 cannot read are listed on the page rather than dropped. `sdlc.py metrics` prints the
 process measures the page also shows (work in progress, time waiting on a human, verify
 pass rate, throughput, lead time, lifecycle gaps), each labelled leading or lagging, with
