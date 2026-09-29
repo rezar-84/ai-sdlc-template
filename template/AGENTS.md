@@ -10,7 +10,7 @@ detail rather than repeating it.
 document in `{{DOCS_DIR}}/process/` states a hard safety rule (evidence, security, data loss) —
 those cannot be overridden by convenience.
 
-<!-- AI SDLC kit v{{KIT_VERSION}}. Sections 1–8 came from the kit. Upgrades preserve this
+<!-- Nuhut kit v{{KIT_VERSION}}. Sections 1–8 came from the kit. Upgrades preserve this
      file, so merge newer template changes deliberately. Section 9 is project-owned. -->
 
 ---

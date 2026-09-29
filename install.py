@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Install the AI SDLC doc kit into a project.
+Install the Nuhut doc kit into a project.
 
     ./install.sh <target-project-dir> [PREFIX] [options]
     python3 install.py <target-project-dir> [PREFIX] [options]
@@ -46,7 +46,7 @@ RTL_LANGS = {"ar", "arc", "ckb", "dv", "fa", "he", "ps", "sd", "ug", "ur", "yi"}
 # usable rather than broken.
 
 EN = {
-    "intro.title": "AI SDLC kit v{version} -- guided setup",
+    "intro.title": "Nuhut kit v{version} -- guided setup",
     "intro.keys1": "Enter = the value in brackets   -  = leave blank   ? = why this is asked",
     "intro.keys2": "b = back one question   s = default the rest of this section   S = default everything",
     "intro.keys3": "Nothing is written until you confirm at the review screen. q quits.",
@@ -2698,7 +2698,7 @@ class Installer(object):
     def run(self):
         w = self.w
         print("")
-        print("Installing AI SDLC kit v%s into %s" % (VERSION, self.target))
+        print("Installing Nuhut kit v%s into %s" % (VERSION, self.target))
         print("")
         candidates = [self.target / "AGENTS.md", self.target / "CLAUDE.md",
                       self.target / MANIFEST_REL, self.target / RUNTIME_REL]
@@ -3021,7 +3021,7 @@ class Installer(object):
         d = self.w.det
         return {
             "schema": 1,
-            "generated_by": "ai-sdlc-template %s" % VERSION,
+            "generated_by": "nuhut %s" % VERSION,
             "confirmation_required": True,
             "adapters": d.adapters,
             "languages": d.lang,
@@ -3600,7 +3600,7 @@ def upgrade(target, o):
               % (len(changed), len(obsolete)))
         return 0
 
-    print("Upgrading AI SDLC kit in %s to v%s" % (target, VERSION))
+    print("Upgrading Nuhut kit in %s to v%s" % (target, VERSION))
     print("  (%s portable docs and already-installed skills -- project records untouched)"
           % docs)
     print("")

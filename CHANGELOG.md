@@ -4,6 +4,13 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **The kit is now called Nuhut** (chickpea), with a logo and a lifecycle diagram in
+  `assets/`. Only the name in prose changed: installer messages, the README, the
+  `AGENTS.md` header comment, the dashboard, and the LICENSE holder. The `/sdlc-*`
+  commands, the `.ai-sdlc/` paths, the plugin ID and the install commands keep the working
+  name `ai-sdlc`, so existing installs upgrade unchanged. The README says whether the kit's
+  effect on agents has been measured (not yet).
+
 - **Security: the hooks failed open** in three cases an agent can hit by accident. All three
   are fixed and pinned by smoke tests.
   - **Run from a subdirectory:** the hooks were registered as `sh .claude/hooks/x.sh` and
@@ -44,7 +51,7 @@ This project follows semantic versioning. User-visible changes are recorded here
     name, and planned paths nothing touched. Plans that predate the new section are read
     from their "Affected surfaces → Code" bullet, `{a,b}` sets included, and
     `<ID>-<slug>.md` names are found.
-  - Tried read-only on tasario and lawkin plans.
+  - Tried read-only on the plans of two existing installs.
 - **Review has a conformance pass and a nit cap**:
   - `02-role-reviews.md`, `/sdlc-review` and `templates/role-review.md` open every Tier
     1/2 ship review with a conformance pass: plan-check, each acceptance criterion traced
@@ -67,9 +74,9 @@ This project follows semantic versioning. User-visible changes are recorded here
   - `/sdlc-doctor`, `/sdlc-verify`, and the `sdlc-doctor` and `sdlc-evidence-check` skills
     run the script first and keep only the judgment: severity, behaviour, what to fix
     first. By hand is the fallback when the script or `python3` is absent.
-  - Tried read-only on two existing installs. On tasario it found six worklog IDs missing
+  - Tried read-only on two existing installs. On one it found six worklog IDs missing
     from the backlog, a 3,272-line worklog past rotation, and a profile whose commands were
-    never filled in. On lawkin it found a charter that predates the mode rows.
+    never filled in. On the other it found a charter that predates the mode rows.
 
 - **Kit-value benchmark** (`benchmarks/kit-value/`): a pinned, repeatable comparison of
   no kit, the kit, and the kit with `--hooks`, over five fixture tasks (a shared-caller

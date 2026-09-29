@@ -1,7 +1,18 @@
-# AI SDLC Template
+<p align="center">
+  <img src="assets/nuhut-logo.svg" alt="Nuhut" width="560">
+</p>
 
-A portable, stack-agnostic documentation kit that makes an AI coding agent work like a
-disciplined product team instead of a fast typist.
+**Nuhut** (chickpea) is a portable, stack-agnostic kit that makes an AI coding agent work
+like a disciplined product team instead of a fast typist. It is small and plain, and it
+holds its shape under pressure.
+
+```sh
+./install.sh /path/to/your-project        # guided setup; Enter takes every default
+```
+
+<p align="center">
+  <img src="assets/nuhut-loop.svg" alt="Frame, plan, design review, build, verify, ship review, log, close, with findings looping back as new work" width="100%">
+</p>
 
 Drop it into any project. From then on, an agent that reads `AGENTS.md` will:
 
@@ -20,6 +31,15 @@ Every work item also resolves an **effort mode** independently of its risk tier:
 takes the shortest sufficient path, Normal is the balanced default, and Beast maximises
 investigation and verification without widening product scope. No mode weakens security,
 tests, evidence, approvals, or another requirement imposed by the risk tier.
+
+> **Status.** The process, installer, runtime checks and hooks are tested (`validate.py`,
+> `tests/smoke.py`, CI). Whether the kit measurably changes agent behaviour is what
+> `benchmarks/kit-value/` exists to show. It has not been run at N≥4 yet, so no such claim
+> is made here.
+
+The commands and paths still carry the kit's working name, `ai-sdlc`: `/sdlc-*`,
+`.ai-sdlc/`, and the plugin ID. Renaming them would break `--upgrade` for existing
+installs, so they change only in a major release that migrates them.
 
 ## What it deliberately does NOT do
 
