@@ -102,9 +102,9 @@ immediately upon completion.
 **Authoritative.** `test-plan.md` and `release-runbook.md` link here rather than
 repeating this table.
 
-| Environment | Purpose | Deployed from | Who may deploy |
-| --- | --- | --- | --- |
-| | | | |
+| Environment | Purpose | Deployed from | Who may deploy | What an agent may do there |
+| --- | --- | --- | --- | --- |
+| | | | | _(e.g. dev: deploy freely · staging: deploy, no data changes · production: prepare only; a human deploys)_ |
 
 | | |
 | --- | --- |
@@ -240,7 +240,7 @@ here, in the shape of a role playbook: mission, engage when, reads, what it chec
 | | |
 | --- | --- |
 | **Default effort mode** | `Lean` · `Normal` · `Beast` _(default: Normal; changes breadth above the risk-tier floor, never the floor itself)_ |
-| **Acquisition profile** | `Standard` · `Advanced` _(display name: Black Widow; advanced tools require an owned or explicitly authorised target and never grant permission)_ |
+| **Acquisition profile** | `Standard` · `Advanced` _(advanced tools require an owned or explicitly authorised target and never grant permission)_ |
 | **Always Tier 1 here** | _(the surfaces that are high-risk in this project specifically)_ |
 | **Never Tier 1 here** | _(surfaces from the `AGENTS.md` Tier 1 list that genuinely do not apply — e.g. "no PII: this project holds no personal data, see Data categories held". Without this, "when in doubt, tier up" makes almost everything Tier 1.)_ |
 | **Human approval required for** | _(list — mirrors the "Human approval required for" line in `AGENTS.md`, "Project overrides")_ |
@@ -291,6 +291,7 @@ Where the authoritative version of each thing lives, so nobody guesses.
 | Content source | |
 | Secrets | |
 | Issue tracker _(if not `backlog.md`)_ | |
+| System of record | _(for each record kind — work items, plans, decisions, approvals — which system is authoritative: this repository, or a tracker. The other holds a link. `../process/07-traceability.md`)_ |
 | Repository license | _(e.g. MIT / Apache-2.0 / Proprietary — see `LICENSE` or `COPYING`)_ |
 
 ## Artifacts in use

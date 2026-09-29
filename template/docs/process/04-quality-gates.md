@@ -209,3 +209,39 @@ unmeasured one.
   for public content, and the high-risk matrices above.
 - Post-deploy: smoke tests plus synthetic checks on the critical journeys.
 - A red main branch is an incident, not a normal state.
+
+## Agents in pipelines and environments
+
+**An agent acts up to the production gate and never past it.** The charter's Environments
+table says what an agent may do in each environment. Where it is silent, the answer is:
+prepare, do not deploy.
+
+- **Start agent CI jobs read-only:** triaging a failed build, summarising a flaky test,
+  drafting the changelog. Add writing jobs later, and only as pull requests through the
+  same branch protection a person meets. An agent job never pushes to the default branch.
+- **Credentials for agent jobs are short-lived and scoped** to the one job. There are no
+  standing production credentials. Each run acts under an identity that separates it from
+  the person who triggered it.
+- **Rollback is the most rehearsed path in the pipeline.** It is one command, run in
+  staging often enough that the runbook's "Last executed" date stays inside the charter's
+  staleness threshold. `sdlc.py doctor` warns when it does not.
+- **Detection stays deterministic.** A monitor, scanner or failed pipeline may invoke an
+  agent, but a script decides that something is wrong. What the agent finds enters as an
+  ordinary intake item (G6 in `01-lifecycle-gates.md`), and its fix goes through the same
+  review as any other change.
+
+## Evaluating the agent's own setup
+
+`AGENTS.md`, the skills, the hooks and the model are configuration that steers every
+change. A change to any of them can make the agent worse without any test failing.
+
+- **Keep the tasks that prove the setup works:** 20–50 real tasks from this project's
+  history, each with a prompt and checks that decide acceptance (tests pass, a denied path
+  stays denied, the right record is written). `benchmarks/kit-value/` in the kit shows the
+  shape.
+- **Run them when that configuration changes,** and on a schedule. A change that lowers
+  the pass rate is reviewed before it merges, like any other regression.
+- **Every S0 or S1 whose cause includes the agent's behaviour adds a task,** written by
+  the owner of the postmortem. It stays in the set as a regression test.
+- Nothing may be claimed to have improved the agent without a baseline run on the same
+  tasks before the change (`06-evidence-and-claims.md`, *Measured*).

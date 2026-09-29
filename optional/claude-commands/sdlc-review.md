@@ -47,5 +47,10 @@ branch.)
 7. **Record** to `{{DOCS_DIR}}/project/reviews/{{PREFIX}}-###-<design|ship>.md` using
    `{{DOCS_DIR}}/templates/role-review.md` for Tier 1; summarise in the response for Tier 2.
 
+**A finding seen before.** If this review raises a finding an earlier review or
+postmortem already raised, the correction becomes one line under "Known agent mistakes" in
+`AGENTS.md` section 9, in the same change. The second occurrence is the signal. The first
+is noise.
+
 On a Block, stop and escalate with the finding, the options, and a recommendation
 (`02-role-reviews.md`, "On a Block").

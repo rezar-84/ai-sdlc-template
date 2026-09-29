@@ -30,6 +30,15 @@ is a write, not an intention. If the row is already owned, pick another item —
 - Never renumber, reorder, or reformat rows you do not own. A reformatting pass across
   the backlog conflicts with every agent holding a claim.
 
+**One item, one working tree.** Parallel sessions on the same checkout overwrite each
+other's files between one command and the next. Give each claimed item its own git
+worktree: a separate checkout on its own branch, which shares the repository but not the
+files. Split work by the files it touches, using the plan's "Files that change". Two items
+that change the same files run one after the other, not side by side.
+
+The limit on parallel sessions is how many the human can review properly, not how many the
+machine can run. Add a session only while reviews are keeping up.
+
 ## 2. Single-writer files
 
 These have one writer at a time regardless of who owns which item. Touching them means

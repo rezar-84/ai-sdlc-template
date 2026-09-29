@@ -33,6 +33,12 @@ done better. If the conclusion is "be more careful", it is not finished.
 - **Update the documents the incident falsified** — charter cells, runbooks, the threat
   model, assumptions. An incident is evidence that a document was wrong.
 - Add anything newly uncertain to `{{DOCS_DIR}}/project/assumptions-and-risks.md`.
+- **If an agent's mistake contributed**, and it is not the first time, add one line under
+  "Known agent mistakes" in `AGENTS.md` section 9. If the mistake is decidable from a tool
+  call, propose a hook or a check instead: an instruction makes the mistake rarer, and a
+  check stops it.
+- **For an S0 or S1**, add the case to the project's agent evaluation tasks if it keeps
+  them (`{{DOCS_DIR}}/process/04-quality-gates.md`, "Evaluating the agent's own setup").
 
 ## Tone
 

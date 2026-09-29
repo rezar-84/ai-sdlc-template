@@ -23,6 +23,19 @@ exists (from GitHub Spec Kit, Kiro, or a spec file), cite it and use its defined
 statement and scope. If your restatement could plausibly mean something materially
 different from the request, ask now — this is the cheapest moment in the whole loop to ask.
 
+For anything above Tier 3, write the restatement as five short lines. They go into the plan
+(Tier 1) or the response (Tier 2), not into a new file:
+
+- **Problem:** what is wrong or missing today, and for whom.
+- **Outcome:** what will be observably true afterwards.
+- **Affected:** the users, systems and contracts it touches.
+- **Constraints:** what it must not do or change.
+- **Open questions:** what nobody has answered yet.
+
+The request may come from a machine rather than a person: an alert past its threshold, a
+scheduled scan, a failed pipeline an agent triaged. It gets the same five lines, with the
+evidence that triggered it quoted under Problem.
+
 ## 3. Assign the ID
 
 `{{PREFIX}}-###`: the highest number found anywhere in `{{DOCS_DIR}}/project/`, plus one.

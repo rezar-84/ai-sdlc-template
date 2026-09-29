@@ -16,7 +16,7 @@ Read the charter's **Acquisition profile** independently of its effort mode:
 
 - **Standard** — prefer an API or feed, then bounded static requests, then ordinary
   browser rendering only when the content requires it.
-- **Advanced** *(display name: Black Widow)* — may also use pluggable renderers, browser
+- **Advanced** — may also use pluggable renderers, browser
   automation, resilient extraction fallbacks, OCR, and authenticated session flows with
   credentials supplied for an owned or explicitly authorised target.
 

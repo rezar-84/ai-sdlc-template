@@ -155,6 +155,11 @@ code  ←→  commit  ←→  {{PREFIX}}-###  ←→  backlog row
 If any link is missing, that is a finding. The most common break is a change that was
 made "quickly" without an ID — from which point nothing downstream can be found.
 
+**When a tracker holds the record too.** Name one system as authoritative for each kind
+of record, in the charter's "System of record" row. The other system holds a link, never
+a second copy that can drift. At minimum, the tracker item carries the commit SHA and the
+repository record carries the tracker ID.
+
 ---
 
 ## Housekeeping

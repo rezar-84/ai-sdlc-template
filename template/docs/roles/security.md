@@ -138,6 +138,15 @@ diff, and the actual enforcement points in the code.
       A model choosing its own authorisation is not a control.
 - [ ] Destructive, financial, or outward-facing actions require a human, and the path a
       crafted input takes to reach one is traced explicitly.
+
+**The coding agent's own access** — apply this block on every project an agent works in:
+- [ ] The agent cannot read secrets it does not need. `.env*`, cloud credentials, SSH keys
+      and token files are denied to its tools, and a sandbox covers what the tool rules
+      cannot, such as a shell command reading a file.
+- [ ] Every MCP server, plugin, skill and hook in the agent's setup comes from a known
+      source, is pinned, and is reviewed like a dependency.
+- [ ] The agent's own credentials are short-lived and scoped. It holds no standing
+      production access.
 - [ ] The output is treated as untrusted data by whatever consumes it: no `eval`, no
       shell interpolation, no unescaped rendering, no SQL built from it.
 - [ ] Nothing crosses a tenant or user boundary through retrieval. An index that mixes
@@ -185,6 +194,9 @@ in this table is below S1, which is why this role is never switched off.
 | Tool or agent permissions wider than the task, or expandable by model output | S1 |
 | Retrieved or user-supplied content treated as instruction rather than as data | S1 |
 | Secrets present in prompts, traces, or evaluation fixtures | S1 — as with any log, treat the leak as having happened |
+| A secret value or personal data pasted into a committed record (worklog, review, plan, postmortem) | S1 — rotate it; the history keeps it |
+| The coding agent itself able to read secrets it does not need (`.env`, cloud credentials, SSH keys) with no deny rule or sandbox | S2 |
+| An MCP server, plugin, skill or hook added to the agent's setup from an unvetted source, or unpinned | S2 |
 | Writeable corpus with no control on what gets indexed | S2 |
 | Unpinned third-party build action, image, or runtime-fetched build artifact | S2 |
 | A floating dependency version, or a lockfile absent or unverified | S2 |

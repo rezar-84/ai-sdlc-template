@@ -209,7 +209,9 @@ contract. Full rules: `{{DOCS_DIR}}/process/02-role-reviews.md`.
   `feat` · `fix` · `docs` · `chore` · `refactor` · `test` · `perf` · `sec`.
 - **Commits:** small, imperative, scoped, and referencing the ID.
 - **Never** commit secrets, credentials, tokens, `.env` contents, customer data, or
-  large binaries. Never force-push a shared branch. Never edit a production datastore by
+  large binaries, and never paste them into a record (the worklog, a review, a plan, a
+  postmortem): the records are committed too. Name the secret or the person; do not quote
+  the value. Never force-push a shared branch. Never edit a production datastore by
   hand — use a reviewed, reversible migration.
 - **Material decisions get an ADR** in `{{DOCS_DIR}}/project/adr/` — anything expensive to
   reverse, or that a future reader would otherwise have to reverse-engineer. Supersede
@@ -293,3 +295,7 @@ Where the opt-in hooks are installed, each command above that a machine can reco
 (a production deploy, an infrastructure apply, a production migration) also gets a glob
 in `.ai-sdlc/gates.txt`, so it is denied until a human passes it. The agent prepares
 everything up to that gate and never passes it.
+
+**Known agent mistakes:** _(none yet. When a review or postmortem finds the same mistake
+a second time, add one line here: what goes wrong, and what to do instead. Keep it under
+about thirty lines. Anything longer belongs in a check or a hook instead.)_

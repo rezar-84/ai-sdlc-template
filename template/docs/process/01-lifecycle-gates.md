@@ -163,7 +163,10 @@ no reverse path.
 **Do:**
 - Watch the metrics named in the measurement plan against their baselines.
 - Triage incidents; postmortem anything S0/S1 (`templates/postmortem.md`).
-- Feed findings back into the backlog as real items, not vague intentions.
+- Feed findings back into the backlog as real items, not vague intentions. That includes
+  findings nobody typed: an alert past its threshold, a scheduled scan, a failed pipeline an
+  agent triaged. They enter through the same intake, with an ID and a tier. A dismissed
+  finding is recorded with its reason, so it does not come back as new.
 - Re-review documents whose `last-reviewed` date has aged past the charter's threshold.
 
 **Exit:** none — this gate is continuous. It closes only when the project is retired.

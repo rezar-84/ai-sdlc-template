@@ -57,5 +57,20 @@ request — because that text is all the agent sees when deciding whether to loa
 the body short enough to be read in full: point at the process documents rather than
 restating them, so the skill cannot drift away from the standard it enforces.
 
+**Skill, instruction, or check?**
+
+- **A check or hook:** anything decidable from a file or a tool call. It holds without
+  exception.
+- **A skill:** a policy that has to be applied the same way every time, but only when a
+  certain kind of work comes up (API security, migrations, brand rules). It costs context
+  only when it fires.
+- **`AGENTS.md`:** facts and rules every session needs: commands, conventions, the
+  known agent mistakes.
+- **A prompt:** anything needed once.
+
+**Test that it fires.** Ask for the task it covers three different ways, in the words a
+real request would use, and confirm the skill loads each time. A skill that does not fire
+is only a description taking up context.
+
 Project-specific skills belong in the project's own `.claude/skills/`, not here. `--upgrade`
 refreshes only the skills this kit ships and never adds new ones.
