@@ -308,10 +308,13 @@ def main():
         if not (ROOT / name).is_file():
             errors.append("missing repository file: %s" % name)
 
-    runtime = ROOT / "optional" / "runtime" / "sdlc.py"
-    if runtime.is_file() and "{{" in runtime.read_text(encoding="utf-8"):
-        errors.append("optional/runtime/sdlc.py contains a double brace, which the installer "
-                      "would substitute; spell it '[{][{]'")
+    for name in ("sdlc.py", "view.py", "view.html"):
+        runtime = ROOT / "optional" / "runtime" / name
+        if not runtime.is_file():
+            errors.append("missing runtime file: optional/runtime/%s" % name)
+        elif "{{" in runtime.read_text(encoding="utf-8"):
+            errors.append("optional/runtime/%s contains a double brace, which the installer "
+                          "would substitute; spell it '[{][{]'" % name)
     for rel in ("optional/runtime/sdlc.py", "benchmarks/effort-modes/score.py",
                 "benchmarks/kit-value/score.py", "benchmarks/kit-value/measure.py"):
         script = ROOT / rel

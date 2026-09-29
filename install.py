@@ -35,6 +35,8 @@ PROFILE_REL = Path(".ai-sdlc") / "profile.json"
 STATE_REL = "dashboard-state.js"
 # The mechanical half of /sdlc-doctor and /sdlc-verify. Kit-managed: --upgrade refreshes it.
 RUNTIME_REL = ".ai-sdlc/bin/sdlc.py"
+# Everything under optional/runtime/, installed side by side in .ai-sdlc/bin/.
+RUNTIME_FILES = ("sdlc.py", "view.py", "view.html")
 
 # Writing direction is derived from the language tag, never asked: a project that lists
 # `fa` is right-to-left whether or not anyone remembered to say so.
@@ -128,7 +130,7 @@ EN = {
     "q.staleness": "Treat project docs as stale after",
     "q.effort": "Default effort mode (l = Lean, n = Normal, x = Beast)",
     "h.effort": "Lean minimizes optional work, Normal is balanced, Beast maximizes investigation and verification. Risk-tier requirements never change.",
-    "q.acquisition": "Acquisition profile (s = Standard, a = Advanced / Black Widow)",
+    "q.acquisition": "Acquisition profile (s = Standard, a = Advanced)",
     "h.acquisition": "Advanced enables more extraction techniques on authorized targets. It never grants permission to bypass access controls.",
     "q.approval": "Human approval required for",
     "q.forbidden": "Forbidden in this project",
@@ -2348,8 +2350,9 @@ def managed_source_texts(target, docs, ctx, profile="full"):
             if src.is_file() and ((hooks_root / src.name).is_file() or src.name == "lib.sh"):
                 planned[str(Path(".claude") / "hooks" / src.name)] = substitute(
                     src.read_text(encoding="utf-8"), ctx)
-    planned[RUNTIME_REL] = substitute(
-        (SRC / "optional" / "runtime" / "sdlc.py").read_text(encoding="utf-8"), ctx)
+    for name in RUNTIME_FILES:
+        planned[".ai-sdlc/bin/" + name] = substitute(
+            (SRC / "optional" / "runtime" / name).read_text(encoding="utf-8"), ctx)
     return planned
 
 
@@ -2701,7 +2704,8 @@ class Installer(object):
         print("Installing Nuhut kit v%s into %s" % (VERSION, self.target))
         print("")
         candidates = [self.target / "AGENTS.md", self.target / "CLAUDE.md",
-                      self.target / MANIFEST_REL, self.target / RUNTIME_REL]
+                      self.target / MANIFEST_REL]
+        candidates.extend(self.target / ".ai-sdlc" / "bin" / name for name in RUNTIME_FILES)
         candidates.extend(self.target / self.docs / path.relative_to(SRC / "template" / "docs")
                           for path in self.doc_sources())
         if w.a.get("commands", True):
@@ -2728,7 +2732,9 @@ class Installer(object):
         if not self.o.dry_run:
             self.target.mkdir(parents=True, exist_ok=True)
         self.install_file(SRC / "template" / "AGENTS.md", self.target / "AGENTS.md")
-        self.install_file(SRC / "optional" / "runtime" / "sdlc.py", self.target / RUNTIME_REL)
+        for name in RUNTIME_FILES:
+            self.install_file(SRC / "optional" / "runtime" / name,
+                              self.target / ".ai-sdlc" / "bin" / name)
         for path in self.doc_sources():
             self.install_file(path, self.target / self.docs
                               / path.relative_to(SRC / "template" / "docs"))
@@ -3078,11 +3084,32 @@ class Installer(object):
         """Rewritten on every run, unlike installed documents: it is derived from the
         answers and the repository, so a stale copy is worse than no copy. It never
         contains anything a human wrote — the charter holds that, and wins on conflict."""
-        if self.o.dry_run:
-            print("  would add      %s" % PROFILE_REL)
-            return
         dest = ensure_inside(self.target, self.target / PROFILE_REL)
         existed = dest.exists()
+        # A non-interactive re-run (say, adding --hooks later) has only default answers.
+        # Rebuilding from those would erase the facts, roles and skills the project was
+        # set up with, so an existing profile is only re-stamped.
+        keep = existed and not self.w.interactive
+        if self.o.dry_run:
+            print("  %s %s" % ("would keep    " if keep else "would add     ", PROFILE_REL))
+            return
+        if keep:
+            refresh_profile(self.target)
+            try:
+                data = json.loads(dest.read_text(encoding="utf-8"))
+            except ValueError:
+                data = None
+            if isinstance(data, dict):
+                # Derived from files and flags rather than answers, so safe to refresh.
+                merged = list(data.get("deploy_platforms") or [])
+                for pid in installed_platforms(self.target, self.docs, self.platforms):
+                    add(merged, pid)       # a platform declared without a checklist stays
+                data["deploy_platforms"] = merged
+                data["harnesses"] = sorted(set(data.get("harnesses") or []) | set(self.wired))
+                atomic_write_text(dest, json.dumps(data, indent=2, sort_keys=True) + "\n")
+            print("  keep           %s (non-interactive run; answers not re-asked)"
+                  % PROFILE_REL)
+            return
         atomic_write_text(dest, json.dumps(self.project_profile(), indent=2,
                                            sort_keys=True) + "\n")
         print("  %s         %s" % ("update" if existed else "add   ", PROFILE_REL))

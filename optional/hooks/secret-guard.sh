@@ -21,10 +21,16 @@ esac
 # What the commit will contain. `-a`, or a `git add` earlier in the same command, stages
 # tracked changes the index does not hold yet, so look at the whole working tree then.
 # A brand-new file added in the same command is not visible yet: stage it first.
-case "$cmd" in
-  *"git add"*|*" -a"*|*" --all"*|*" -am"*) diff=$(git diff HEAD --unified=0 2>/dev/null) ;;
-  *) diff=$(git diff --cached --unified=0 2>/dev/null) ;;
-esac
+# Before the first commit there is no HEAD to diff against, and everything to commit is
+# in the index already.
+if git rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+  case "$cmd" in
+    *"git add"*|*" -a"*|*" --all"*|*" -am"*) diff=$(git diff HEAD --unified=0 2>/dev/null) ;;
+    *) diff=$(git diff --cached --unified=0 2>/dev/null) ;;
+  esac
+else
+  diff=$(git diff --cached --unified=0 2>/dev/null)
+fi
 [ -n "$diff" ] || exit 0
 
 added=$(printf '%s\n' "$diff" | grep -E '^\+' | grep -vE '^\+\+\+ ' | grep -v 'EXAMPLE')

@@ -549,6 +549,9 @@ def test_hooks():
         subprocess.call(git + ["init", "-q"], cwd=d)
         write(d, "cfg.py", "KEY = 'AKIA" + "ABCDEFGHIJKLMNOP'\n")
         subprocess.call(git + ["add", "cfg.py"], cwd=d)
+        out = fire("secret-guard.sh", {"tool_input": {"command": 'git commit -am "HKT-1 x"'}})
+        check("a credential in the first commit is denied, even with -a",
+              '"permissionDecision":"deny"' in out, out)
         out = fire("secret-guard.sh", {"tool_input": {"command": 'git commit -m "HKT-1 x"'}})
         check("a staged credential is denied", '"permissionDecision":"deny"' in out, out)
         check("the denial never echoes the value", "ABCDEFGHIJKLMNOP" not in out, out)
@@ -559,7 +562,13 @@ def test_hooks():
     else:
         check("jq present for hook behaviour tests", True, "skipped: jq not installed")
 
+    profile = json.loads(read(d, ".ai-sdlc/profile.json"))
+    profile["facts"]["marker_from_setup"] = True
+    write(d, ".ai-sdlc/profile.json", json.dumps(profile))
     code, out = run([d, "HKT", "-y", "--hooks"])
+    kept = json.loads(read(d, ".ai-sdlc/profile.json"))
+    check("a non-interactive re-run keeps the project's profile",
+          kept.get("facts", {}).get("marker_from_setup") is True, out[-300:])
     settings = json.loads(read(d, ".claude/settings.json"))
     check("re-running does not duplicate the hooks",
           len(settings.get("hooks", {}).get("PreToolUse", [])) == 5, str(settings))
@@ -637,6 +646,36 @@ def test_runtime():
     check("a scoped run passes and marks the rest not run",
           code == 0 and "Not run (not selected)" in out, out)
 
+    # A check that prints a credential must not leave it in the evidence.
+    text = read(d, "docs/project/charter.md").replace(
+        "| `checks.unit` | `true` |",
+        "| `checks.unit` | `echo token=AKIA" + "ABCDEFGHIJKLMNOP` |")
+    write(d, "docs/project/charter.md", text)
+    code, out = sdlc("verify", "--stage", "unit")
+    runs = sorted(r for r in os.listdir(os.path.join(d, ".ai-sdlc", "evidence")) if r[0].isdigit())
+    log = read(os.path.join(d, ".ai-sdlc", "evidence", runs[-1]), "unit.log")
+    check("verify masks credentials in the saved log",
+          "ABCDEFGHIJKLMNOP" not in log and "[redacted: AWS access key]" in log, log)
+    check("verify says a secret was printed", "masked in the logs" in out, out[-300:])
+    write(d, "docs/project/charter.md", text.replace(
+        "| `checks.unit` | `echo token=AKIA" + "ABCDEFGHIJKLMNOP` |", "| `checks.unit` | `true` |"))
+
+    # Doctor: a runbook whose rollback never ran, and a lessons list grown too long.
+    write(d, "docs/project/release-runbook.md",
+          "# Runbook\n\n## Rollback\n\n**Last executed:** _(never)_\n")
+    agents = read(d, "AGENTS.md") + "".join("- mistake %d\n" % n for n in range(40))
+    write(d, "AGENTS.md", agents)
+    code, out = sdlc("doctor")
+    check("doctor warns about a rollback never rehearsed", "rollback" in out, out)
+    check("doctor warns about an overlong lessons list", "known agent mistakes" in out, out)
+    code, out = sdlc("metrics", "--json")
+    try:
+        names = [m["name"] for m in json.loads(out)]
+    except ValueError:
+        names = []
+    check("metrics reports leading and lagging measures",
+          "Verify pass rate" in names and "Lead time" in names, out[:300])
+
     write(d, "docs/project/worklog.md", read(d, "docs/project/worklog.md")
           + "\nRTX-7 shipped.\n")
     backlog = read(d, "docs/project/backlog.md").replace(
@@ -690,6 +729,69 @@ def test_runtime():
     code, out = run([d, "RTX", "--upgrade"])
     check("a local edit to the runtime blocks the upgrade",
           code == 1 and "local edit" in read(d, ".ai-sdlc/bin/sdlc.py"), out[-400:])
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def test_view():
+    print("view: the records drawn as an interactive page")
+    d = tempfile.mkdtemp(prefix="sdlc-view-")
+    subprocess.call(["git", "init", "-q", d])
+    run([d, "VWX", "-y"])
+    for name in ("view.py", "view.html"):
+        check("%s is installed with the runtime" % name,
+              os.path.isfile(os.path.join(d, ".ai-sdlc", "bin", name)))
+    manifest = json.loads(read(d, ".ai-sdlc/manifest.json") or "{}")
+    check("the view is kit-managed", ".ai-sdlc/bin/view.html" in manifest.get("files", {}))
+
+    backlog = read(d, "docs/project/backlog.md")
+    def add(section, row):
+        i = backlog.index(section)
+        j = backlog.index("\n", backlog.index("| --- ", i)) + 1
+        return backlog[:j] + row + "\n" + backlog[j:]
+    backlog = add("## Now", "| VWX-2 | Checkout `<script>x</script>` | 1 | security | VWX-1 | In progress |")
+    backlog = add("## Parked", "| VWX-4 | Copy sign-off | 2 | copywriter | | Parked | Legal | Wording | 2026-01-01 |")
+    backlog = add("## Done", "| VWX-1 | Sign-in | 1 | security | | Done | 2026-01-02 |")
+    backlog = add("## Next", "| NOPE-9 | Wrong prefix | 2 | qa | | Ready |")
+    write(d, "docs/project/backlog.md", backlog)
+    write(d, "docs/project/worklog.md", read(d, "docs/project/worklog.md") +
+          "\n## VWX-1 — Sign-in\n\n**Date:** 2026-01-02 **Tier:** 1\n**Status:** Done\n\n"
+          "### What changed\n\nMagic links.\n\n### Verified\n\nall green\n\n"
+          "- 2026-01-03 · VWX-3 · Fix typo · effort: Lean · verified: build ok\n")
+    write(d, "docs/project/plans/VWX-2.md", "# Plan — VWX-2\n\n## Approach\n\nSee VWX-1.\n")
+    write(d, "docs/project/reviews/VWX-1-ship.md", "# Review\n\nPass.\n")
+    script = os.path.join(d, ".ai-sdlc", "bin", "sdlc.py")
+    p = subprocess.Popen([sys.executable, script, "view", "--json"], cwd=d,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    out = p.communicate()[0].decode("utf-8", "replace")
+    try:
+        model = json.loads(out)
+    except ValueError:
+        model = {"items": {}, "worklog": [], "unread": []}
+    items = model["items"]
+    check("backlog rows land in their board columns",
+          items.get("VWX-2", {}).get("column") == "Now" and items.get("VWX-4", {}).get("column") == "Parked"
+          and items.get("VWX-1", {}).get("column") == "Done", out[:400])
+    check("dependencies are joined both ways",
+          items.get("VWX-2", {}).get("depends") == ["VWX-1"]
+          and items.get("VWX-1", {}).get("dependents") == ["VWX-2"], str(items)[:400])
+    check("full and compact worklog entries are both read",
+          sorted(e["id"] for e in model["worklog"]) == ["VWX-1", "VWX-3"], str(model["worklog"])[:300])
+    check("an ID seen only in the worklog still gets an item", "VWX-3" in items)
+    check("plans and reviews are joined by file name",
+          items.get("VWX-2", {}).get("steps", {}).get("Plan") == "done"
+          and items.get("VWX-1", {}).get("steps", {}).get("Ship review") == "done", str(items)[:400])
+    check("a row that is not PREFIX-### is reported, not dropped silently",
+          any("NOPE-9" in u["reason"] for u in model["unread"]), str(model["unread"]))
+    p = subprocess.Popen([sys.executable, script, "view", "--no-open"], cwd=d,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    p.communicate()
+    page = read(d, ".ai-sdlc/view/index.html")
+    check("the page is written with the model inside", "VWX-2" in page and "/*NUHUT_MODEL*/" not in page)
+    check("record text cannot close the script tag", "<script>x</script>" not in page, page[-200:])
+    check("the page is git-ignored", read(d, ".ai-sdlc/view/.gitignore").strip() == "*")
+    status = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=all"],
+                                     cwd=d).decode()
+    check("nothing under .ai-sdlc/view/ shows up in git", ".ai-sdlc/view" not in status, status)
     shutil.rmtree(d, ignore_errors=True)
 
 
@@ -1273,7 +1375,7 @@ def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
                  test_stack_adapters, test_harness_wiring, test_profiles, test_hooks,
-                 test_runtime, test_kit_value_benchmark,
+                 test_runtime, test_view, test_kit_value_benchmark,
                  test_dashboard,
                  test_domain_detection,
                  test_role_and_skill_selection, test_profile,

@@ -9,6 +9,8 @@ markdown commands that call this.
     python3 .ai-sdlc/bin/sdlc.py doctor [--json] [--strict]
     python3 .ai-sdlc/bin/sdlc.py verify [--stage unit,lint] [--timeout 1800]
     python3 .ai-sdlc/bin/sdlc.py plan-check ACME-12 [--base main] [--json] [--strict]
+    python3 .ai-sdlc/bin/sdlc.py view [--no-open] [--json]
+    python3 .ai-sdlc/bin/sdlc.py metrics [--json]
 
 Standard library only. Installed and upgraded by the kit, so a local edit blocks
 `--upgrade` rather than being lost; change the kit instead.
@@ -37,6 +39,19 @@ EFFORT = ("Lean", "Normal", "Beast")
 ACQUISITION = ("Standard", "Advanced")
 WORKLOG_ROTATE_LINES = 1000
 DEFAULT_STALENESS_DAYS = 90
+KNOWN_MISTAKES_LINES = 30
+# High-confidence credential shapes, the same set the secret-guard hook denies at commit.
+SECRET_PATTERNS = (
+    ("private key", r"-----BEGIN ([A-Z]+ )?PRIVATE KEY-----[\s\S]*?-----END ([A-Z]+ )?PRIVATE KEY-----"),
+    ("AWS access key", r"(AKIA|ASIA)[0-9A-Z]{16}"),
+    ("GitHub token", r"gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,}"),
+    ("GitLab token", r"glpat-[A-Za-z0-9_-]{20,}"),
+    ("Slack token", r"xox[abposr]-[A-Za-z0-9-]{10,}"),
+    ("Stripe live key", r"(sk|rk)_live_[A-Za-z0-9]{20,}"),
+    ("Anthropic API key", r"sk-ant-[A-Za-z0-9_-]{20,}"),
+    ("OpenAI API key", r"sk-(proj-)?[A-Za-z0-9_-]{40,}"),
+    ("Google API key", r"AIza[0-9A-Za-z_-]{35}"),
+)
 PLACEHOLDER = re.compile(r"[{][{][A-Z][A-Z0-9_]*[}][}]")
 UNFILLED = re.compile(r"_\([^)]*\)_")
 
@@ -358,6 +373,53 @@ def check_traceability(project, out):
                 "worklog" % item)
 
 
+def check_known_mistakes(project, out):
+    """The lessons list in AGENTS.md section 9 must stay short enough to be read."""
+    text = read(project.path("AGENTS.md"))
+    at = text.find("**Known agent mistakes:**")
+    if at < 0:
+        return
+    lines = [l for l in text[at:].splitlines()[1:] if l.strip()]
+    stop = next((n for n, l in enumerate(lines) if l.startswith(("**", "#", "---"))), len(lines))
+    if stop > KNOWN_MISTAKES_LINES:
+        out.add("warn", "lessons", "AGENTS.md",
+                "%d lines of known agent mistakes; past %d, turn the recurring ones into "
+                "checks or hooks" % (stop, KNOWN_MISTAKES_LINES))
+
+
+def check_rollback(project, out, today):
+    """A rollback nobody has run is a theory. Runbooks record when it last ran."""
+    cell = labelled(project.charter, "Staleness threshold") or ""
+    found = re.search(r"[0-9]+", UNFILLED.sub("", cell))
+    window = int(found.group(0)) if found else DEFAULT_STALENESS_DAYS
+    folder = project.path(os.path.join(project.docs, "project"))
+    if not os.path.isdir(folder):
+        return
+    for name in sorted(os.listdir(folder)):
+        text = read(os.path.join(folder, name)) if name.endswith(".md") else ""
+        match = re.search(r"\*\*Last executed:\*\*(.*)", text)
+        if not match:
+            continue
+        rel = os.path.join(project.docs, "project", name)
+        date = re.search(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", UNFILLED.sub("", match.group(1)))
+        days = age_days(date.group(0), today) if date else None
+        if days is None:
+            out.add("warn", "rollback", rel, "rollback has no Last executed date: it has "
+                    "never been rehearsed, or nobody wrote down when")
+        elif days > window:
+            out.add("warn", "rollback", rel, "rollback last rehearsed %d days ago; the "
+                    "window is %d" % (days, window))
+
+
+def redact(text):
+    """Mask credential shapes in captured output. Returns (text, count)."""
+    count = 0
+    for kind, pattern in SECRET_PATTERNS:
+        text, n = re.subn(pattern, "[redacted: %s]" % kind, text)
+        count += n
+    return text, count
+
+
 def check_worklog_size(project, out):
     lines = len(project.records("worklog.md").splitlines())
     if lines > WORKLOG_ROTATE_LINES:
@@ -416,6 +478,8 @@ def doctor(project, today=None):
     check_staleness(project, out, today)
     check_traceability(project, out)
     check_worklog_size(project, out)
+    check_known_mistakes(project, out)
+    check_rollback(project, out, today)
     check_profile(project, out)
     return out.items
 
@@ -484,10 +548,18 @@ def verify(project, selected, timeout):
                     timed_out = False
                 except subprocess.TimeoutExpired:
                     code, timed_out = None, True
+            # A test that prints a token must not leave it on disk in the evidence.
+            with open(log, "rb") as handle:
+                raw = handle.read().decode("utf-8", "replace")
+            clean, masked = redact(raw)
+            if masked:
+                with open(log, "w", encoding="utf-8") as handle:
+                    handle.write(clean)
             with open(log, "rb") as handle:
                 digest = hashlib.sha256(handle.read()).hexdigest()
             entry.update({"exit_code": code, "seconds": round(time.time() - started, 1),
-                          "log": os.path.relpath(log, project.root), "log_sha256": digest})
+                          "log": os.path.relpath(log, project.root), "log_sha256": digest,
+                          "redacted": masked})
             if timed_out:
                 entry["result"] = "Verified: fail (timed out after %ds)" % timeout
             else:
@@ -520,6 +592,10 @@ def summary_markdown(summary, folder):
             entry.get("seconds", ""),
             ("`%s`" % entry["command"].replace("|", "\\|")) if entry["command"] else "",
             entry.get("log", "")))
+    masked = sum(e.get("redacted", 0) for e in summary["stages"])
+    if masked:
+        lines += ["", "**%d credential-shaped string(s) were masked in the logs.** Something "
+                  "printed a secret; find out what, and rotate it if it was real." % masked]
     if summary["drift"]:
         lines += ["", "**Profile drift** (the charter was used):", ""]
         lines += ["- " + item for item in summary["drift"]]
@@ -722,6 +798,9 @@ def selftest():
     assert age_days("2026-01-01", today) == 90 and age_days("YYYY-MM-DD", today) is None
     assert PLACEHOLDER.findall("a " + "{" * 2 + "PREFIX" + "}" * 2) == ["{" * 2 + "PREFIX" + "}" * 2]
     assert version_tuple("3.10.0") > version_tuple("3.9.9")
+    fake = "token=AKIA" + "ABCDEFGHIJKLMNOP and " + "ghp_" + "a" * 36
+    clean, n = redact(fake)
+    assert n == 2 and "ABCDEFGHIJKLMNOP" not in clean and "[redacted: AWS access key]" in clean, clean
     plan = ("# Plan\n## Files that change\n\n_(hint with `x/y`)_\n\n- `path/or/glob`\n"
             "- `src/billing/**` and `./db/0042_*.sql`\n- `README.md`, `.github/ci.yml`\n"
             "## Order of work\n"
@@ -775,6 +854,12 @@ def main(argv):
     chk.add_argument("--json", action="store_true", help="print the result as JSON")
     chk.add_argument("--strict", action="store_true",
                      help="exit 1 if any file is unplanned or any planned path untouched")
+    vw = sub.add_parser("view", help="draw the records as an interactive page "
+                        "(.ai-sdlc/view/index.html, git-ignored)")
+    vw.add_argument("--no-open", action="store_true", help="write the page, do not open it")
+    vw.add_argument("--json", action="store_true", help="print the model instead")
+    met = sub.add_parser("metrics", help="process measures from the records and git")
+    met.add_argument("--json", action="store_true", help="print as JSON")
     opts = parser.parse_args(argv)
     if not opts.command:
         parser.print_help()
@@ -787,6 +872,13 @@ def main(argv):
         else:
             print_findings(items)
         return 1 if opts.strict and any(i["level"] == "fail" for i in items) else 0
+    if opts.command in ("view", "metrics"):
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        sys.dont_write_bytecode = True  # no __pycache__ next to kit files in a project
+        import view
+        if opts.command == "metrics":
+            return view.print_metrics(sys.modules[__name__], project, opts)
+        return view.run(sys.modules[__name__], project, opts)
     if opts.command == "plan-check":
         result, error = plan_check(project, opts.item, opts.base)
         if error:
