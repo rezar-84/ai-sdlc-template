@@ -4,6 +4,18 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **The viewer is documented where people look for it:**
+  - The docs map installed in every project opens with a pointer for "a person catching
+    up", and gains a section on the viewer: its tabs, how to read the lifecycle stepper,
+    snapshot or live, and what it will never do.
+  - The main README's quick start ends with `view --serve`, and "Seeing the work" gains
+    how to get around, how to read it, and a daily routine.
+  - The paragraph on why the kit has no web UI now says what it does ship.
+  - `dashboard.html` and `/sdlc-doctor` point to the viewer. The developer commands in
+    the README and CONTRIBUTING compile and self-test `view.py`.
+  - `AGENTS.md` updates the docs-size figure (about 87,000 tokens) that agents budget
+    their reading by.
+
 - **Live mode: `sdlc.py view --serve`.** The view is served on 127.0.0.1 and redraws
   within a couple of seconds of a record changing or a new commit. It keeps the open tab,
   folds, filters, open panels and scroll, and waits while you type in a filter.

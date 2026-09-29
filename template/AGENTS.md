@@ -86,7 +86,7 @@ not change the mode or any obligation.
 
 ## 3. What to read — the whole list, by tier
 
-**Reading past your tier's list is not diligence, it is cost** — `{{DOCS_DIR}}/` is around 78,000
+**Reading past your tier's list is not diligence, it is cost** — `{{DOCS_DIR}}/` is around 87,000
 tokens, and reading it whole leaves nothing for the work. But an *incomplete* list is the
 worse failure, because it sends you back mid-task to find the rule you should have had.
 So each tier below is the whole list: if it is not named here and the task does not touch

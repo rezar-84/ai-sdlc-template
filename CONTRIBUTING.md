@@ -15,7 +15,8 @@ dependency after installation.
    ```sh
    python3 validate.py
    python3 tests/smoke.py
-   python3 -m py_compile install.py validate.py tests/smoke.py
+   python3 -m py_compile install.py validate.py tests/smoke.py optional/runtime/sdlc.py optional/runtime/view.py
+   python3 optional/runtime/sdlc.py --selftest
    ```
 
 ## Compatibility

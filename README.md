@@ -8,6 +8,8 @@ holds its shape under pressure.
 
 ```sh
 ./install.sh /path/to/your-project        # guided setup; Enter takes every default
+cd /path/to/your-project
+python3 .ai-sdlc/bin/sdlc.py view --serve # watch the work, live, as agents do it
 ```
 
 <p align="center">
@@ -109,12 +111,13 @@ see [Installing into a managed platform](#installing-into-a-managed-platform-lov
 below. The answer to "AI builders have no discipline" is to be the discipline they
 install.
 
-**A web UI for the kit is deliberately not here.** The kit installs a read-only status
-page (`docs/dashboard.html`) and nothing else, because a driving-agents-from-a-browser
-product already exists first-party — Claude Code Remote Control syncs a local session to
-`claude.ai/code` and mobile — and the independent attempts at that category have not found
-a business model. `docs/dashboard.html` is the part that was actually missing: a glanceable
-view for the human while the agents work.
+**A web UI for driving agents is deliberately not here.** A product for steering agents
+from a browser already exists first-party (Claude Code Remote Control syncs a local session
+to `claude.ai/code` and mobile), and the independent attempts at that category have not
+found a business model. What was missing is a way for the human to *see* the work while the
+agents do it, so that is what the kit ships: [the viewer](#seeing-the-work)
+(`sdlc.py view`, live with `--serve`), and the smaller static `docs/dashboard.html`. Both
+are read-only. Neither can change a record, start an agent, or approve anything.
 
 ## Install as a Claude Code plugin
 
@@ -423,6 +426,20 @@ it and opens one page, joined by work item ID:
 It writes nothing into the records and adds no format for the agent to keep. The page
 goes to `.ai-sdlc/view/index.html`, which git ignores, and works offline.
 
+**Getting around.** Click a dot on the map to fold or unfold a branch, and a blue label
+to open it. Click any work item ID, anywhere, to open that item. Search in the header
+finds IDs, titles, documents and headings. The browser's back button and the breadcrumbs
+return you to where you were.
+
+**Reading it.** On an item page, the lifecycle stepper runs from Frame to Close. Green
+means the record for that step exists. An amber **?** means the item's tier and status call
+for a record that does not exist yet, such as a Tier 1 item in progress with no plan, or a
+Done item with no worklog entry. That is a real gap to close, not a display fault. The Map
+page lists `doctor`'s findings and anything the view could not read.
+
+**A daily routine that works:** open **Waiting on you** first, then **Activity**. Before
+calling an item done, open it and check that no step is amber.
+
 With `--serve` the page is live instead: leave it open while agents work, and it redraws
 within a couple of seconds of any record changing or a new commit, keeping your place, folds
 and filters. It serves only on 127.0.0.1, refuses requests addressed to any other host,
@@ -489,7 +506,8 @@ template/
       README.md + 16 role playbooks
     templates/               Blank artifacts to copy when a project needs one.
     CARD.md                  the operating card: the whole standard on one page
-    dashboard.html           read-only status page (state in dashboard-state.js)
+    dashboard.html           static status page (state in dashboard-state.js); the
+                             full view is `sdlc.py view` from .ai-sdlc/bin/
     project/                 WHERE this project's filled-in reality lives.
       charter.md  backlog.md  worklog.md  assumptions-and-risks.md
       adr/  reviews/  plans/  postmortems/  worklog-archive/
@@ -573,7 +591,7 @@ The kit validates itself with standard-library-only commands:
 ```sh
 python3 validate.py
 python3 tests/smoke.py
-python3 -m py_compile install.py validate.py tests/smoke.py optional/runtime/sdlc.py
+python3 -m py_compile install.py validate.py tests/smoke.py optional/runtime/sdlc.py optional/runtime/view.py
 python3 optional/runtime/sdlc.py --selftest
 python3 benchmarks/effort-modes/score.py --selftest
 python3 benchmarks/kit-value/score.py --selftest

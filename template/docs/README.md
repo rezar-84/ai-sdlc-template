@@ -3,6 +3,10 @@
 This tree is the delivery system for {{PROJECT_NAME}}. `AGENTS.md` at the repository
 root is the contract; everything here is the detail behind it.
 
+**A person catching up** does not need to read these files one by one. From the
+repository root, run `python3 .ai-sdlc/bin/sdlc.py view` for a page that joins them all
+up (see "The viewer" below), or add `--serve` to keep that page live while agents work.
+
 ## Cold start — an agent arriving with no context
 
 Read in this order and stop when you have enough:
@@ -28,7 +32,47 @@ those stay as escalation, and **the full document wins wherever they disagree**.
 Read it on every Tier 1 and Tier 2 change. It is also the routing for agent tools that
 have no equivalent of Claude Code's model-invoked skills.
 
-## `dashboard.html` — the status page
+## The viewer: `sdlc.py view`
+
+The records here are written for agents, and they get long. The viewer reads all of them
+when you run it (backlog, worklog, plans, reviews, defects, postmortems, ADRs, and the git
+history) and joins them by work item ID into one page you click through.
+
+```sh
+python3 .ai-sdlc/bin/sdlc.py view            # build the page and open it
+python3 .ai-sdlc/bin/sdlc.py view --serve    # live: the page follows the records
+python3 .ai-sdlc/bin/sdlc.py metrics         # process numbers in the terminal
+```
+
+| Tab | Answers |
+| --- | --- |
+| **Map** | What is in this project? A mind map of work by status, open work by owner role, and documents. Click a dot to fold, a blue label to open. The page also shows the counts, `doctor` findings, the process measures, and anything it could not read. |
+| **Board** | Where is every item? Now, Next, Blocked, Parked, Later, Done, filtered by owner, tier or title. A red edge means it waits on something unfinished. |
+| **Activity** | What are the agents doing? Items in flight, then the latest worklog entries with what they left undone. |
+| **Waiting on you** | What needs a human? Parked and Blocked items, who they wait on, for what, and for how long. |
+| **Documents** | Every record with its status, owner and age. Open one to read it with an outline; IDs and links are clickable. |
+
+Click any ID to open that item: its row, plan, reviews, worklog entries, commits and
+every record that mentions it, with a lifecycle stepper from Frame to Close. An amber
+**?** on a step means the item's tier and status call for a record that does not exist
+yet. That is a real gap, not a display fault. Search in the header finds IDs, titles,
+documents and headings; the browser's back button works throughout.
+
+- **A snapshot or live.** Without `--serve` the page is a snapshot: run the command again
+  to refresh it. With `--serve` it redraws within a couple of seconds of any record or
+  commit changing, and keeps your place. The header says Live, or Disconnected if you
+  stopped the server.
+- **Read-only.** It never writes to these files, and it adds no format for anyone to
+  keep. The snapshot goes to `.ai-sdlc/view/`, which git ignores; live mode serves only on
+  127.0.0.1.
+- **Nothing is hidden.** Rows that do not follow the formats here (an ID that is not
+  `{{PREFIX}}-###`, for example) are listed on the Map page under "could not read", so
+  they can be fixed.
+
+## `dashboard.html` — the static status page
+
+The smaller, older summary: settings, open items and stale documents on one page. For
+day-to-day work the viewer above shows everything this does and more.
 
 Open it from the filesystem; there is no server. It reads `dashboard-state.js`, which is
 generated from these files — the charter's roles and commands, the backlog rows, the

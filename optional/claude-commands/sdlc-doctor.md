@@ -137,6 +137,10 @@ Never write a value you did not read from a file: the page inherits this kit's e
 rules, and a status page that states something nobody verified is the exact failure the
 rest of these documents exist to prevent.
 
+When you report back, tell the human they can see the same records joined up with
+`python3 .ai-sdlc/bin/sdlc.py view` (add `--serve` to keep it live). Do not run a
+server on their behalf.
+
 ## Output
 
 One table: area · finding · severity per `{{DOCS_DIR}}/process/04-quality-gates.md` ·

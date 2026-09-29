@@ -252,6 +252,9 @@
   f.appendChild(el("div", null,
     "Read-only. The files are the source of truth — where this page and a file disagree, " +
     "the file is right and this page is the defect."));
+  f.appendChild(el("div", null,
+    "For the full picture (every item, its plan, reviews, worklog and commits, and live " +
+    "updates) run: python3 .ai-sdlc/bin/sdlc.py view --serve"));
   if (S.wired && S.wired.length) {
     f.appendChild(el("div", null, "Agent instruction files pointing at AGENTS.md: " +
       S.wired.join(", ")));
