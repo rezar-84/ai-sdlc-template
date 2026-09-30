@@ -4,6 +4,8 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+## 3.4.1 — 2026-09-30
+
 - **The viewer is documented where people look for it:**
   - The docs map installed in every project opens with a pointer for "a person catching
     up", and gains a section on the viewer: its tabs, how to read the lifecycle stepper,
