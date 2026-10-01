@@ -2931,8 +2931,9 @@ class Installer(object):
                                                  cells)))
 
         prefix = self.ctx.get("PREFIX", "")
-        row = re.compile(r"^\| (%s-\d+) \|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|"
-                         % re.escape(prefix)) if prefix else None
+        row = re.compile(
+            r"^\| (%s-\d+|[A-Za-z]\d+(?:\.\d+)*(?:-[a-z0-9]+)?|#?\d+) \|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|"
+            % re.escape(prefix)) if prefix else None
         if row:
             for line in self.read_installed("project/backlog.md").splitlines():
                 m = row.match(line)

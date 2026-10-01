@@ -114,7 +114,7 @@ def worklog_entries(text, source, id_re):
     entries, current, sub = [], None, None
     for n, line in enumerate(text.splitlines()):
         if line.startswith("## "):
-            m = re.match(r"^##\s+(%s)\s+[—-]+\s*(.*)$" % id_re.pattern, line)
+            m = re.match(r"^##\s+(%s)(?:\s+\([^)]*\))?\s+[—-]+\s*(.*)$" % id_re.pattern, line)
             current = None
             if m:
                 current = {"id": m.group(1), "title": m.group(2).strip(), "source": source,
@@ -123,7 +123,7 @@ def worklog_entries(text, source, id_re):
                 entries.append(current)
                 sub = "_head"
             continue
-        compact = re.match(r"^- (\d{4}-\d{2}-\d{2}) · (%s) · (.*)$" % id_re.pattern, line)
+        compact = re.match(r"^- (\d{4}-\d{2}-\d{2})\s+·\s+(%s)\s+·\s*(.*)$" % id_re.pattern, line)
         if compact:
             current, sub = None, None
             parts = [p.strip() for p in compact.group(3).split(" · ")]
@@ -155,10 +155,77 @@ def worklog_entries(text, source, id_re):
 
 # ---------------------------------------------------------------- model
 
+LEGACY_HIERARCHICAL = re.compile(
+    r"^[A-Za-z][0-9]+(?:\.[0-9]+)*(?:-[a-z0-9]+)?(?:[–-][A-Za-z]?[0-9]+(?:\.[0-9]+)*)?$"
+)
+LEGACY_NUMERIC = re.compile(r"^(?:#?[0-9]+|GH-[0-9]+)$")
+
+
+def is_valid_work_item_id(raw_id, prefix, legacy_prefixes=None):
+    if not raw_id or raw_id.startswith("_(") or ("{" + "{") in raw_id:
+        return False, "placeholder"
+    if prefix and re.fullmatch(r"%s-[0-9]+" % re.escape(prefix), raw_id):
+        return True, "standard"
+    if legacy_prefixes and any(re.fullmatch(r"%s-[0-9]+" % re.escape(p), raw_id) for p in legacy_prefixes):
+        return True, "legacy_prefix"
+    if LEGACY_HIERARCHICAL.fullmatch(raw_id) or LEGACY_NUMERIC.fullmatch(raw_id):
+        return True, "legacy"
+    if re.fullmatch(r"^[A-Z]{2,4}-[0-9]+$", raw_id):
+        return False, "wrong_prefix"
+    return False, "invalid"
+
+
 def build(rt, project):
     prefix = project.prefix
+    legacy_prefixes = set(getattr(project, "legacy_prefixes", []))
+    if not legacy_prefixes and project.charter:
+        cell = rt.labelled(project.charter, "Legacy issue prefix") or \
+               rt.labelled(project.charter, "Legacy prefixes") or ""
+        legacy_prefixes.update(re.findall(r"`([^`]+)`", cell))
+        prefix_cell = rt.labelled(project.charter, "Work item prefix") or ""
+        m_leg = re.search(r"legacy(?: prefixes?)?:\s*([^\n|]+)", prefix_cell, re.I)
+        if m_leg:
+            legacy_prefixes.update(re.findall(r"`([^`]+)`", m_leg.group(1)))
+
     docs_root = os.path.join(project.docs, "project")
-    id_re = re.compile(r"%s-[0-9]+" % re.escape(prefix)) if prefix else re.compile(r"(?!x)x")
+    backlog_rel = os.path.join(docs_root, "backlog.md")
+    backlog = rt.read(project.path(backlog_rel))
+    rows = backlog_tables(backlog)
+
+    known_ids = set()
+    for section, line, row in rows:
+        raw_id = plain(row.get("ID", ""))
+        ok, _ = is_valid_work_item_id(raw_id, prefix, legacy_prefixes)
+        if ok:
+            known_ids.add(raw_id)
+    known_ids.update(re.findall(r"\b[E][0-9]+\b", backlog))
+
+    worklog_text = project.worklog_texts() if hasattr(project, "worklog_texts") else ""
+    if worklog_text:
+        wl_headings = re.findall(r"^##\s+([A-Za-z0-9#][A-Za-z0-9_#.–-]*)(?:\s+\([^)]*\))?\s+[—-]", worklog_text, re.M)
+        for hid in wl_headings:
+            ok, _ = is_valid_work_item_id(hid, prefix, legacy_prefixes)
+            if ok:
+                known_ids.add(hid)
+        wl_compact = re.findall(r"^- \d{4}-\d{2}-\d{2}\s+·\s+([A-Za-z0-9#][A-Za-z0-9_#.–-]*)\s+·", worklog_text, re.M)
+        for cid in wl_compact:
+            ok, _ = is_valid_work_item_id(cid, prefix, legacy_prefixes)
+            if ok:
+                known_ids.add(cid)
+
+    patterns = []
+    if prefix:
+        patterns.append(r"%s-[0-9]+" % re.escape(prefix))
+    if legacy_prefixes:
+        for lp in sorted(legacy_prefixes):
+            patterns.append(r"%s-[0-9]+" % re.escape(lp))
+    patterns.append(r"[A-Za-z][0-9]+(?:\.[0-9]+)+(?:-[a-z0-9]+)?")
+    extra_known = [i for i in known_ids if not (prefix and re.fullmatch(r"%s-[0-9]+" % re.escape(prefix), i))
+                   and not re.fullmatch(r"[A-Za-z][0-9]+(?:\.[0-9]+)+(?:-[a-z0-9]+)?", i)]
+    if extra_known:
+        patterns.append("|".join(re.escape(i) for i in sorted(extra_known, key=len, reverse=True)))
+    id_re = re.compile(r"\b(?:" + "|".join(patterns) + r")\b") if patterns else re.compile(r"(?!x)x")
+
     model = {
         "generated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "project": plain(rt.labelled(project.charter, "Project") or "") or
@@ -167,23 +234,24 @@ def build(rt, project):
         "git_head": project.git("rev-parse", "--short", "HEAD").strip(),
         "columns": [c for c, _ in COLUMNS] + ["Other"], "steps": list(STEPS),
         "items": {}, "order": [], "epics": [], "worklog": [], "docs": [], "unread": [],
-        "alerts": [],
+        "alerts": [], "id_pattern": id_re.pattern,
     }
-    if not prefix:
+    if not prefix and not legacy_prefixes and not known_ids:
         model["unread"].append({"path": project.charter_path,
                                 "reason": "no work item prefix in the charter, so no ID "
                                           "can be recognised"})
 
     # Backlog rows.
-    backlog_rel = os.path.join(docs_root, "backlog.md")
-    backlog = rt.read(project.path(backlog_rel))
-    rows = backlog_tables(backlog)
     for section, line, row in rows:
         raw_id = plain(row.get("ID", ""))
-        if not id_re.fullmatch(raw_id):
-            if raw_id and not raw_id.startswith("_("):
+        ok, kind = is_valid_work_item_id(raw_id, prefix, legacy_prefixes)
+        if not ok:
+            if kind == "wrong_prefix":
                 model["unread"].append({"path": "%s:%d" % (backlog_rel, line),
                                         "reason": "ID %r is not %s-###" % (raw_id, prefix)})
+            elif kind == "invalid":
+                model["unread"].append({"path": "%s:%d" % (backlog_rel, line),
+                                        "reason": "ID %r is not a recognised work item ID" % raw_id})
             continue
         status = plain(row.get("Status", ""))
         known = ("ID", "Task", "Tier", "Owner role", "Depends on", "Status")
@@ -237,7 +305,10 @@ def build(rt, project):
                "meta": meta, "headings": headings(text),
                "mentions": sorted(set(id_re.findall(text))),
                "text": text[:MAX_DOC_CHARS], "truncated": truncated}
-        m = re.match(r"^(%s)(?:-(design|ship))?" % id_re.pattern, parts[-1])
+        stem = parts[-1][:-3] if parts[-1].endswith(".md") else parts[-1]
+        m = re.match(r"^(%s)(?:-(design|ship))?$" % id_re.pattern, stem)
+        if not m:
+            m = re.match(r"^(%s)(?:-(design|ship))?" % id_re.pattern, parts[-1])
         doc["owner_id"] = m.group(1) if m and kind in RECORD_DIRS else ""
         doc["stage"] = (m.group(2) or "") if m else ""
         model["docs"].append(doc)

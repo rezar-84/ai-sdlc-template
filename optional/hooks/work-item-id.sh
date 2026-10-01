@@ -25,7 +25,7 @@ if [ -f .ai-sdlc/profile.json ]; then
 fi
 [ -n "$prefix" ] || exit 0
 
-if printf '%s' "$cmd" | grep -Eq "${prefix}-[0-9]+"; then
+if printf '%s' "$cmd" | grep -Eq "(${prefix}-[0-9]+|[A-Za-z][0-9]+(\.[0-9]+)*|#[0-9]+)"; then
   exit 0
 fi
 

@@ -16,6 +16,11 @@ The prefix is declared in `project/charter.md` (2–4 uppercase letters). Number
 sequential, never reused, never renumbered. Once an ID appears anywhere — branch,
 commit, review, worklog — it is permanent, even if the work is dropped.
 
+**Legacy and adopted projects.** When adopting an existing codebase, existing issue
+numbers (e.g. hierarchical `Snn.n`, epics `Enn`, bugs `Bnn`, or external tracker numbers)
+remain valid in `project/backlog.md` and are understood by the viewer and runtime without
+renumbering. New work uses `{{PREFIX}}-###`.
+
 **The next ID** is the highest number that appears anywhere under `project/` — including
 `Dropped` rows, the worklog archive, and review filenames — plus one. Do not take it from
 the last row of the active backlog table; dropped and archived items are exactly the ones

@@ -441,7 +441,7 @@ def test_profiles():
 
 def test_hooks():
     print("opt-in enforcement hooks")
-    d = tempfile.mkdtemp(prefix="sdlc-hooks-")
+    d = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-hooks-"))
     write(d, ".claude/settings.json", '{"permissions":{"allow":["Bash(npm *)"]}}')
     code, out = run([d, "HKT", "-y", "--hooks"])
     check("exit 0", code == 0, out[-300:])
@@ -749,6 +749,7 @@ def test_view():
         j = backlog.index("\n", backlog.index("| --- ", i)) + 1
         return backlog[:j] + row + "\n" + backlog[j:]
     backlog = add("## Now", "| VWX-2 | Checkout `<script>x</script>` | 1 | security | VWX-1 | In progress |")
+    backlog = add("## Now", "| S61.5 | Consultation booking | 2 | qa | VWX-2 | In progress |")
     backlog = add("## Parked", "| VWX-4 | Copy sign-off | 2 | copywriter | | Parked | Legal | Wording | 2026-01-01 |")
     backlog = add("## Done", "| VWX-1 | Sign-in | 1 | security | | Done | 2026-01-02 |")
     backlog = add("## Next", "| NOPE-9 | Wrong prefix | 2 | qa | | Ready |")
@@ -771,9 +772,15 @@ def test_view():
     check("backlog rows land in their board columns",
           items.get("VWX-2", {}).get("column") == "Now" and items.get("VWX-4", {}).get("column") == "Parked"
           and items.get("VWX-1", {}).get("column") == "Done", out[:400])
+    check("legacy issue number lands in items, not unread",
+          "S61.5" in items and items["S61.5"].get("column") == "Now"
+          and items["S61.5"].get("depends") == ["VWX-2"]
+          and not any("S61.5" in u.get("reason", "") for u in model["unread"]), str(items.get("S61.5")))
     check("dependencies are joined both ways",
           items.get("VWX-2", {}).get("depends") == ["VWX-1"]
-          and items.get("VWX-1", {}).get("dependents") == ["VWX-2"], str(items)[:400])
+          and items.get("VWX-1", {}).get("dependents") == ["VWX-2"]
+          and items.get("S61.5", {}).get("depends") == ["VWX-2"]
+          and items.get("VWX-2", {}).get("dependents") == ["S61.5"], str(items)[:400])
     check("full and compact worklog entries are both read",
           sorted(e["id"] for e in model["worklog"]) == ["VWX-1", "VWX-3"], str(model["worklog"])[:300])
     check("an ID seen only in the worklog still gets an item", "VWX-3" in items)

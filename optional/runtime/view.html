@@ -147,7 +147,8 @@
   function load(model) {
     M = model;
     ITEMS = M.items; DOCS = M.docs; WL = M.worklog;
-    ID_RE = M.prefix ? new RegExp("\\b" + M.prefix.replace(/[.*+?^$()|[\]\\]/g, "\\$&") + "-[0-9]+\\b", "g") : null;
+    ID_RE = M.id_pattern ? new RegExp(M.id_pattern, "g") :
+            (M.prefix ? new RegExp("\\b" + M.prefix.replace(/[.*+?^$()|[\]\\]/g, "\\$&") + "-[0-9]+\\b", "g") : null);
     DOC_BY_PATH = {};
     DOCS.forEach(function (d, n) { DOC_BY_PATH[d.path] = n; });
   }

@@ -136,18 +136,47 @@ def roles(text):
     return found
 
 
-def backlog_rows(text, prefix):
+LEGACY_HIERARCHICAL = re.compile(
+    r"^[A-Za-z][0-9]+(?:\.[0-9]+)*(?:-[a-z0-9]+)?(?:[–-][A-Za-z]?[0-9]+(?:\.[0-9]+)*)?$"
+)
+LEGACY_NUMERIC = re.compile(r"^(?:#?[0-9]+|GH-[0-9]+)$")
+
+
+def is_valid_work_item_id(raw_id, prefix, legacy_prefixes=None):
+    if not raw_id or raw_id.startswith("_(") or ("{" + "{") in raw_id:
+        return False
+    if prefix and re.fullmatch(r"%s-[0-9]+" % re.escape(prefix), raw_id):
+        return True
+    if legacy_prefixes and any(re.fullmatch(r"%s-[0-9]+" % re.escape(p), raw_id) for p in legacy_prefixes):
+        return True
+    if LEGACY_HIERARCHICAL.fullmatch(raw_id) or LEGACY_NUMERIC.fullmatch(raw_id):
+        return True
+    return False
+
+
+def backlog_rows(text, prefix, legacy_prefixes=None):
     """[(id, status, cells)] for every table row whose first cell is a work item ID."""
     rows = []
     for line in text.splitlines():
         cells = split_row(line)
-        if cells and len(cells) >= 6 and re.match(r"^%s-[0-9]+$" % re.escape(prefix), cells[0]):
+        if cells and len(cells) >= 6 and is_valid_work_item_id(cells[0], prefix, legacy_prefixes):
             rows.append((cells[0], cells[5].strip("`* "), cells))
     return rows
 
 
-def ids_in(text, prefix):
-    return set(re.findall(r"\b%s-[0-9]+\b" % re.escape(prefix), text))
+def ids_in(text, prefix, extra_ids=None):
+    patterns = []
+    if prefix:
+        patterns.append(r"\b%s-[0-9]+\b" % re.escape(prefix))
+    if extra_ids:
+        patterns.append(r"\b(?:" + "|".join(re.escape(i) for i in sorted(extra_ids, key=len, reverse=True)) + r")\b")
+    if not patterns:
+        return set()
+    return set(re.findall(r"|".join(patterns), text))
+
+
+def id_sort_key(i):
+    return [int(s) if s.isdigit() else s.lower() for s in re.split(r"([0-9]+)", i)]
 
 
 def frontmatter(text):
@@ -186,6 +215,13 @@ class Project(object):
         found = re.search(r"`([A-Z]{2,4})`", UNFILLED.sub("", prefix_cell))
         self.charter_prefix = found.group(1) if found else ""
         self.prefix = self.charter_prefix or self.profile.get("prefix") or ""
+        self.legacy_prefixes = set(self.profile.get("legacy_prefixes") or [])
+        legacy_cell = labelled(self.charter, "Legacy issue prefix") or \
+                      labelled(self.charter, "Legacy prefixes") or ""
+        self.legacy_prefixes.update(re.findall(r"`([^`]+)`", legacy_cell))
+        m_leg = re.search(r"legacy(?: prefixes?)?:\s*([^\n|]+)", prefix_cell, re.I)
+        if m_leg:
+            self.legacy_prefixes.update(re.findall(r"`([^`]+)`", m_leg.group(1)))
 
     def path(self, rel):
         return os.path.join(self.root, rel)
@@ -345,15 +381,16 @@ def check_staleness(project, out, today):
 
 def check_traceability(project, out):
     prefix = project.prefix
-    if not prefix:
+    legacy_prefixes = getattr(project, "legacy_prefixes", None)
+    if not prefix and not legacy_prefixes:
         out.add("warn", "traceability", project.charter_path,
                 "no work item prefix, so IDs cannot be checked")
         return
     backlog = project.records("backlog.md")
     worklog = project.worklog_texts()
-    rows = backlog_rows(backlog, prefix)
+    rows = backlog_rows(backlog, prefix, legacy_prefixes)
     known = set(row[0] for row in rows)
-    logged = ids_in(worklog, prefix)
+    logged = ids_in(worklog, prefix, known)
     backlog_where = os.path.join(project.docs, "project", "backlog.md")
     for item, status, cells in rows:
         if status == "Done" and item not in logged:
@@ -362,12 +399,12 @@ def check_traceability(project, out):
         if status == "Parked" and (len(cells) < 7 or unfilled(cells[6])):
             out.add("warn", "traceability", "%s %s" % (backlog_where, item),
                     "Parked with no one named in 'Waiting on whom'")
-    for item in sorted(logged - known, key=lambda i: int(i.split("-")[1])):
+    for item in sorted(logged - known, key=id_sort_key):
         out.add("warn", "traceability", "%s/project/worklog.md %s" % (project.docs, item),
                 "in the worklog but not in the backlog")
-    mentioned = ids_in(project.git("log", "-50", "--format=%B"), prefix) | \
-        ids_in(project.git("branch", "--format=%(refname:short)"), prefix)
-    for item in sorted(mentioned - known - logged, key=lambda i: int(i.split("-")[1])):
+    mentioned = ids_in(project.git("log", "-50", "--format=%B"), prefix, known) | \
+        ids_in(project.git("branch", "--format=%(refname:short)"), prefix, known)
+    for item in sorted(mentioned - known - logged, key=id_sort_key):
         out.add("warn", "traceability", "git",
                 "%s is in a recent commit or branch and in neither the backlog nor the "
                 "worklog" % item)
@@ -788,10 +825,13 @@ def selftest():
     assert unfilled(labelled(charter, "Approvers"))
     assert roles(charter) == [("qa", True, ""), ("seo", False, ""),
                               ("cro-analyst", False, "no funnel")]
-    backlog = "| ACME-2 | Ship it | 2 | qa | | `Done` | 2026-01-01 |\n| ACME-10 | x | 3 | qa | | Parked | | why | |"
+    backlog = ("| ACME-2 | Ship it | 2 | qa | | `Done` | 2026-01-01 |\n"
+               "| ACME-10 | x | 3 | qa | | Parked | | why | |\n"
+               "| S61.5 | Legacy story | 2 | qa | | Ready |")
     rows = backlog_rows(backlog, "ACME")
-    assert [(r[0], r[1]) for r in rows] == [("ACME-2", "Done"), ("ACME-10", "Parked")]
+    assert [(r[0], r[1]) for r in rows] == [("ACME-2", "Done"), ("ACME-10", "Parked"), ("S61.5", "Ready")]
     assert ids_in("ACME-3 and ACME-12, not ACME-### or XACME-4", "ACME") == {"ACME-3", "ACME-12"}
+    assert ids_in("Working on S61.5 and ACME-3", "ACME", {"S61.5"}) == {"ACME-3", "S61.5"}
     assert frontmatter("---\nstatus: draft\nlast-reviewed: 2026-01-01\n---\n# x") == \
         {"status": "draft", "last-reviewed": "2026-01-01"}
     today = datetime.date(2026, 4, 1)
