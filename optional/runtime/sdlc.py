@@ -172,7 +172,26 @@ def ids_in(text, prefix, extra_ids=None):
         patterns.append(r"\b(?:" + "|".join(re.escape(i) for i in sorted(extra_ids, key=len, reverse=True)) + r")\b")
     if not patterns:
         return set()
-    return set(re.findall(r"|".join(patterns), text))
+    found = set(re.findall(r"|".join(patterns), text))
+    if extra_ids:
+        for m in re.finditer(r"\b([A-Za-z]+)([0-9]+)(?:\.([0-9]+))?\s*[-–—]\s*(?:([A-Za-z]+))?([0-9]+)(?:\.([0-9]+))?\b", text):
+            p1, n1, sub1, p2, n2, sub2 = m.groups()
+            if sub1 is not None:
+                p_letter, major, start_s = p1, int(n1), int(sub1)
+                end_s = int(sub2) if sub2 is not None else (int(n2) if p2 is None else None)
+                if end_s is not None and start_s <= end_s <= start_s + 100:
+                    for s in range(start_s, end_s + 1):
+                        cand = "%s%d.%d" % (p_letter, major, s)
+                        if cand in extra_ids:
+                            found.add(cand)
+            elif sub1 is None and sub2 is None and n1 and n2:
+                p_letter, start_n, end_n = p1, int(n1), int(n2)
+                if start_n <= end_n <= start_n + 100:
+                    for n in range(start_n, end_n + 1):
+                        cand = "%s%d" % (p_letter, n)
+                        if cand in extra_ids:
+                            found.add(cand)
+    return found
 
 
 def id_sort_key(i):
@@ -394,8 +413,13 @@ def check_traceability(project, out):
     backlog_where = os.path.join(project.docs, "project", "backlog.md")
     for item, status, cells in rows:
         if status == "Done" and item not in logged:
-            out.add("fail", "traceability", "%s %s" % (backlog_where, item),
-                    "Done with no worklog entry naming it")
+            is_legacy = not (prefix and re.fullmatch(r"%s-[0-9]+" % re.escape(prefix), item))
+            if is_legacy:
+                out.add("warn", "traceability", "%s %s" % (backlog_where, item),
+                        "legacy item Done with no worklog entry naming it")
+            else:
+                out.add("fail", "traceability", "%s %s" % (backlog_where, item),
+                        "Done with no worklog entry naming it")
         if status == "Parked" and (len(cells) < 7 or unfilled(cells[6])):
             out.add("warn", "traceability", "%s %s" % (backlog_where, item),
                     "Parked with no one named in 'Waiting on whom'")
@@ -832,6 +856,8 @@ def selftest():
     assert [(r[0], r[1]) for r in rows] == [("ACME-2", "Done"), ("ACME-10", "Parked"), ("S61.5", "Ready")]
     assert ids_in("ACME-3 and ACME-12, not ACME-### or XACME-4", "ACME") == {"ACME-3", "ACME-12"}
     assert ids_in("Working on S61.5 and ACME-3", "ACME", {"S61.5"}) == {"ACME-3", "S61.5"}
+    assert ids_in("Delivered S61.1–S61.3 and E0-E2", "ACME", {"S61.1", "S61.2", "S61.3", "E0", "E1", "E2"}) == \
+        {"S61.1", "S61.2", "S61.3", "E0", "E1", "E2"}
     assert frontmatter("---\nstatus: draft\nlast-reviewed: 2026-01-01\n---\n# x") == \
         {"status": "draft", "last-reviewed": "2026-01-01"}
     today = datetime.date(2026, 4, 1)
