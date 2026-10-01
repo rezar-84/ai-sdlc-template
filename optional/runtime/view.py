@@ -232,6 +232,7 @@ def build(rt, project):
                    os.path.basename(project.root),
         "prefix": prefix, "docs_dir": project.docs,
         "git_head": project.git("rev-parse", "--short", "HEAD").strip(),
+        "git_branch": project.git("rev-parse", "--abbrev-ref", "HEAD").strip(),
         "columns": [c for c, _ in COLUMNS] + ["Other"], "steps": list(STEPS),
         "items": {}, "order": [], "epics": [], "worklog": [], "docs": [], "unread": [],
         "alerts": [], "id_pattern": id_re.pattern,
@@ -313,17 +314,68 @@ def build(rt, project):
         doc["stage"] = (m.group(2) or "") if m else ""
         model["docs"].append(doc)
 
-    # Commits that name an ID.
+    # Commits that name an ID, plus full git traceability metadata.
     log = project.git("log", "-n", str(MAX_COMMITS), "--date=short",
-                      "--format=%h%x1f%ad%x1f%s")
+                      "--format=%h%x1f%an%x1f%ad%x1f%s")
     commits = {}
+    all_commits = []
     for line in log.splitlines():
         parts = line.split("\x1f")
-        if len(parts) != 3:
+        if len(parts) == 4:
+            sha, author, date, subject = parts
+        elif len(parts) == 3:
+            sha, author, date, subject = parts[0], "", parts[1], parts[2]
+        else:
             continue
-        for found in set(id_re.findall(parts[2])):
-            commits.setdefault(found, []).append({"sha": parts[0], "date": parts[1],
-                                                  "subject": parts[2]})
+        found = sorted(set(id_re.findall(subject)))
+        all_commits.append({"sha": sha, "author": author, "date": date,
+                            "subject": subject, "items": found})
+        for fid in found:
+            commits.setdefault(fid, []).append({"sha": sha, "author": author,
+                                                "date": date, "subject": subject})
+
+    curr_branch = model.get("git_branch") or project.git("rev-parse", "--abbrev-ref", "HEAD").strip()
+    status_raw = project.git("status", "--porcelain")
+    modified_files = []
+    for s_line in status_raw.splitlines():
+        if s_line.strip():
+            modified_files.append({"status": s_line[:2].strip(), "path": s_line[3:].strip()})
+    clean = len(modified_files) == 0
+
+    branch_log = project.git("branch", "--format=%(refname:short)%09%(committerdate:short)%09%(subject)")
+    branches = []
+    for b_line in branch_log.splitlines():
+        bparts = b_line.split("\t")
+        if not bparts or not bparts[0].strip():
+            continue
+        bname = bparts[0].strip()
+        bdate = bparts[1].strip() if len(bparts) > 1 else ""
+        bsubj = bparts[2].strip() if len(bparts) > 2 else ""
+        bitems = sorted(set(id_re.findall(bname) + id_re.findall(bsubj)))
+        branches.append({
+            "name": bname, "current": bname == curr_branch,
+            "date": bdate, "subject": bsubj, "items": bitems,
+        })
+
+    total_commits = len(all_commits)
+    linked_commits = sum(1 for c in all_commits if c["items"])
+    untracked_commits = total_commits - linked_commits
+    rate = round((linked_commits / total_commits * 100), 1) if total_commits else 0.0
+
+    model["git"] = {
+        "branch": curr_branch,
+        "clean": clean,
+        "modified_count": len(modified_files),
+        "modified_files": modified_files[:100],
+        "branches": branches,
+        "commits": all_commits[:1000],
+        "stats": {
+            "total": total_commits,
+            "linked": linked_commits,
+            "untracked": untracked_commits,
+            "rate": rate,
+        },
+    }
 
     # Join everything onto the items. An ID seen only in the records still gets a node.
     def item(i):
@@ -637,7 +689,290 @@ def serve(rt, project, template, opts):
         print("\nview: stopped")
     finally:
         server.server_close()
-    return 0
+def build_map_svg(model, interactive=True):
+    """Build a standalone, formatted SVG mind map of the project records."""
+    ids = model.get("order", [])
+    items = model.get("items", {})
+
+    def clip(text, n):
+        return text if len(text) <= n else text[:n - 1] + "…"
+
+    def esc(text):
+        return (str(text or "")
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+                .replace("'", "&apos;"))
+
+    def item_node(iid):
+        it = items.get(iid, {})
+        title = it.get("title", "")
+        return {
+            "key": "i:" + iid,
+            "label": iid + "  " + clip(title, 42),
+            "full": iid + " " + title,
+            "col": it.get("column", "Other"),
+            "route": "item/" + iid,
+        }
+
+    by_col = []
+    for c in model.get("columns", {}):
+        kids = [item_node(i) for i in ids if items.get(i, {}).get("column") == c]
+        if kids:
+            by_col.append({"key": "c:" + c, "label": c, "col": c, "children": kids})
+
+    owners = {}
+    for i in ids:
+        it = items.get(i, {})
+        o = it.get("owner")
+        if o and it.get("column") not in ("Done", "Dropped"):
+            owners.setdefault(o, []).append(i)
+    by_owner = [{"key": "o:" + o, "label": o, "children": [item_node(i) for i in owners[o]]}
+                for o in sorted(owners)]
+
+    kinds = {}
+    for d in model.get("docs", []):
+        if d.get("kind") != "index":
+            kinds.setdefault(d.get("kind"), []).append(d)
+
+    kind_names = {
+        "record": "Records", "plans": "Plans", "reviews": "Reviews", "defects": "Defects",
+        "postmortems": "Postmortems", "adr": "ADRs", "archive": "Worklog archive"
+    }
+    by_doc = []
+    for k in sorted(kinds):
+        children = []
+        for d in kinds[k]:
+            path = d.get("path", "")
+            name = path.split("/")[-1]
+            children.append({"key": "d:" + path, "label": clip(name, 40), "full": path})
+        by_doc.append({"key": "k:" + k, "label": kind_names.get(k, k), "children": children})
+
+    root = {
+        "key": "root",
+        "label": model.get("project") or "Project",
+        "children": [
+            {"key": "g:status", "label": "Work by status", "children": by_col},
+            {"key": "g:owner", "label": "Open work by owner role", "children": by_owner},
+            {"key": "g:docs", "label": "Documents", "children": by_doc},
+        ]
+    }
+    epics = model.get("epics", [])
+    if epics:
+        epic_kids = []
+        for e in epics:
+            e_items = [item_node(i) for i in e.get("items", []) if i in items]
+            epic_kids.append({"key": "e:" + e.get("name", ""), "label": e.get("name", ""), "children": e_items})
+        root["children"].insert(1, {"key": "g:epics", "label": "Epics", "children": epic_kids})
+
+    ROW = 24
+    COLW = 230
+    rows = [0]
+    max_depth = [0]
+    nodes = []
+    links = []
+
+    def place(n, depth):
+        max_depth[0] = max(max_depth[0], depth)
+        kids = n.get("children", [])
+        if kids and depth < 2:
+            for k in kids:
+                place(k, depth + 1)
+                links.append((n, k))
+            n["y"] = (kids[0]["y"] + kids[-1]["y"]) / 2
+        else:
+            n["y"] = rows[0] * ROW + 24
+            rows[0] += 1
+        n["x"] = depth * COLW + 24
+        nodes.append(n)
+
+    place(root, 0)
+    width = max(760, (max_depth[0] + 1) * COLW + 300)
+    height = max(360, rows[0] * ROW + 48)
+    proj_name = esc(model.get("project") or "Project")
+
+    COL_HEX = {
+        "Now": "#0969da", "Next": "#8250df", "Blocked": "#cf222e", "Parked": "#bf8700",
+        "Later": "#6e7781", "Done": "#2f8f5b", "Dropped": "#afb8c1", "Other": "#6e7781"
+    }
+
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+        'viewBox="0 0 %d %d" width="%d" height="%d" role="img" aria-label="%s Mind Map">'
+        % (width, height, width, height, proj_name),
+        '  <title>%s Mind Map</title>' % proj_name,
+        '  <defs>',
+        '    <style type="text/css"><![CDATA[',
+        '      :root {',
+        '        --bg: #ffffff; --panel: #f6f8fa; --line: #d0d7de; --text: #1f2328; --muted: #57606a;',
+        '        --link: #0969da; --accent: #2f8f5b; --c-Now: #0969da; --c-Next: #8250df;',
+        '        --c-Blocked: #cf222e; --c-Parked: #bf8700; --c-Later: #6e7781; --c-Done: #2f8f5b;',
+        '        --c-Dropped: #afb8c1; --c-Other: #6e7781;',
+        '      }',
+        '      @media (prefers-color-scheme: dark) {',
+        '        :root {',
+        '          --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #e6edf3; --muted: #9da7b3;',
+        '          --link: #4493f8; --accent: #3fb950; --c-Now: #4493f8; --c-Next: #a371f7;',
+        '          --c-Blocked: #f85149; --c-Parked: #d29922; --c-Later: #8b949e; --c-Done: #3fb950;',
+        '          --c-Dropped: #484f58; --c-Other: #8b949e;',
+        '        }',
+        '      }',
+        '      text { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }',
+        '      .bg-canvas { fill: var(--bg, #ffffff); }',
+        '      .map-link { fill: none; stroke: var(--line, #d0d7de); stroke-width: 1.5; stroke-linecap: round; transition: stroke .15s ease, stroke-width .15s ease; }',
+        '      .map-link:hover { stroke: var(--link, #0969da); stroke-width: 2.2; }',
+        '      .node-dot { stroke-width: 2; cursor: pointer; transition: r .15s ease; }',
+        '      .node-dot:hover { r: 7.5; }',
+        '      .node-label { font-size: 13px; fill: var(--text, #1f2328); cursor: pointer; user-select: none; }',
+        '      .node-label.nav { fill: var(--link, #0969da); font-weight: 500; }',
+        '      .node-label.nav:hover { text-decoration: underline; }',
+        '      .node-count { font-size: 11px; fill: var(--muted, #57606a); user-select: none; }',
+        '      .svg-btn { cursor: pointer; user-select: none; }',
+        '      .svg-btn rect { fill: var(--panel, #f6f8fa); stroke: var(--line, #d0d7de); stroke-width: 1; rx: 4; ry: 4; }',
+        '      .svg-btn:hover rect { fill: var(--line, #d0d7de); }',
+        '      .svg-btn text { font-size: 11px; font-weight: 600; fill: var(--text, #1f2328); text-anchor: middle; dominant-baseline: central; }',
+        '    ]]></style>',
+        '  </defs>',
+        '',
+        '  <!-- Background -->',
+        '  <rect width="100%" height="100%" fill="var(--bg, #ffffff)" class="bg-canvas" />',
+        '',
+        '  <g id="viewport">',
+        '    <!-- Connectors -->',
+        '    <g id="links">',
+    ]
+
+    for a, b in links:
+        mx = (a["x"] + b["x"]) / 2
+        d = "M%d %d C%d %d %d %d %d %d" % (
+            a["x"] + 6, a["y"], mx, a["y"], mx, b["y"], b["x"] - 6, b["y"]
+        )
+        lines.append('      <path class="map-link" d="%s" fill="none" stroke="var(--line, #d0d7de)" stroke-width="1.5" />' % d)
+
+    lines.append('    </g>')
+    lines.append('')
+    lines.append('    <!-- Nodes -->')
+    lines.append('    <g id="nodes">')
+
+    for n in nodes:
+        kids = n.get("children", [])
+        is_open = bool(kids and n.get("depth", 0) < 2)
+        stroke_hex = COL_HEX.get(n.get("col", ""), "#2f8f5b")
+        stroke_val = "var(--c-%s, %s)" % (n["col"], stroke_hex) if n.get("col") else "var(--accent, #2f8f5b)"
+        fill_hex = stroke_hex if (kids and not is_open) else "#ffffff"
+        fill_val = stroke_val if (kids and not is_open) else "var(--bg, #ffffff)"
+        r = 6 if kids else 4
+        label_cls = "node-label" + (" nav" if n.get("route") else "")
+        full_text = esc(n.get("full") or n.get("label", ""))
+        label_text = esc(n.get("label", ""))
+
+        lines.append('      <g class="map-node" data-key="%s">' % esc(n.get("key", "")))
+        lines.append('        <circle class="node-dot" cx="%d" cy="%d" r="%d" fill="%s" stroke="%s" stroke-width="2">'
+                     % (n["x"], n["y"], r, fill_val, stroke_val))
+        lines.append('          <title>%s</title>' % full_text)
+        lines.append('        </circle>')
+        lines.append('        <text class="%s" x="%d" y="%d" font-family="system-ui, sans-serif" font-size="13px" fill="var(--text, #1f2328)">'
+                     '%s<title>%s</title></text>' % (label_cls, n["x"] + 10, n["y"] + 4, label_text, full_text))
+        if kids and not is_open:
+            cx = n["x"] + 14 + len(n.get("label", "")) * 7.2
+            lines.append('        <text class="node-count" x="%.1f" y="%d" font-family="system-ui, sans-serif" font-size="11px" fill="var(--muted, #57606a)">(%d)</text>'
+                         % (cx, n["y"] + 4, len(kids)))
+        lines.append('      </g>')
+
+    lines.append('    </g>')
+    lines.append('  </g>')
+
+    if interactive:
+        lines.extend([
+            '',
+            '  <!-- Interactive Navigation Controls -->',
+            '  <g id="controls" transform="translate(%d, 14)">' % (width - 156),
+            '    <rect width="142" height="30" rx="6" ry="6" fill="var(--panel, #f6f8fa)" stroke="var(--line, #d0d7de)" stroke-width="1" />',
+            '    <g class="svg-btn" id="btn-zoom-in" transform="translate(5, 3)">',
+            '      <rect width="24" height="24" /><text x="12" y="12">+</text>',
+            '      <title>Zoom in</title>',
+            '    </g>',
+            '    <g class="svg-btn" id="btn-zoom-out" transform="translate(33, 3)">',
+            '      <rect width="24" height="24" /><text x="12" y="12">−</text>',
+            '      <title>Zoom out</title>',
+            '    </g>',
+            '    <g class="svg-btn" id="btn-reset" transform="translate(61, 3)">',
+            '      <rect width="42" height="24" /><text x="21" y="12">100%</text>',
+            '      <title>Reset view</title>',
+            '    </g>',
+            '    <g class="svg-btn" id="btn-theme" transform="translate(107, 3)">',
+            '      <rect width="26" height="24" /><text x="13" y="12">◐</text>',
+            '      <title>Toggle theme</title>',
+            '    </g>',
+            '  </g>',
+            '',
+            '  <!-- Interactive Pan & Zoom Script -->',
+            '  <script type="text/javascript"><![CDATA[',
+            '    (function () {',
+            '      var svg = document.documentElement;',
+            '      var vp = document.getElementById("viewport");',
+            '      if (!vp) return;',
+            '      var scale = 1, panX = 0, panY = 0;',
+            '      var dragging = false, startX = 0, startY = 0;',
+            '      function update() {',
+            '        vp.setAttribute("transform", "translate(" + panX.toFixed(2) + "," + panY.toFixed(2) + ") scale(" + scale.toFixed(3) + ")");',
+            '      }',
+            '      svg.addEventListener("mousedown", function (e) {',
+            '        if (e.target.closest && e.target.closest("#controls")) return;',
+            '        dragging = true;',
+            '        startX = e.clientX - panX;',
+            '        startY = e.clientY - panY;',
+            '        svg.style.cursor = "grabbing";',
+            '      });',
+            '      window.addEventListener("mousemove", function (e) {',
+            '        if (!dragging) return;',
+            '        panX = e.clientX - startX;',
+            '        panY = e.clientY - startY;',
+            '        update();',
+            '      });',
+            '      window.addEventListener("mouseup", function () {',
+            '        if (dragging) { dragging = false; svg.style.cursor = "default"; }',
+            '      });',
+            '      svg.addEventListener("wheel", function (e) {',
+            '        e.preventDefault();',
+            '        var delta = e.deltaY < 0 ? 1.15 : 0.87;',
+            '        var next = Math.max(0.15, Math.min(6, scale * delta));',
+            '        var r = svg.getBoundingClientRect();',
+            '        var mx = e.clientX - r.left, my = e.clientY - r.top;',
+            '        panX = mx - (mx - panX) * (next / scale);',
+            '        panY = my - (my - panY) * (next / scale);',
+            '        scale = next;',
+            '        update();',
+            '      }, { passive: false });',
+            '      var bIn = document.getElementById("btn-zoom-in");',
+            '      if (bIn) bIn.addEventListener("click", function () { scale = Math.min(6, scale * 1.25); update(); });',
+            '      var bOut = document.getElementById("btn-zoom-out");',
+            '      if (bOut) bOut.addEventListener("click", function () { scale = Math.max(0.15, scale * 0.8); update(); });',
+            '      var bRes = document.getElementById("btn-reset");',
+            '      if (bRes) bRes.addEventListener("click", function () { scale = 1; panX = 0; panY = 0; update(); });',
+            '      var bTh = document.getElementById("btn-theme");',
+            '      if (bTh) bTh.addEventListener("click", function () {',
+            '        var curr = svg.getAttribute("data-theme");',
+            '        var isDark = curr === "dark" || (!curr && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);',
+            '        var next = isDark ? "light" : "dark";',
+            '        svg.setAttribute("data-theme", next);',
+            '        if (next === "dark") {',
+            '          svg.style.setProperty("--bg", "#0d1117"); svg.style.setProperty("--text", "#e6edf3");',
+            '          svg.style.setProperty("--line", "#30363d"); svg.style.setProperty("--panel", "#161b22");',
+            '        } else {',
+            '          svg.style.setProperty("--bg", "#ffffff"); svg.style.setProperty("--text", "#1f2328");',
+            '          svg.style.setProperty("--line", "#d0d7de"); svg.style.setProperty("--panel", "#f6f8fa");',
+            '        }',
+            '      });',
+            '    })();',
+            '  ]]></script>',
+        ])
+
+    lines.append('</svg>')
+    lines.append('')
+    return '\n'.join(lines)
 
 
 def run(rt, project, opts):
@@ -660,6 +995,20 @@ def run(rt, project, opts):
     out = os.path.join(out_dir, "index.html")
     with open(out, "w", encoding="utf-8") as handle:
         handle.write(render(model, template))
+
+    svg_content = build_map_svg(model)
+    svg_out = os.path.join(out_dir, "map.svg")
+    with open(svg_out, "w", encoding="utf-8") as handle:
+        handle.write(svg_content)
+
+    custom_svg = getattr(opts, "svg", None)
+    if custom_svg:
+        target_svg = project.path(custom_svg) if not os.path.isabs(custom_svg) else custom_svg
+        os.makedirs(os.path.dirname(target_svg), exist_ok=True)
+        with open(target_svg, "w", encoding="utf-8") as handle:
+            handle.write(svg_content)
+        print("wrote %s" % os.path.relpath(target_svg, project.root))
+
     if getattr(opts, "json", False):
         print(json.dumps(model, indent=2, ensure_ascii=False))
         return 0
@@ -671,7 +1020,7 @@ def run(rt, project, opts):
              ", ".join("%s %d" % (c, counts[c]) for c in model["columns"] if c in counts),
              len(model["worklog"]), len(model["docs"]),
              ", %d unread" % len(model["unread"]) if model["unread"] else ""))
-    print("wrote %s" % os.path.relpath(out, project.root))
+    print("wrote %s and %s" % (os.path.relpath(out, project.root), os.path.relpath(svg_out, project.root)))
     if not getattr(opts, "no_open", False):
         webbrowser.open("file://" + out)
     return 0

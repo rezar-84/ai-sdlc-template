@@ -760,6 +760,9 @@ def test_view():
           "- 2026-01-03 · VWX-3 · Fix typo · effort: Lean · verified: build ok\n")
     write(d, "docs/project/plans/VWX-2.md", "# Plan — VWX-2\n\n## Approach\n\nSee VWX-1.\n")
     write(d, "docs/project/reviews/VWX-1-ship.md", "# Review\n\nPass.\n")
+    git = ["git", "-c", "user.email=t@t", "-c", "user.name=tester"]
+    subprocess.call(git + ["add", "-A"], cwd=d)
+    subprocess.call(git + ["commit", "-qm", "VWX-1 initial setup"], cwd=d)
     script = os.path.join(d, ".ai-sdlc", "bin", "sdlc.py")
     p = subprocess.Popen([sys.executable, script, "view", "--json"], cwd=d,
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -769,6 +772,13 @@ def test_view():
     except ValueError:
         model = {"items": {}, "worklog": [], "unread": []}
     items = model["items"]
+    check("model carries git metadata", "git" in model and "stats" in model["git"], str(model.get("git")))
+    check("git commits linked to work item",
+          any(c.get("author") == "tester" and "VWX-1" in c.get("items", []) for c in model["git"].get("commits", [])),
+          str(model["git"].get("commits")))
+    check("git traceability rate computed",
+          model["git"].get("stats", {}).get("total") == 1 and model["git"].get("stats", {}).get("linked") == 1
+          and model["git"].get("stats", {}).get("rate") == 100.0, str(model["git"].get("stats")))
     check("backlog rows land in their board columns",
           items.get("VWX-2", {}).get("column") == "Now" and items.get("VWX-4", {}).get("column") == "Parked"
           and items.get("VWX-1", {}).get("column") == "Done", out[:400])
@@ -795,6 +805,9 @@ def test_view():
     page = read(d, ".ai-sdlc/view/index.html")
     check("the page is written with the model inside", "VWX-2" in page and "/*NUHUT_MODEL*/" not in page)
     check("record text cannot close the script tag", "<script>x</script>" not in page, page[-200:])
+    check("git view tab present in page", 'data-r="git"' in page and "viewGit" in page)
+    svg_map = read(d, ".ai-sdlc/view/map.svg")
+    check("formatted SVG map is written", "<svg" in svg_map and "</svg>" in svg_map and "viewBox" in svg_map)
     check("the page is git-ignored", read(d, ".ai-sdlc/view/.gitignore").strip() == "*")
     status = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=all"],
                                      cwd=d).decode()

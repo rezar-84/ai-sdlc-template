@@ -126,7 +126,7 @@
   <div class="brand"><i></i><span id="pname">Nuhut</span></div>
   <nav class="tabs" id="tabs">
     <a data-r="map">Map</a><a data-r="board">Board</a><a data-r="activity">Activity</a>
-    <a data-r="waiting">Waiting on you</a><a data-r="docs">Documents</a>
+    <a data-r="waiting">Waiting on you</a><a data-r="git">Git</a><a data-r="docs">Documents</a>
   </nav>
   <input id="q" type="search" placeholder="Search IDs, titles, documents…" aria-label="Search">
   <div class="meta" id="meta"></div>
@@ -325,17 +325,24 @@
     document.title = (M.project || "Project") + " — Nuhut view";
     var meta = document.getElementById("meta");
     meta.textContent = "";
+    var gitRef = M.git_head ? (M.git_branch ? M.git_branch + "@" : "") + M.git_head : "";
     if (!LIVE) {
-      meta.textContent = "generated " + M.generated + (M.git_head ? " at " + M.git_head : "") +
+      meta.textContent = "generated " + M.generated + (gitRef ? " at " + gitRef : "") +
         " · re-run sdlc.py view to refresh";
-      return;
+    } else {
+      var dot = el("span", { cls: "dot " + liveState });
+      var when = liveAt.toTimeString().slice(0, 8);
+      meta.appendChild(dot);
+      meta.appendChild(document.createTextNode(liveState === "live"
+        ? "Live · updated " + when + (gitRef ? " at " + gitRef : "")
+        : "Disconnected · showing data from " + when + " · restart sdlc.py view --serve"));
     }
-    var dot = el("span", { cls: "dot " + liveState });
-    var when = liveAt.toTimeString().slice(0, 8);
-    meta.appendChild(dot);
-    meta.appendChild(document.createTextNode(liveState === "live"
-      ? "Live · updated " + when + (M.git_head ? " at " + M.git_head : "")
-      : "Disconnected · showing data from " + when + " · restart sdlc.py view --serve"));
+    meta.appendChild(el("button", {
+      text: "Export HTML",
+      title: "Download self-contained offline dashboard HTML",
+      style: "margin-left: 8px; padding: 2px 8px; font-size: 11px;",
+      on: { click: exportHtml }
+    }));
   }
   paintMeta();
   var q = document.getElementById("q"), qTimer;
@@ -411,6 +418,231 @@
   }
   function isOpen(n, depth) { return OPEN[n.key] !== undefined ? OPEN[n.key] : depth < 2; }
 
+  function escXml(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+  }
+
+  function downloadFile(filename, content, mime) {
+    var blob = new Blob([content], { type: mime || "application/octet-stream" });
+    var a = el("a", { href: URL.createObjectURL(blob), download: filename });
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 100);
+  }
+
+  function exportHtml() {
+    var title = (M.project || "nuhut").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    var doc = "<!doctype html>\n" + document.documentElement.outerHTML;
+    downloadFile(title + "-dashboard.html", doc, "text/html;charset=utf-8");
+  }
+
+  function buildSvgExport(opts) {
+    opts = opts || {};
+    var isInteractive = !!opts.interactive;
+    var root = mapTree(), ROW = 24, COLW = 230, rows = 0, maxDepth = 0, nodes = [], links = [];
+    (function place(n, depth) {
+      n.depth = depth;
+      maxDepth = Math.max(maxDepth, depth);
+      var kids = n.children || [];
+      if (kids.length && (opts.allOpen || isOpen(n, depth))) {
+        kids.forEach(function (k) { place(k, depth + 1); links.push([n, k]); });
+        n.y = (kids[0].y + kids[kids.length - 1].y) / 2;
+      } else {
+        n.y = rows++ * ROW + 24;
+      }
+      n.x = depth * COLW + 24;
+      nodes.push(n);
+    })(root, 0);
+
+    var width = Math.max(760, (maxDepth + 1) * COLW + 300);
+    var height = Math.max(360, rows * ROW + 48);
+    var proj = M.project || "Project";
+
+    var COL_HEX = {
+      Now: "#0969da", Next: "#8250df", Blocked: "#cf222e", Parked: "#bf8700",
+      Later: "#6e7781", Done: "#2f8f5b", Dropped: "#afb8c1", Other: "#6e7781"
+    };
+
+    var L = [];
+    L.push('<?xml version="1.0" encoding="UTF-8"?>');
+    L.push('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ' +
+           'viewBox="0 0 ' + width + ' ' + height + '" width="' + width + '" height="' + height + '" ' +
+           'role="img" aria-label="' + escXml(proj) + ' Mind Map">');
+    L.push('  <title>' + escXml(proj) + ' Mind Map</title>');
+    L.push('  <defs>');
+    L.push('    <style type="text/css"><![CDATA[');
+    L.push('      :root {');
+    L.push('        --bg: #ffffff; --panel: #f6f8fa; --line: #d0d7de; --text: #1f2328; --muted: #57606a;');
+    L.push('        --link: #0969da; --accent: #2f8f5b; --c-Now: #0969da; --c-Next: #8250df;');
+    L.push('        --c-Blocked: #cf222e; --c-Parked: #bf8700; --c-Later: #6e7781; --c-Done: #2f8f5b;');
+    L.push('        --c-Dropped: #afb8c1; --c-Other: #6e7781;');
+    L.push('      }');
+    L.push('      @media (prefers-color-scheme: dark) {');
+    L.push('        :root {');
+    L.push('          --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #e6edf3; --muted: #9da7b3;');
+    L.push('          --link: #4493f8; --accent: #3fb950; --c-Now: #4493f8; --c-Next: #a371f7;');
+    L.push('          --c-Blocked: #f85149; --c-Parked: #d29922; --c-Later: #8b949e; --c-Done: #3fb950;');
+    L.push('          --c-Dropped: #484f58; --c-Other: #8b949e;');
+    L.push('        }');
+    L.push('      }');
+    L.push('      text { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }');
+    L.push('      .bg-canvas { fill: var(--bg, #ffffff); }');
+    L.push('      .map-link { fill: none; stroke: var(--line, #d0d7de); stroke-width: 1.5; stroke-linecap: round; transition: stroke .15s ease, stroke-width .15s ease; }');
+    L.push('      .map-link:hover { stroke: var(--link, #0969da); stroke-width: 2.2; }');
+    L.push('      .node-dot { stroke-width: 2; cursor: pointer; transition: r .15s ease; }');
+    L.push('      .node-dot:hover { r: 7.5; }');
+    L.push('      .node-label { font-size: 13px; fill: var(--text, #1f2328); cursor: pointer; user-select: none; }');
+    L.push('      .node-label.nav { fill: var(--link, #0969da); font-weight: 500; }');
+    L.push('      .node-label.nav:hover { text-decoration: underline; }');
+    L.push('      .node-count { font-size: 11px; fill: var(--muted, #57606a); user-select: none; }');
+    L.push('      .svg-btn { cursor: pointer; user-select: none; }');
+    L.push('      .svg-btn rect { fill: var(--panel, #f6f8fa); stroke: var(--line, #d0d7de); stroke-width: 1; rx: 4; ry: 4; }');
+    L.push('      .svg-btn:hover rect { fill: var(--line, #d0d7de); }');
+    L.push('      .svg-btn text { font-size: 11px; font-weight: 600; fill: var(--text, #1f2328); text-anchor: middle; dominant-baseline: central; }');
+    L.push('    ]]></style>');
+    L.push('  </defs>');
+    L.push('');
+    L.push('  <!-- Background -->');
+    L.push('  <rect width="100%" height="100%" fill="var(--bg, #ffffff)" class="bg-canvas" />');
+    L.push('');
+    L.push('  <g id="viewport">');
+    L.push('    <!-- Connectors -->');
+    L.push('    <g id="links">');
+    links.forEach(function (l) {
+      var a = l[0], b = l[1], mx = (a.x + b.x) / 2;
+      var d = "M" + (a.x + 6) + " " + a.y + " C" + mx + " " + a.y + " " + mx + " " + b.y + " " + (b.x - 6) + " " + b.y;
+      L.push('      <path class="map-link" d="' + d + '" fill="none" stroke="var(--line, #d0d7de)" stroke-width="1.5" />');
+    });
+    L.push('    </g>');
+    L.push('');
+    L.push('    <!-- Nodes -->');
+    L.push('    <g id="nodes">');
+    nodes.forEach(function (n) {
+      var kids = n.children || [], open = kids.length && (opts.allOpen || isOpen(n, n.depth));
+      var strokeHex = (n.col && COL_HEX[n.col]) || "#2f8f5b";
+      var strokeVal = n.col ? "var(--c-" + n.col + ", " + strokeHex + ")" : "var(--accent, #2f8f5b)";
+      var fillHex = (kids.length && !open) ? strokeHex : "#ffffff";
+      var fillVal = (kids.length && !open) ? strokeVal : "var(--bg, #ffffff)";
+      var r = kids.length ? 6 : 4;
+      var labelClass = "node-label" + (n.route ? " nav" : "");
+      var fullText = escXml(n.full || n.label);
+      var labelText = escXml(n.label);
+
+      L.push('      <g class="map-node" data-key="' + escXml(n.key) + '">');
+      L.push('        <circle class="node-dot" cx="' + n.x + '" cy="' + n.y + '" r="' + r + '" ' +
+             'fill="' + fillVal + '" stroke="' + strokeVal + '" stroke-width="2">');
+      L.push('          <title>' + fullText + '</title>');
+      L.push('        </circle>');
+      L.push('        <text class="' + labelClass + '" x="' + (n.x + 10) + '" y="' + (n.y + 4) + '" ' +
+             'font-family="system-ui, sans-serif" font-size="13px" fill="var(--text, #1f2328)">' +
+             labelText + '<title>' + fullText + '</title></text>');
+      if (kids.length && !open) {
+        var countX = n.x + 14 + n.label.length * 7.2;
+        L.push('        <text class="node-count" x="' + countX.toFixed(1) + '" y="' + (n.y + 4) + '" ' +
+               'font-family="system-ui, sans-serif" font-size="11px" fill="var(--muted, #57606a)">(' + kids.length + ')</text>');
+      }
+      L.push('      </g>');
+    });
+    L.push('    </g>');
+    L.push('  </g>');
+
+    if (isInteractive) {
+      L.push('');
+      L.push('  <!-- Interactive Navigation Controls -->');
+      L.push('  <g id="controls" transform="translate(' + (width - 156) + ', 14)">');
+      L.push('    <rect width="142" height="30" rx="6" ry="6" fill="var(--panel, #f6f8fa)" stroke="var(--line, #d0d7de)" stroke-width="1" />');
+      L.push('    <g class="svg-btn" id="btn-zoom-in" transform="translate(5, 3)">');
+      L.push('      <rect width="24" height="24" /><text x="12" y="12">+</text>');
+      L.push('      <title>Zoom in</title>');
+      L.push('    </g>');
+      L.push('    <g class="svg-btn" id="btn-zoom-out" transform="translate(33, 3)">');
+      L.push('      <rect width="24" height="24" /><text x="12" y="12">−</text>');
+      L.push('      <title>Zoom out</title>');
+      L.push('    </g>');
+      L.push('    <g class="svg-btn" id="btn-reset" transform="translate(61, 3)">');
+      L.push('      <rect width="42" height="24" /><text x="21" y="12">100%</text>');
+      L.push('      <title>Reset view</title>');
+      L.push('    </g>');
+      L.push('    <g class="svg-btn" id="btn-theme" transform="translate(107, 3)">');
+      L.push('      <rect width="26" height="24" /><text x="13" y="12">◐</text>');
+      L.push('      <title>Toggle theme</title>');
+      L.push('    </g>');
+      L.push('  </g>');
+      L.push('');
+      L.push('  <!-- Interactive Pan & Zoom Script -->');
+      L.push('  <script type="text/javascript"><![CDATA[');
+      L.push('    (function () {');
+      L.push('      var svg = document.documentElement;');
+      L.push('      var vp = document.getElementById("viewport");');
+      L.push('      if (!vp) return;');
+      L.push('      var scale = 1, panX = 0, panY = 0;');
+      L.push('      var dragging = false, startX = 0, startY = 0;');
+      L.push('      function update() {');
+      L.push('        vp.setAttribute("transform", "translate(" + panX.toFixed(2) + "," + panY.toFixed(2) + ") scale(" + scale.toFixed(3) + ")");');
+      L.push('      }');
+      L.push('      svg.addEventListener("mousedown", function (e) {');
+      L.push('        if (e.target.closest && e.target.closest("#controls")) return;');
+      L.push('        dragging = true;');
+      L.push('        startX = e.clientX - panX;');
+      L.push('        startY = e.clientY - panY;');
+      L.push('        svg.style.cursor = "grabbing";');
+      L.push('      });');
+      L.push('      window.addEventListener("mousemove", function (e) {');
+      L.push('        if (!dragging) return;');
+      L.push('        panX = e.clientX - startX;');
+      L.push('        panY = e.clientY - startY;');
+      L.push('        update();');
+      L.push('      });');
+      L.push('      window.addEventListener("mouseup", function () {');
+      L.push('        if (dragging) { dragging = false; svg.style.cursor = "default"; }');
+      L.push('      });');
+      L.push('      svg.addEventListener("wheel", function (e) {');
+      L.push('        e.preventDefault();');
+      L.push('        var delta = e.deltaY < 0 ? 1.15 : 0.87;');
+      L.push('        var next = Math.max(0.15, Math.min(6, scale * delta));');
+      L.push('        var r = svg.getBoundingClientRect();');
+      L.push('        var mx = e.clientX - r.left, my = e.clientY - r.top;');
+      L.push('        panX = mx - (mx - panX) * (next / scale);');
+      L.push('        panY = my - (my - panY) * (next / scale);');
+      L.push('        scale = next;');
+      L.push('        update();');
+      L.push('      }, { passive: false });');
+      L.push('      var bIn = document.getElementById("btn-zoom-in");');
+      L.push('      if (bIn) bIn.addEventListener("click", function () { scale = Math.min(6, scale * 1.25); update(); });');
+      L.push('      var bOut = document.getElementById("btn-zoom-out");');
+      L.push('      if (bOut) bOut.addEventListener("click", function () { scale = Math.max(0.15, scale * 0.8); update(); });');
+      L.push('      var bRes = document.getElementById("btn-reset");');
+      L.push('      if (bRes) bRes.addEventListener("click", function () { scale = 1; panX = 0; panY = 0; update(); });');
+      L.push('      var bTh = document.getElementById("btn-theme");');
+      L.push('      if (bTh) bTh.addEventListener("click", function () {');
+      L.push('        var curr = svg.getAttribute("data-theme");');
+      L.push('        var isDark = curr === "dark" || (!curr && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);');
+      L.push('        var next = isDark ? "light" : "dark";');
+      L.push('        svg.setAttribute("data-theme", next);');
+      L.push('        if (next === "dark") {');
+      L.push('          svg.style.setProperty("--bg", "#0d1117"); svg.style.setProperty("--text", "#e6edf3");');
+      L.push('          svg.style.setProperty("--line", "#30363d"); svg.style.setProperty("--panel", "#161b22");');
+      L.push('        } else {');
+      L.push('          svg.style.setProperty("--bg", "#ffffff"); svg.style.setProperty("--text", "#1f2328");');
+      L.push('          svg.style.setProperty("--line", "#d0d7de"); svg.style.setProperty("--panel", "#f6f8fa");');
+      L.push('        }');
+      L.push('      });');
+      L.push('    })();');
+      L.push('  ]]></script>');
+    }
+    L.push('</svg>');
+    L.push('');
+    return L.join('\n');
+  }
+
   function drawMap(box) {
     var root = mapTree(), ROW = 24, COLW = 230, rows = 0, maxDepth = 0, nodes = [], links = [];
     (function place(n, depth) {
@@ -432,19 +664,24 @@
       Object.keys(attrs || {}).forEach(function (k) { n.setAttribute(k, attrs[k]); });
       return n;
     }
-    var svg = s("svg", { width: (maxDepth + 1) * COLW + 280, height: rows * ROW + 24,
-      role: "img", "aria-label": "Mind map of the project" });
+    var totalW = (maxDepth + 1) * COLW + 280, totalH = rows * ROW + 24;
+    var svg = s("svg", {
+      width: totalW, height: totalH, viewBox: "0 0 " + totalW + " " + totalH,
+      role: "img", "aria-label": "Mind map of the project"
+    });
     links.forEach(function (l) {
       var a = l[0], b = l[1], mx = (a.x + b.x) / 2;
-      svg.appendChild(s("path", { d: "M" + (a.x + 6) + " " + a.y + " C" + mx + " " + a.y + " " + mx + " " +
-        b.y + " " + (b.x - 6) + " " + b.y }));
+      svg.appendChild(s("path", {
+        d: "M" + (a.x + 6) + " " + a.y + " C" + mx + " " + a.y + " " + mx + " " + b.y + " " + (b.x - 6) + " " + b.y,
+        fill: "none", stroke: "var(--line)", "stroke-width": 1.5
+      }));
     });
     nodes.forEach(function (n) {
       var kids = n.children || [], open = kids.length && isOpen(n, n.depth);
       var colour = n.col ? "var(--c-" + n.col + ")" : "var(--accent)";
       var c = s("circle", { cx: n.x, cy: n.y, r: kids.length ? 6 : 4,
-        fill: kids.length && !open ? colour : "var(--bg)", stroke: colour });
-      var t = s("text", { x: n.x + 10, y: n.y + 4, "class": n.route ? "nav" : "" });
+        fill: kids.length && !open ? colour : "var(--bg)", stroke: colour, "stroke-width": 2 });
+      var t = s("text", { x: n.x + 10, y: n.y + 4, "class": n.route ? "nav" : "", "font-size": 13 });
       t.textContent = n.label;
       var title = s("title");
       title.textContent = n.full || n.label;
@@ -470,20 +707,36 @@
     crumbs([[M.project || "Project"]]);
     main.appendChild(h(1, "Project map"));
     summary();
-    var svgRef;
+    var slug = (M.project || "nuhut").toLowerCase().replace(/[^a-z0-9]+/g, "-");
     main.appendChild(el("div", { cls: "mapbar" }, [
       el("button", { text: "Expand all", on: { click: function () { walk(mapTree(), true); render(); } } }),
       el("button", { text: "Collapse", on: { click: function () { OPEN = {}; render(); } } }),
-      el("button", { text: "Download SVG", on: { click: function () {
-        var blob = new Blob([new XMLSerializer().serializeToString(svgRef)], { type: "image/svg+xml" });
-        var a = el("a", { href: URL.createObjectURL(blob), download: "nuhut-map.svg" });
-        a.click();
-      } } }),
+      el("button", {
+        text: "Export SVG (Interactive)",
+        title: "Download formatted SVG with pan, zoom, and theme support",
+        on: { click: function () {
+          var xml = buildSvgExport({ interactive: true });
+          downloadFile(slug + "-map.svg", xml, "image/svg+xml;charset=utf-8");
+        } }
+      }),
+      el("button", {
+        text: "Export SVG (Static)",
+        title: "Download clean vector SVG without scripts (for Figma, docs, print)",
+        on: { click: function () {
+          var xml = buildSvgExport({ interactive: false });
+          downloadFile(slug + "-map-static.svg", xml, "image/svg+xml;charset=utf-8");
+        } }
+      }),
+      el("button", {
+        text: "Export Standalone HTML",
+        title: "Download complete offline-first interactive project dashboard",
+        on: { click: exportHtml }
+      }),
       el("span", { cls: "muted", text: "Click a dot to fold or unfold. Click a blue label to open it." })
     ]));
     var box = el("div", { cls: "map" });
     main.appendChild(box);
-    svgRef = drawMap(box);
+    drawMap(box);
     function walk(n, v) { if (n.children) { OPEN[n.key] = v; n.children.forEach(function (k) { if (!/^[dh]:/.test(k.key)) walk(k, v); }); } }
   }
 
@@ -499,6 +752,13 @@
     var waiting = (counts.Blocked || 0) + (counts.Parked || 0);
     strip.appendChild(el("a", { cls: "stat", href: "#/waiting" }, [el("b", { text: String(waiting) }), "waiting on a human"]));
     strip.appendChild(el("a", { cls: "stat", href: "#/activity" }, [el("b", { text: String(WL.length) }), "worklog entries"]));
+    if (M.git && M.git.stats && M.git.stats.total) {
+      var gs = el("a", { cls: "stat", href: "#/git" }, [
+        el("b", { text: M.git.stats.rate + "%" }), "git traceability (" + M.git.stats.linked + "/" + M.git.stats.total + ")"
+      ]);
+      gs.style.borderTop = "3px solid var(--accent)";
+      strip.appendChild(gs);
+    }
     main.appendChild(strip);
     if ((M.metrics || []).length) {
       var mt = el("details", { cls: "banner" }, [el("summary", { text: "Process measures (from the records and git)" })]);
@@ -659,6 +919,192 @@
     main.appendChild(el("div", { cls: "wrap" }, [t]));
   }
 
+  // ---------------------------------------------------------------- git
+  var GIT_FILTER = { query: "", mode: "all" };
+  function viewGit() {
+    tab("git");
+    crumbs([[M.project || "Project", "map"], ["Git"]]);
+    main.appendChild(h(1, "Git & Traceability"));
+
+    var git = M.git || { branch: "", clean: true, modified_count: 0, modified_files: [], branches: [], commits: [], stats: { total: 0, linked: 0, untracked: 0, rate: 0 } };
+    var stats = git.stats || { total: 0, linked: 0, untracked: 0, rate: 0 };
+
+    var strip = el("div", { cls: "strip" });
+    if (git.branch) {
+      var sBranch = el("div", { cls: "stat" }, [
+        el("span", { cls: "muted", text: "Branch: " }),
+        el("strong", { text: git.branch })
+      ]);
+      sBranch.style.borderTop = "3px solid var(--link)";
+      strip.appendChild(sBranch);
+    }
+    var sStatus = el("div", { cls: "stat" }, [
+      el("span", { cls: "muted", text: "Working tree: " }),
+      git.clean
+        ? el("span", { text: "Clean", style: "color: var(--accent); font-weight: 600;" })
+        : el("span", { text: git.modified_count + " uncommitted file" + (git.modified_count > 1 ? "s" : ""), style: "color: var(--warn); font-weight: 600;" })
+    ]);
+    sStatus.style.borderTop = "3px solid " + (git.clean ? "var(--accent)" : "var(--warn)");
+    strip.appendChild(sStatus);
+
+    var sRate = el("div", { cls: "stat" }, [
+      el("b", { text: stats.rate + "%" }),
+      el("span", { text: "Traceability (" + stats.linked + "/" + stats.total + " commits linked)" })
+    ]);
+    sRate.style.borderTop = "3px solid var(--accent)";
+    strip.appendChild(sRate);
+
+    if (stats.untracked > 0) {
+      var sUntracked = el("div", { cls: "stat" }, [
+        el("b", { text: String(stats.untracked) }),
+        el("span", { text: "Untracked commits" })
+      ]);
+      sUntracked.style.borderTop = "3px solid var(--muted)";
+      strip.appendChild(sUntracked);
+    }
+
+    if (git.branches && git.branches.length) {
+      var sBranches = el("div", { cls: "stat" }, [
+        el("b", { text: String(git.branches.length) }),
+        el("span", { text: "Local branches" })
+      ]);
+      strip.appendChild(sBranches);
+    }
+    main.appendChild(strip);
+
+    if (!git.clean && git.modified_files && git.modified_files.length) {
+      var det = el("details", { cls: "banner", style: "margin-bottom: 16px;" }, [
+        el("summary", { text: "Uncommitted changes in working tree (" + git.modified_files.length + " files)" })
+      ]);
+      var ut = el("table");
+      ut.appendChild(el("tr", null, [el("th", { text: "Status", style: "width: 70px;" }), el("th", { text: "File" })]));
+      git.modified_files.forEach(function (f) {
+        ut.appendChild(el("tr", null, [
+          el("td", null, [el("code", { text: f.status })]),
+          el("td", null, [el("code", { text: f.path })])
+        ]));
+      });
+      det.appendChild(ut);
+      main.appendChild(det);
+    }
+
+    if (git.branches && git.branches.length) {
+      main.appendChild(h(2, "Local branches (" + git.branches.length + ")"));
+      var bt = el("table", null, [el("tr", null, ["Branch", "Linked Work Items", "Last Commit Date", "Last Commit Subject"].map(function (x) {
+        return el("th", { text: x });
+      }))]);
+      git.branches.forEach(function (b) {
+        var nameCell = el("td");
+        if (b.current) {
+          nameCell.appendChild(el("span", { cls: "chip", text: "HEAD", style: "background: var(--okbg); color: var(--accent); font-weight: 700; margin-right: 6px;" }));
+          nameCell.appendChild(el("strong", { text: b.name }));
+        } else {
+          nameCell.appendChild(document.createTextNode(b.name));
+        }
+        var itemsCell = el("td");
+        if (b.items && b.items.length) {
+          b.items.forEach(function (id) {
+            itemsCell.appendChild(itemLink(id));
+            itemsCell.appendChild(document.createTextNode(" "));
+          });
+        } else {
+          itemsCell.appendChild(el("span", { cls: "muted", text: "—" }));
+        }
+        bt.appendChild(el("tr", null, [
+          nameCell,
+          itemsCell,
+          el("td", { text: b.date || "" }),
+          el("td", null, [inline(b.subject || "")])
+        ]));
+      });
+      main.appendChild(el("div", { cls: "wrap" }, [bt]));
+    }
+
+    var allCommits = git.commits || [];
+    main.appendChild(h(2, "Commits (" + allCommits.length + ")"));
+
+    var qInput = el("input", {
+      type: "search",
+      placeholder: "Filter by SHA, subject, author, or ID…",
+      value: GIT_FILTER.query,
+      style: "flex: 1 1 240px; max-width: 360px;",
+      on: { input: function () { GIT_FILTER.query = qInput.value; renderCommitList(); } }
+    });
+
+    var modeSel = el("select", {
+      "aria-label": "Commit filter mode",
+      on: { change: function () { GIT_FILTER.mode = modeSel.value; renderCommitList(); } }
+    }, [
+      el("option", { value: "all", text: "All commits (" + allCommits.length + ")" }),
+      el("option", { value: "linked", text: "Linked to work items (" + stats.linked + ")" }),
+      el("option", { value: "untracked", text: "Untracked commits (" + stats.untracked + ")" })
+    ]);
+    modeSel.value = GIT_FILTER.mode;
+
+    var filterRow = el("div", { cls: "filters" }, [modeSel, qInput]);
+    main.appendChild(filterRow);
+
+    var listContainer = el("div");
+    main.appendChild(listContainer);
+
+    var shownCommits = 50;
+    function renderCommitList() {
+      listContainer.textContent = "";
+      var needle = (GIT_FILTER.query || "").trim().toLowerCase();
+      var filtered = allCommits.filter(function (c) {
+        if (GIT_FILTER.mode === "linked" && (!c.items || !c.items.length)) return false;
+        if (GIT_FILTER.mode === "untracked" && c.items && c.items.length) return false;
+        if (!needle) return true;
+        if (c.sha.toLowerCase().indexOf(needle) >= 0) return true;
+        if ((c.subject || "").toLowerCase().indexOf(needle) >= 0) return true;
+        if ((c.author || "").toLowerCase().indexOf(needle) >= 0) return true;
+        if (c.items && c.items.some(function (id) { return id.toLowerCase().indexOf(needle) >= 0; })) return true;
+        return false;
+      });
+
+      if (!filtered.length) {
+        listContainer.appendChild(el("p", { cls: "muted", text: "No commits match the filter." }));
+        return;
+      }
+
+      var ct = el("table", null, [el("tr", null, ["SHA", "Date", "Author", "Subject", "Linked Items"].map(function (x) {
+        return el("th", { text: x });
+      }))]);
+
+      filtered.slice(0, shownCommits).forEach(function (c) {
+        var itemsCell = el("td");
+        if (c.items && c.items.length) {
+          c.items.forEach(function (id) {
+            itemsCell.appendChild(itemLink(id));
+            itemsCell.appendChild(document.createTextNode(" "));
+          });
+        } else {
+          itemsCell.appendChild(el("span", { cls: "chip", text: "untracked", style: "color: var(--muted); font-size: 11px;" }));
+        }
+        ct.appendChild(el("tr", null, [
+          el("td", null, [el("code", { text: c.sha })]),
+          el("td", { text: c.date }),
+          el("td", { text: c.author || "" }),
+          el("td", null, [inline(c.subject)]),
+          itemsCell
+        ]));
+      });
+
+      listContainer.appendChild(el("div", { cls: "wrap" }, [ct]));
+
+      if (filtered.length > shownCommits) {
+        var moreBtn = el("button", {
+          text: "Show more (" + (filtered.length - shownCommits) + " remaining)",
+          style: "margin-top: 8px;",
+          on: { click: function () { shownCommits += 50; renderCommitList(); } }
+        });
+        listContainer.appendChild(moreBtn);
+      }
+    }
+
+    renderCommitList();
+  }
+
   // ---------------------------------------------------------------- item
   var ITEM_TAB = "overview";
   function viewItem(id) {
@@ -729,8 +1175,8 @@
       if (!mentions.length) body.appendChild(el("p", { cls: "muted", text: "No other record mentions this item." }));
       body.appendChild(ul);
     } else {
-      var ct = el("table", null, [el("tr", null, [el("th", { text: "Commit" }), el("th", { text: "Date" }), el("th", { text: "Subject" })])]);
-      commits.forEach(function (c) { ct.appendChild(el("tr", null, [el("td", null, [el("code", { text: c.sha })]), el("td", { text: c.date }), el("td", { text: c.subject })])); });
+      var ct = el("table", null, [el("tr", null, [el("th", { text: "Commit" }), el("th", { text: "Date" }), el("th", { text: "Author" }), el("th", { text: "Subject" })])]);
+      commits.forEach(function (c) { ct.appendChild(el("tr", null, [el("td", null, [el("code", { text: c.sha })]), el("td", { text: c.date }), el("td", { text: c.author || "" }), el("td", null, [inline(c.subject)])])); });
       if (!commits.length) body.appendChild(el("p", { cls: "muted", text: "No commit subject carries this ID." }));
       else body.appendChild(ct);
     }
@@ -799,6 +1245,24 @@
       });
     });
     if (docHits.childNodes.length) { main.appendChild(h(2, "Documents and sections")); main.appendChild(docHits); }
+    if (M.git && M.git.commits && M.git.commits.length) {
+      var commitHits = M.git.commits.filter(function (c) {
+        return (c.sha + " " + c.subject + " " + (c.author || "")).toLowerCase().indexOf(needle) >= 0;
+      });
+      if (commitHits.length) {
+        main.appendChild(h(2, "Git commits (" + commitHits.length + ")"));
+        var cul = el("ul");
+        commitHits.slice(0, 20).forEach(function (c) {
+          cul.appendChild(el("li", null, [
+            el("code", { text: c.sha }), " ",
+            el("span", { cls: "muted", text: c.date + (c.author ? " · " + c.author : "") + ": " }),
+            inline(c.subject)
+          ]));
+        });
+        main.appendChild(cul);
+        hits += commitHits.length;
+      }
+    }
     if (!hits) main.appendChild(el("p", { cls: "muted", text: "Nothing matches." }));
   }
 
@@ -811,6 +1275,7 @@
     if (route === "board") viewBoard();
     else if (route === "activity") viewActivity();
     else if (route === "waiting") viewWaiting();
+    else if (route === "git") viewGit();
     else if (route === "docs") viewDocs();
     else if (route === "item") viewItem(decodeURIComponent(parts[1] || ""));
     else if (route === "doc") viewDoc(decodeURIComponent(parts[1] || ""), parts[2] !== undefined ? +parts[2] : undefined);

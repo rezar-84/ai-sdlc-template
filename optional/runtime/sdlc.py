@@ -930,6 +930,8 @@ def main(argv):
                     "0 picks a free one)")
     vw.add_argument("--interval", type=int, default=2, help="live mode: seconds between "
                     "checks for changes (default 2)")
+    vw.add_argument("--svg", nargs="?", const="", default=None,
+                    help="export the mind map as a formatted SVG file (.ai-sdlc/view/map.svg by default)")
     met = sub.add_parser("metrics", help="process measures from the records and git")
     met.add_argument("--json", action="store_true", help="print as JSON")
     opts = parser.parse_args(argv)
