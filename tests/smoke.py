@@ -791,6 +791,11 @@ def test_runtime():
 
 def test_view():
     print("view: the records drawn as an interactive page")
+    # A literal closing script tag inside a script ends it early in the browser, and the
+    # whole page stops working while every file still looks fine.
+    page = open(os.path.join(ROOT, "optional", "runtime", "view.html"), encoding="utf-8").read()
+    check("view.html closes a script only where one ends",
+          page.lower().count("</script") == 2, str(page.lower().count("</script")))
     d = tempfile.mkdtemp(prefix="sdlc-view-")
     subprocess.call(["git", "init", "-q", d])
     run([d, "VWX", "-y"])
