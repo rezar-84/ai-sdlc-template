@@ -105,6 +105,7 @@ project facts here.
 | `08-content-and-translation.md` | Source language, what may be machine-translated, who reviews it, and what multilingual code and layout must do. |
 | `09-probabilistic-and-data-systems.md` | How do I change a model, prompt, index, dataset, or pipeline — and what may I claim about a system whose output is a distribution? |
 | `10-multi-agent.md` | How do several agents work this repository at once without overwriting each other, and how are reviews fanned out? |
+| `11-epics.md` | How do several connected items run under one plan, with the human checkpoints the project chooses, instead of one stop per item? |
 
 ## `roles/` — who reviews
 
@@ -148,6 +149,7 @@ to hold project content.
 | `performance-budget.md` | `project/performance-budget.md` | A latency, throughput, or cost budget is claimed |
 | `adr.md` | `project/adr/NNNN-slug.md` | Per material decision |
 | `plan.md` | inline in the response, or `project/plans/{{PREFIX}}-###.md` | Per Tier 1–2 task |
+| `epic.md` | `project/epics/{{PREFIX}}-###.md` | Per epic, when the development method is `Epic` |
 | `role-review.md` | `project/reviews/{{PREFIX}}-###-<stage>.md` | Per Tier 1 review only; Tier 2 and 3 record verdicts in the worklog entry |
 | `worklog-entry.md` | appended to `project/worklog.md` | Per completed task |
 | `defect-report.md` | `project/defects/{{PREFIX}}-###.md` | A bug report or QA defect is filed by testers |

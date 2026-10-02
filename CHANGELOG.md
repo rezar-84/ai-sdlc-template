@@ -4,6 +4,70 @@ This project follows semantic versioning. User-visible changes are recorded here
 
 ## Unreleased
 
+- **Epics, an opt-in development method:**
+  - **Item** (the default, unchanged) works one item at a time.
+  - **Epic** plans several items together. It needs one human approval for the plan and
+    one design review, then the agent carries on between items. Verified Tier 2 and 3
+    items merge into an epic branch.
+  - A human approves the epic branch at the checkpoints the plan chose: per phase, every
+    N items, or at the end.
+  - A Tier 1 item, any Block, a failed verification, a plan that proves wrong, and
+    anything irreversible or gated still stop the work. Every item keeps its own tests,
+    checks, reviews and tier approvals.
+  - Added: `process/11-epics.md`, `templates/epic.md` and `project/epics/`. The charter
+    gains a **Development method** row, and the installer gains `--dev-method item|epic`
+    and a setup question. `/sdlc-plan` gains `--epic`. `AGENTS.md` and `CARD.md` gain a
+    short rule.
+  - `sdlc.py doctor` warns when an epic row has no epic file, or when an item names an
+    epic that does not exist.
+  - Nothing changes for an existing project. `--upgrade` adds the row at its default
+    (Item) and `dev_method: item` to the profile. A charter without the row reports no
+    new finding.
+
+- **Fixes from a review:**
+  - Roo Code's pointer now goes in `.roo/rules/agents.md`. The installer no longer
+    appends markdown to `.roomodes`, which is Roo's YAML mode file and broke when edited.
+  - A work item prefix given on the command line must be 2-4 letters. It is upper-cased,
+    and anything else is refused before a file is written. `--upgrade` falls back to the
+    prefix in `.ai-sdlc/profile.json` when the charter no longer names one.
+  - Manifest paths are always written with `/`, and backslash paths from older Windows
+    installs are read as `/`. A team that installs on Windows can now upgrade on macOS or
+    Linux.
+  - Detection:
+    - A project's Deno tasks now take priority over the built-in commands.
+    - Deno no longer replaces a Node run command.
+    - `deno.jsonc` with comments now parses.
+    - Prisma schemas are searched without walking `node_modules`.
+    - Neon, libSQL and Convex are no longer counted as vector stores.
+    - Hono counts as an API framework only.
+    - `Pipfile` is read in service folders.
+    - Example and fixture packages no longer drive detection.
+  - The `work-item-id` hook:
+    - IDs must be whole tokens. "v2" or "utf8" no longer counts as an ID.
+    - A legacy hierarchical ID counts only if the backlog holds it.
+    - The hook no longer blocks `-F`, editor or `--amend --no-edit` commits, whose message
+      it cannot see.
+    - It ignores `git commit-tree` and `git commit` inside a quoted string.
+  - The `secret-guard` hook no longer reads hyphenated prose such as "risk-tier-…" as an
+    OpenAI key.
+  - Tier 2 states one human approver everywhere: `AGENTS.md`, `CARD.md` and
+    `05-change-control.md` now agree with `00-operating-model.md`.
+  - The docs state Python 3.8+, the versions CI tests.
+  - The kit-value benchmark prefix is `BNCH`, since a prefix has at most four letters.
+  - Naming only harnesses that read `AGENTS.md` themselves, such as `--harness codex`,
+    no longer writes a `CLAUDE.md`.
+  - In a monorepo, React is detected even when a sibling package uses an API framework,
+    so the project keeps its web-app type.
+  - The default `tsc --noEmit` typecheck is set only when the root has a
+    `tsconfig.json`. A monorepo without one gets a blank row instead of a check that
+    always fails.
+  - The Prisma schema search runs only when Prisma is a dependency. It goes at most four
+    levels deep and skips `venv`, `target`, `coverage`, example and test folders.
+  - Python dependency files in workspace folders are read once instead of once per
+    package name, and example services are skipped.
+  - The prompt and the command line now apply the same prefix rule: 2-4 letters, with a
+    trailing `-` allowed.
+
 ## 3.4.1 — 2026-09-30
 
 - **The viewer is documented where people look for it:**

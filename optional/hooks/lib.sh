@@ -47,3 +47,16 @@ hook_deny() {
 hook_note() {
   jq -cn --arg m "$1" '{systemMessage: $m}'
 }
+
+# hook_is_commit <command>: true when `git commit` appears anywhere in the command, with
+# or without git options between, but not `git commit-tree`. Deliberately loose: a quoted
+# mention is also caught, which is the safe direction for a guard.
+hook_is_commit() {
+  printf '%s' "$1" | grep -Eq 'git([[:space:]]+-[^[:space:]]+)*[[:space:]]+commit([^-A-Za-z]|$)'
+}
+
+# hook_commit_args <command>: what follows the first `git commit`, so a flag check is not
+# fooled by another program's flags earlier in the command (python -m ...).
+hook_commit_args() {
+  printf '%s' "$1" | sed -E -n 's/.*git([[:space:]]+-[^[:space:]]+)*[[:space:]]+commit([^-A-Za-z]|$)//p' | head -n 1
+}

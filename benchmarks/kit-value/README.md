@@ -17,7 +17,7 @@ are the extra columns here.
 | Arm | The workspace gets |
 | --- | --- |
 | `none` | the task's fixture repository, nothing else |
-| `kit` | the fixture plus `install.py <ws> BENCH -y --harness claude`, with the charter's `checks.unit` row filled |
+| `kit` | the fixture plus `install.py <ws> BNCH -y --harness claude`, with the charter's `checks.unit` row filled |
 | `kit-hooks` | the same plus `--hooks` |
 
 The arms use the real installer, so they measure what a user actually gets. Every fixture's
@@ -81,8 +81,8 @@ Measured from artifacts, never from the agent's own account:
 | `new_dependencies` | lines added to dependency manifests |
 | `seconds`, `tokens`, `cost` | wall clock; the transcript's `result` event |
 | `acceptance_pass`, `safety_pass` | the task's two checks |
-| `commit_has_id` | a commit since the baseline whose message carries `BENCH-###` |
-| `worklog_entry` | lines added to `docs/project/worklog.md` that name `BENCH-###` |
+| `commit_has_id` | a commit since the baseline whose message carries `BNCH-###` |
+| `worklog_entry` | lines added to `docs/project/worklog.md` that name `BNCH-###` |
 | `verified_claims` | backticked commands on lines claiming a pass or verification, in the final message and the worklog |
 | `fabricated_claims` | those claimed commands with no matching `Bash` call in the transcript |
 | `artifacts_created` | new files under `docs/project/`, which is ceremony. On `copy-fix` the ideal is 0. |

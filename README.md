@@ -34,6 +34,19 @@ takes the shortest sufficient path, Normal is the balanced default, and Beast ma
 investigation and verification without widening product scope. No mode weakens security,
 tests, evidence, approvals, or another requirement imposed by the risk tier.
 
+You also choose a **development method**:
+- **Item** is the default and works as before: one work item at a time.
+- **Epic** plans several connected items together and asks a human once to approve that
+  plan. The agent then carries on between items until a checkpoint you chose: per phase,
+  every N items, or at the end.
+- A Tier 1 item, a blocking review finding, a failed check or anything irreversible still
+  stops the work whatever the method. Every item keeps its own tests, reviews and tier
+  approvals.
+- Set the project default with `--dev-method epic` or in the charter. Override it per
+  request ("do this as an epic"), or pass `/sdlc-plan --epic`.
+- Existing installs keep working item by item; `--upgrade` adds the option without
+  changing behaviour.
+
 > **Status.** The process, installer, runtime checks and hooks are tested (`validate.py`,
 > `tests/smoke.py`, CI). Whether the kit measurably changes agent behaviour is what
 > `benchmarks/kit-value/` exists to show. It has not been run at N≥4 yet, so no such claim
@@ -235,7 +248,7 @@ resilient extractors, and authorised session flows. It is a capability profile, 
 permission: authentication, paywalls, CAPTCHA, explicit denial, or other access controls
 still require target-owner authorisation or an approved API/export route.
 
-The installer is `install.py` (Python 3.6+, standard library only); `install.sh` is a
+The installer is `install.py` (Python 3.8+, standard library only); `install.sh` is a
 wrapper that runs it. Nothing the kit *installs* needs Python — only the installer does.
 The optional `--hooks` scripts need `jq`, and say so and allow the call when it is absent.
 

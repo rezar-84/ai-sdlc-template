@@ -37,6 +37,7 @@ POINTER_FILES = ("CLAUDE.md", "GEMINI.md", "AGENT.md", "CONVENTIONS.md",
                  ".github/copilot-instructions.md", ".windsurfrules", ".clinerules")
 EFFORT = ("Lean", "Normal", "Beast")
 ACQUISITION = ("Standard", "Advanced")
+DEV_METHOD = ("Item", "Epic")
 WORKLOG_ROTATE_LINES = 1000
 DEFAULT_STALENESS_DAYS = 90
 KNOWN_MISTAKES_LINES = 30
@@ -357,6 +358,12 @@ def check_charter(project, out):
         elif state in ("invalid", "blank"):
             out.add("fail", "charter", "%s %s" % (where, label),
                     "must be exactly one of %s" % ", ".join(options))
+    # Added in 3.5. An older charter without the row simply works item by item, so its
+    # absence is not worth a warning; a row that is there must still be readable.
+    cell = labelled(text, "Development method")
+    if cell is not None and choice(cell, DEV_METHOD)[1] in ("invalid", "blank"):
+        out.add("fail", "charter", "%s Development method" % where,
+                "must be exactly one of %s" % ", ".join(DEV_METHOD))
     active = dict((name, on) for name, on, _ in roles(text))
     undecided = [name for name, on, reason in roles(text) if not on and unfilled(reason)]
     if undecided:
@@ -510,8 +517,11 @@ def check_profile(project, out):
                 "profile says %r, charter says %r" % (profile.get("prefix"),
                                                        project.charter_prefix))
     for key, label, options in (("effort_mode", "Default effort mode", EFFORT),
-                                ("acquisition_profile", "Acquisition profile", ACQUISITION)):
+                                ("acquisition_profile", "Acquisition profile", ACQUISITION),
+                                ("dev_method", "Development method", DEV_METHOD)):
         value, state = choice(labelled(project.charter, label), options)
+        if key == "dev_method" and key not in profile:
+            continue  # a profile written before 3.5; --upgrade adds it
         if state == "decided" and str(profile.get(key, "")).lower() != value.lower():
             out.add("fail", "profile", "%s %s" % (where, key),
                     "profile says %r, charter says %r" % (profile.get(key), value))
@@ -530,6 +540,28 @@ def version_tuple(value):
     return tuple(int(part) for part in re.findall(r"[0-9]+", str(value))[:3])
 
 
+def check_epics(project, out):
+    """Epic rows need their epic file, and an item's '(in ID)' must name a real epic. A
+    backlog with no epics, which is every project working item by item, is untouched."""
+    prefix = project.prefix
+    legacy_prefixes = getattr(project, "legacy_prefixes", None)
+    if not prefix and not legacy_prefixes:
+        return
+    rows = backlog_rows(project.records("backlog.md"), prefix, legacy_prefixes)
+    epics = set(item for item, _, cells in rows if cells[1].strip("`* ").startswith("Epic:"))
+    backlog_where = os.path.join(project.docs, "project", "backlog.md")
+    for item in sorted(epics, key=id_sort_key):
+        rel = os.path.join(project.docs, "project", "epics", "%s.md" % item)
+        if not os.path.isfile(project.path(rel)):
+            out.add("warn", "epics", "%s %s" % (backlog_where, item),
+                    "an epic with no %s: its plan and checkpoints have nowhere to live" % rel)
+    for item, _, cells in rows:
+        for parent in re.findall(r"\(in ([^)\s]+)\)", cells[1]):
+            if parent not in epics:
+                out.add("warn", "epics", "%s %s" % (backlog_where, item),
+                        "says it is in %s, which is not an epic row in the backlog" % parent)
+
+
 def doctor(project, today=None):
     out = Findings()
     today = today or datetime.date.today()
@@ -538,6 +570,7 @@ def doctor(project, today=None):
     check_charter(project, out)
     check_staleness(project, out, today)
     check_traceability(project, out)
+    check_epics(project, out)
     check_worklog_size(project, out)
     check_known_mistakes(project, out)
     check_rollback(project, out, today)

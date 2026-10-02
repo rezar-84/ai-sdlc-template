@@ -21,7 +21,7 @@ sys.path.insert(0, HERE)
 import measure  # noqa: E402
 
 ARMS = ("none", "kit", "kit-hooks")
-PREFIX = "BENCH"
+PREFIX = "BNCH"
 UNIT_COMMAND = "python3 -m unittest discover -s tests"
 COLUMNS = ("arm", "task", "run", "agent_version", "model_version", "repo_commit", "date",
            "environment", "added_lines", "files_changed", "new_dependencies", "seconds",

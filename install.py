@@ -131,6 +131,8 @@ EN = {
     "q.effort": "Default effort mode (l = Lean, n = Normal, x = Beast)",
     "h.effort": "Lean minimizes optional work, Normal is balanced, Beast maximizes investigation and verification. Risk-tier requirements never change.",
     "q.acquisition": "Acquisition profile (s = Standard, a = Advanced)",
+    "q.devmethod": "Development method (i = Item by item, e = Epic)",
+    "h.devmethod": "Item runs one work item at a time and stops at each one's approvals. Epic plans several items together, gets one approval for the plan, and stops at the checkpoints it chooses. Checks, reviews and tier approvals never change.",
     "h.acquisition": "Advanced enables more extraction techniques on authorized targets. It never grants permission to bypass access controls.",
     "q.approval": "Human approval required for",
     "q.forbidden": "Forbidden in this project",
@@ -169,6 +171,7 @@ EN = {
     "l.staleness": "Docs stale after",
     "l.effort": "Default effort mode",
     "l.acquisition": "Acquisition profile",
+    "l.devmethod": "Development method",
     "l.approval": "Human approval for",
     "l.forbidden": "Forbidden here",
     "l.platform": "Managed platform",
@@ -248,7 +251,7 @@ def load_locale(code):
 class Term(object):
     def __init__(self):
         self.interactive_in = sys.stdin.isatty()
-        tty_out = sys.stdout.isatty()
+        tty_out = sys.stdout.isatty() and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
         self.B = "\033[1m" if tty_out else ""
         self.D = "\033[2m" if tty_out else ""
         self.R = "\033[0m" if tty_out else ""
@@ -313,6 +316,10 @@ USAGE = """usage: install.sh <target-project-dir> [PREFIX] [options]
   --effort-mode <name>
                      project default: lean, normal (default), or beast. This changes
                      solution and review depth, never the risk-tier safety floor.
+  --dev-method <name>
+                     project default: item (default) or epic. Epic plans several
+                     work items together and stops at chosen checkpoints; every
+                     item keeps its checks, reviews and tier approvals.
   --acquisition-profile <name>
                      standard (default) or advanced. Advanced enables additional data
                      acquisition techniques on authorized targets; it does not grant
@@ -355,13 +362,15 @@ class Options(object):
         self.scaffold_ci = ""
         self.create = False
         self.dry_run = False
-        self.harnesses = []
+        self.harnesses = None   # None: not given; [] : only native harnesses named
         self.profile = "full"
         self.effort_mode = "normal"
         self.acquisition_profile = "standard"
         self.deploy = None          # None: not given; []: explicitly none
         self.adopt = False
         self.effort_given = False
+        self.dev_method = "item"
+        self.dev_method_given = False
         self.acquisition_given = False
         self.hooks = False
         self.lang = "en"
@@ -420,6 +429,12 @@ def parse_args(argv):
                 usage()
             o.effort_mode, o.effort_given = argv[i + 1], True
             i += 1
+        elif arg == "--dev-method":
+            if i + 1 >= len(argv) or argv[i + 1] not in ("item", "epic"):
+                sys.stderr.write("--dev-method requires item or epic\n")
+                usage()
+            o.dev_method, o.dev_method_given = argv[i + 1], True
+            i += 1
         elif arg == "--acquisition-profile":
             if i + 1 >= len(argv) or argv[i + 1] not in ("standard", "advanced"):
                 sys.stderr.write("--acquisition-profile requires standard or advanced\n")
@@ -444,16 +459,17 @@ def parse_args(argv):
             names = [x.strip().lower() for x in argv[i + 1].split(",") if x.strip()]
             if "all" in names:
                 names = sorted(HARNESS_ALIASES)
-            unknown = [x for x in names if x not in HARNESS_ALIASES]
+            native = [x for x in names if x in HARNESS_NATIVE]
+            unknown = [x for x in names if x not in HARNESS_ALIASES and x not in HARNESS_NATIVE]
+            if native:
+                sys.stderr.write(
+                    "%s reads AGENTS.md directly and needs no pointer file\n"
+                    % ", ".join(native))
             if unknown:
-                if [x for x in unknown if x in HARNESS_NATIVE]:
-                    sys.stderr.write(
-                        "%s reads AGENTS.md directly and needs no pointer file\n"
-                        % ", ".join(x for x in unknown if x in HARNESS_NATIVE))
                 sys.stderr.write("unknown harness: %s (known: %s)\n"
                                  % (", ".join(unknown), ", ".join(sorted(HARNESS_ALIASES))))
                 usage()
-            o.harnesses = names
+            o.harnesses = [x for x in names if x in HARNESS_ALIASES]
             i += 1
         elif arg == "--create":
             o.create = True
@@ -471,7 +487,11 @@ def parse_args(argv):
     if positional:
         o.target = positional[0]
     if len(positional) > 1:
-        o.prefix = positional[1]
+        prefix = normalize_prefix(positional[1])
+        if not prefix:
+            sys.stderr.write("error: work item prefix %r: %s\n" % (positional[1], t("err.prefix")))
+            sys.exit(2)
+        o.prefix = prefix
     return o
 
 
@@ -536,11 +556,13 @@ PY_INTEGRATIONS = (
 # fact, which decides roles and skills. Detection is evidence, never a declaration.
 ML_NODE = (("langchain", "LangChain"), ("@langchain/core", "LangChain"),
            ("langgraph", "LangGraph"), ("llamaindex", "LlamaIndex"),
-           ("ai", "Vercel AI SDK"), ("openai", "OpenAI API"),
-           ("@anthropic-ai/sdk", "Anthropic API"), ("ollama", "Ollama"),
-           ("@huggingface/inference", "Hugging Face"), ("promptfoo", "promptfoo"),
-           ("langfuse", "Langfuse"), ("braintrust", "Braintrust"),
-           ("@mastra/core", "Mastra"), ("llamaindex", "LlamaIndex"))
+           ("ai", "Vercel AI SDK"), ("@ai-sdk/openai", "Vercel AI SDK"),
+           ("@ai-sdk/anthropic", "Vercel AI SDK"), ("@ai-sdk/google", "Vercel AI SDK"),
+           ("openai", "OpenAI API"), ("@anthropic-ai/sdk", "Anthropic API"),
+           ("@google/genai", "Google Gemini SDK"), ("@google/generative-ai", "Google Gemini SDK"),
+           ("ollama", "Ollama"), ("@huggingface/inference", "Hugging Face"),
+           ("promptfoo", "promptfoo"), ("langfuse", "Langfuse"),
+           ("braintrust", "Braintrust"), ("@mastra/core", "Mastra"))
 ML_PY = (("langchain", "LangChain"), ("langgraph", "LangGraph"),
          ("llama-index", "LlamaIndex"), ("transformers", "Transformers"),
          ("torch", "PyTorch"), ("tensorflow", "TensorFlow"),
@@ -550,7 +572,9 @@ ML_PY = (("langchain", "LangChain"), ("langgraph", "LangGraph"),
          ("instructor", "Instructor"), ("haystack-ai", "Haystack"),
          ("ragas", "Ragas"), ("deepeval", "DeepEval"), ("promptfoo", "promptfoo"),
          ("mlflow", "MLflow"), ("wandb", "Weights & Biases"), ("dvc", "DVC"),
-         ("bentoml", "BentoML"), ("kubeflow", "Kubeflow"), ("langfuse", "Langfuse"))
+         ("bentoml", "BentoML"), ("kubeflow", "Kubeflow"), ("langfuse", "Langfuse"),
+         ("google-genai", "Google Gemini SDK"), ("google-generativeai", "Google Gemini SDK"),
+         ("anthropic", "Anthropic API"))
 VECTOR_NODE = (("@pinecone-database/pinecone", "Pinecone"),
                ("weaviate-ts-client", "Weaviate"), ("weaviate-client", "Weaviate"),
                ("@qdrant/js-client-rest", "Qdrant"), ("chromadb", "Chroma"),
@@ -608,23 +632,26 @@ HARNESS_POINTERS = (
     (".github/copilot-instructions.md", "# Copilot instructions\n\n"),
     (".cursor/rules/agents.mdc",
      "---\ndescription: Operating contract for this repository\nalwaysApply: true\n---\n\n"),
+    (".cursorrules", ""),                                            # Cursor (classic)
     (".windsurfrules", ""),
     (".clinerules", ""),
+    (".roo/rules/agents.md", "# Project instructions\n\n"),          # Roo Code (.roomodes is YAML)
     ("CONVENTIONS.md", "# Conventions\n\n"),                         # Aider
 )
 
 # Tools whose own instruction file *is* AGENTS.md need no pointer at all: OpenAI Codex,
-# Jules, Zed, Factory, Cursor 1.x and others read it directly.
-HARNESS_NATIVE = ("codex", "jules", "zed", "factory", "opencode")
+# Jules, Zed, Factory, Cursor 1.x, Google Antigravity and others read it directly.
+HARNESS_NATIVE = ("codex", "jules", "zed", "factory", "opencode", "antigravity")
 
 HARNESS_ALIASES = {
     "claude": ("CLAUDE.md",),
     "gemini": ("GEMINI.md",),
     "amp": ("AGENT.md",),
     "copilot": (".github/copilot-instructions.md",),
-    "cursor": (".cursor/rules/agents.mdc",),
+    "cursor": (".cursor/rules/agents.mdc", ".cursorrules"),
     "windsurf": (".windsurfrules",),
     "cline": (".clinerules",),
+    "roo": (".roo/rules/agents.md",),
     "aider": ("CONVENTIONS.md",),
 }
 
@@ -654,10 +681,10 @@ DEPLOY_IDS = tuple(pid for pid, _ in DEPLOY_PLATFORMS)
 DEPLOY_LABELS = dict(DEPLOY_PLATFORMS)
 DEPLOY_OTHER = "other"
 
-WEB_FRAMEWORKS = ("Next.js", "Nuxt", "Astro", "Remix", "TanStack Start", "Angular",
-                  "Svelte", "Vue", "React")
+WEB_FRAMEWORKS = ("Next.js", "Nuxt", "Astro", "Remix", "TanStack Start", "TanStack Router",
+                  "Angular", "Svelte", "SvelteKit", "Vue", "React", "SolidJS")
 API_FRAMEWORKS = ("NestJS", "Express", "Fastify", "FastAPI", "Django", "Flask",
-                  "Laravel", "Rails")
+                  "Laravel", "Rails", "Hono", "Elysia")
 
 
 def add(seq, value):
@@ -730,19 +757,58 @@ class Repo(object):
 
     def json_file(self, rel):
         try:
-            value = json.loads(self.text(rel))
+            value = json.loads(strip_jsonc(self.text(rel)))
             return value if isinstance(value, dict) else {}
         except ValueError:
             return {}
 
     def deps(self):
+        if hasattr(self, "_all_deps") and self._all_deps is not None:
+            return self._all_deps
         p = self.pkg()
         out = {}
         for key in ("dependencies", "devDependencies", "peerDependencies"):
             value = p.get(key)
             if isinstance(value, dict):
                 out.update(value)
+        scan_parents = ["apps", "packages", "services", "libs", "src"]
+        workspaces = p.get("workspaces")
+        if isinstance(workspaces, list):
+            for pattern in workspaces:
+                if isinstance(pattern, str) and pattern.endswith("/*"):
+                    parent = pattern[:-2].strip("/")
+                    if parent and parent not in scan_parents:
+                        scan_parents.append(parent)
+        for parent in scan_parents:
+            p_dir = self.root / parent
+            if p_dir.is_dir():
+                for child in self.subdirs(parent):
+                    if child.name.lower() in NON_PRODUCT_DIRS or child.name.lower().startswith("test"):
+                        continue
+                    pkg_file = child / "package.json"
+                    if pkg_file.is_file():
+                        try:
+                            sub_p = json.loads(pkg_file.read_text(encoding="utf-8", errors="replace"))
+                            if isinstance(sub_p, dict):
+                                for key in ("dependencies", "devDependencies", "peerDependencies"):
+                                    val = sub_p.get(key)
+                                    if isinstance(val, dict):
+                                        out.update(val)
+                        except (ValueError, IOError, OSError):
+                            pass
+        self._all_deps = out
         return out
+
+    def has_ts(self):
+        if self.has("tsconfig.json") or self.has("tsconfig.base.json"):
+            return True
+        for parent in ("apps", "packages", "services", "libs", "src"):
+            p_dir = self.root / parent
+            if p_dir.is_dir():
+                for child in self.subdirs(parent):
+                    if (child / "tsconfig.json").is_file():
+                        return True
+        return False
 
     def scripts(self):
         s = self.pkg().get("scripts")
@@ -754,7 +820,27 @@ class Repo(object):
         for f in ("pyproject.toml", "requirements.txt", "setup.py", "Pipfile"):
             if self.has(f) and pattern.search(self.text(f)):
                 return True
-        return False
+        return any(pattern.search(text) for text in self.child_python_manifests())
+
+    def child_python_manifests(self):
+        """Python manifests of workspace children, read once: pydep runs per name."""
+        if getattr(self, "_child_py", None) is not None:
+            return self._child_py
+        texts = []
+        for parent in ("services", "backend", "packages", "apps"):
+            for child in self.subdirs(parent):
+                name = child.name.lower()
+                if name in NON_PRODUCT_DIRS or name.startswith("test"):
+                    continue
+                for f in ("pyproject.toml", "requirements.txt", "setup.py", "Pipfile"):
+                    p = child / f
+                    if p.is_file():
+                        try:
+                            texts.append(p.read_text(encoding="utf-8", errors="replace"))
+                        except (IOError, OSError):
+                            pass
+        self._child_py = texts
+        return texts
 
     def subdirs(self, rel):
         p = self.root / rel
@@ -765,6 +851,59 @@ class Repo(object):
                           key=lambda c: c.name)
         except OSError:
             return []
+
+
+# Children of a scanned parent that hold samples rather than the product itself.
+NON_PRODUCT_DIRS = ("fixtures", "fixture", "examples", "example", "samples", "__tests__")
+
+
+def strip_jsonc(text):
+    """Drop // and /* */ comments and trailing commas outside strings, for deno.jsonc."""
+    out, i, n, in_str = [], 0, len(text), False
+    while i < n:
+        c = text[i]
+        if in_str:
+            out.append(c)
+            if c == "\\" and i + 1 < n:
+                out.append(text[i + 1])
+                i += 1
+            elif c == '"':
+                in_str = False
+        elif c == '"':
+            in_str = True
+            out.append(c)
+        elif text.startswith("//", i):
+            j = text.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+            continue
+        else:
+            out.append(c)
+        i += 1
+    return re.sub(r",(\s*[}\]])", r"\1", "".join(out))
+
+
+WALK_SKIP_DIRS = ("node_modules", "dist", "build", "vendor", "venv", "env", "target",
+                  "coverage", "__pycache__", "out", "tmp")
+
+
+def find_prisma_schema(root, max_depth=4):
+    """First prisma/schema.prisma below root, pruning dependency, build and sample
+    directories while walking and judging only the part of the path inside the repository."""
+    base = str(root).rstrip(os.sep).count(os.sep)
+    for dirpath, dirnames, filenames in os.walk(str(root)):
+        if dirpath.count(os.sep) - base >= max_depth:
+            dirnames[:] = []
+        dirnames[:] = sorted(x for x in dirnames
+                             if not x.startswith(".") and x not in WALK_SKIP_DIRS
+                             and x.lower() not in NON_PRODUCT_DIRS
+                             and not x.lower().startswith("test"))
+        if os.path.basename(dirpath) == "prisma" and "schema.prisma" in filenames:
+            return Path(dirpath) / "schema.prisma"
+    return None
 
 
 def add_markers(text, mappings, destination):
@@ -872,7 +1011,7 @@ def detect(root):
     # -- node ------------------------------------------------------------------
     if repo.has("package.json"):
         add(d.adapters, "node")
-        add(d.lang, "Node.js + TypeScript" if repo.has("tsconfig.json") else "Node.js")
+        add(d.lang, "Node.js + TypeScript" if repo.has_ts() else "Node.js")
         if repo.has("bun.lockb") or repo.has("bun.lock"):
             pm = "bun"
         elif repo.has("pnpm-lock.yaml"):
@@ -886,24 +1025,49 @@ def detect(root):
         for name, label in (("next", "Next.js"), ("nuxt", "Nuxt"), ("astro", "Astro"),
                             ("@remix-run/react", "Remix"),
                             ("@tanstack/react-start", "TanStack Start"),
+                            ("@tanstack/react-router", "TanStack Router"),
                             ("@nestjs/core", "NestJS"), ("@angular/core", "Angular"),
                             ("express", "Express"), ("fastify", "Fastify"),
-                            ("svelte", "Svelte"), ("vue", "Vue")):
+                            ("hono", "Hono"), ("elysia", "Elysia"),
+                            ("@sveltejs/kit", "SvelteKit"), ("svelte", "Svelte"),
+                            ("solid-js", "SolidJS"), ("vue", "Vue")):
             if dep(name):
                 add(d.fw, label)
-        if not d.fw and dep("react"):
+        if dep("react") and not any(f in d.fw for f in WEB_FRAMEWORKS):
             add(d.fw, "React")
         if dep("vite"):
             add(d.fw, "Vite")
         if dep("tailwindcss"):
             add(d.fw, "Tailwind CSS")
 
-        if dep("@prisma/client") or repo.has("prisma/schema.prisma"):
-            provider = re.search(r'provider\s*=\s*"([a-z]+)"', repo.text("prisma/schema.prisma"))
+        prisma_schema = ""
+        if repo.has("prisma/schema.prisma"):
+            prisma_schema = repo.text("prisma/schema.prisma")
+        else:
+            p = find_prisma_schema(repo.root) if (dep("@prisma/client") or dep("prisma")) else None
+            if p is not None:
+                try:
+                    prisma_schema = p.read_text(encoding="utf-8", errors="replace")
+                except (IOError, OSError):
+                    pass
+        if dep("@prisma/client") or prisma_schema or repo.has("prisma/schema.prisma"):
+            provider = re.search(r'provider\s*=\s*"([a-z]+)"', prisma_schema) if prisma_schema else None
             add(d.db, "Prisma (%s)" % provider.group(1) if provider else "Prisma")
             add(d.migrations, "Prisma Migrate")
-        for name, label in (("drizzle-orm", "Drizzle"),
-                            ("@supabase/supabase-js", "Supabase (Postgres)"),
+        has_drizzle_config = (repo.has("drizzle.config.ts") or repo.has("drizzle.config.js")
+                              or repo.has("drizzle.config.json"))
+        if not has_drizzle_config:
+            for p in ("packages", "apps", "services"):
+                if any(child.is_dir() and (
+                        (child / "drizzle.config.ts").is_file()
+                        or (child / "drizzle.config.js").is_file()
+                        or (child / "drizzle.config.json").is_file())
+                       for child in repo.subdirs(p)):
+                    has_drizzle_config = True
+                    break
+        if dep("drizzle-orm") or has_drizzle_config:
+            add(d.db, "Drizzle")
+        for name, label in (("@supabase/supabase-js", "Supabase (Postgres)"),
                             ("typeorm", "TypeORM"), ("sequelize", "Sequelize"),
                             ("@mikro-orm/core", "MikroORM"), ("knex", "Knex"),
                             ("mongoose", "MongoDB"), ("pg", "PostgreSQL"),
@@ -912,7 +1076,7 @@ def detect(root):
                             ("oracledb", "Oracle")):
             if dep(name):
                 add(d.db, label)
-        if dep("drizzle-kit"):
+        if dep("drizzle-kit") or has_drizzle_config:
             add(d.migrations, "Drizzle Kit")
         if dep("ioredis") or dep("redis"):
             add(d.db, "Redis")
@@ -951,11 +1115,15 @@ def detect(root):
                 if script in scripts:
                     d.cmds[key] = "%s run %s" % (pm, script)
                     break
+        # A bare `tsc` reads only ./tsconfig.json; a monorepo without one needs its own
+        # script, and a blank row is recoverable where a gate that always fails is not.
         if "typecheck" not in d.cmds and repo.has("tsconfig.json") and dep("typescript"):
             d.cmds["typecheck"] = {"npm": "npm exec tsc -- --noEmit",
                                    "pnpm": "pnpm exec tsc --noEmit",
                                    "yarn": "yarn tsc --noEmit",
                                    "bun": "bunx tsc --noEmit"}[pm]
+        if "unit" not in d.cmds and pm == "bun":
+            d.cmds["unit"] = "bun test"
         if "e2e" not in d.cmds and dep("@playwright/test"):
             d.cmds["e2e"] = {"npm": "npm exec playwright test",
                               "pnpm": "pnpm exec playwright test",
@@ -970,6 +1138,38 @@ def detect(root):
             d.cmds["scan"] = "pnpm audit --audit-level high"
         for key in d.cmds:
             add(d.command_sources.setdefault(key, []), "node")
+
+    # -- deno ------------------------------------------------------------------
+    if repo.has("deno.json") or repo.has("deno.jsonc") or repo.has("deno.lock"):
+        add(d.adapters, "deno")
+        add(d.lang, "Deno")
+        add(d.pm, "deno")
+        add(d.test, "deno test")
+        deno_cfg = repo.text("deno.json") + repo.text("deno.jsonc")
+        if "hono" in deno_cfg.lower():
+            add(d.fw, "Hono")
+        deno_json = repo.json_file("deno.json") or repo.json_file("deno.jsonc")
+        tasks = deno_json.get("tasks", {})
+        if not isinstance(tasks, dict):
+            tasks = {}
+
+        # A project task wins over the built-in command: adapter_command keeps the first.
+        def task_or(names, fallback):
+            for name in names:
+                if name in tasks:
+                    return "deno task %s" % name
+            return fallback
+
+        adapter_command(d, "deno", "install", "deno install")
+        adapter_command(d, "deno", "unit", task_or(("test", "test:unit"), "deno test"))
+        adapter_command(d, "deno", "lint", task_or(("lint",), "deno lint"))
+        adapter_command(d, "deno", "format", task_or(("fmt", "format"), "deno fmt --check"))
+        adapter_command(d, "deno", "typecheck", task_or(("check", "typecheck"), "deno check"))
+        if "run" not in d.cmds:
+            if "dev" in tasks:
+                d.cmds["run"] = "deno task dev"
+            elif "start" in tasks:
+                d.cmds["run"] = "deno task start"
 
     # -- python ----------------------------------------------------------------
     if (repo.has("pyproject.toml") or repo.has("requirements.txt") or repo.has("setup.py")
@@ -1809,6 +2009,8 @@ class Wizard(object):
             return EFFORT_KEYS.get(value, "Normal")
         if step.sid == "acquisition":
             return ACQUISITION_KEYS.get(value, "Standard")
+        if step.sid == "devmethod":
+            return DEV_METHOD_KEYS.get(value, "Item")
         if isinstance(value, bool):
             return "yes" if value else "no"
         if isinstance(value, list):
@@ -1827,7 +2029,7 @@ class Wizard(object):
             section = None
             for i in self.visible_indexes():
                 step = self.steps[i]
-                if ((step.kind == "key" and step.sid not in ("effort", "acquisition"))
+                if ((step.kind == "key" and step.sid not in ("effort", "acquisition", "devmethod"))
                         or step.sid.startswith("skill:")):
                     continue
                 if step.section != section:
@@ -1877,12 +2079,18 @@ CMD_FIELDS = (("c_install", "q.c_install", "install"), ("c_run", "q.c_run", "run
 
 EFFORT_KEYS = {"l": "Lean", "n": "Normal", "x": "Beast"}
 ACQUISITION_KEYS = {"s": "Standard", "a": "Advanced"}
+DEV_METHOD_KEYS = {"i": "Item", "e": "Epic"}
 
 
 def selected_effort(w):
     raw = w.a.get("effort") or {"lean": "l", "normal": "n", "beast": "x"}.get(
         w.o.effort_mode, "n")
     return EFFORT_KEYS.get(raw, "Normal")
+
+
+def selected_dev_method(w):
+    raw = w.a.get("devmethod") or {"item": "i", "epic": "e"}.get(w.o.dev_method, "i")
+    return DEV_METHOD_KEYS.get(raw, "Item")
 
 
 def selected_acquisition(w):
@@ -2030,9 +2238,16 @@ def default_docsdir(w):
     return w.o.docs_dir
 
 
+def normalize_prefix(value):
+    """2-4 letters, upper-cased; a trailing '-' or spaces are forgiven, nothing else is.
+    The charter, runtime and hooks all read the prefix as exactly that."""
+    value = (value or "").strip().rstrip("-").strip()
+    return value.upper() if re.fullmatch(r"[A-Za-z]{2,4}", value) else None
+
+
 def validate_prefix(w, value):
-    letters = "".join(c for c in (value or "") if c.isalpha()).upper()[:4]
-    if 2 <= len(letters) <= 4:
+    letters = normalize_prefix(value)
+    if letters:
         return True, letters
     return False, t("err.prefix")
 
@@ -2156,6 +2371,9 @@ def build_steps(w):
         Step("effort", "sec.process", "key", "q.effort", help="h.effort",
              options="lnx", default=lambda w: {"lean": "l", "normal": "n", "beast": "x"}[
                  w.o.effort_mode], label="l.effort"),
+        Step("devmethod", "sec.process", "key", "q.devmethod", help="h.devmethod",
+             options="ie", default=lambda w: {"item": "i", "epic": "e"}[w.o.dev_method],
+             label="l.devmethod"),
         Step("acquisition", "sec.process", "key", "q.acquisition", help="h.acquisition",
              options="sa", default=lambda w: {"standard": "s", "advanced": "a"}[
                  w.o.acquisition_profile], label="l.acquisition", when=lambda w: w.fact("acquire")),
@@ -2312,7 +2530,7 @@ def managed_source_texts(target, docs, ctx, profile="full"):
     planned = {}
     for name in ("README.md", "CARD.md", "dashboard.html"):
         src = SRC / "template" / "docs" / name
-        planned[str(Path(docs) / name)] = substitute(src.read_text(encoding="utf-8"), ctx)
+        planned[(Path(docs) / name).as_posix()] = substitute(src.read_text(encoding="utf-8"), ctx)
     for sub in ("process", "roles", "templates"):
         base = SRC / "template" / "docs" / sub
         for src in sorted(base.rglob("*")):
@@ -2321,18 +2539,18 @@ def managed_source_texts(target, docs, ctx, profile="full"):
             if profile == "compact" and sub == "process" and re.match(r"^[0-9]{2}-", src.name):
                 continue
             rel = Path(docs) / sub / src.relative_to(base)
-            planned[str(rel)] = substitute(src.read_text(encoding="utf-8"), ctx)
+            planned[rel.as_posix()] = substitute(src.read_text(encoding="utf-8"), ctx)
     platforms_root = Path(target) / docs / "platforms"
     if platforms_root.is_dir():
         for src in sorted((SRC / "optional" / "platforms").glob("*.md")):
             if (platforms_root / src.name).is_file():
-                planned[str(Path(docs) / "platforms" / src.name)] = substitute(
+                planned[(Path(docs) / "platforms" / src.name).as_posix()] = substitute(
                     src.read_text(encoding="utf-8"), ctx)
     commands_root = Path(target) / ".claude" / "commands"
     if commands_root.is_dir():
         for src in sorted((SRC / "optional" / "claude-commands").glob("*.md")):
             if (commands_root / src.name).is_file():
-                planned[str(Path(".claude") / "commands" / src.name)] = substitute(
+                planned[(Path(".claude") / "commands" / src.name).as_posix()] = substitute(
                     src.read_text(encoding="utf-8"), ctx)
     skills_root = Path(target) / ".claude" / "skills"
     if skills_root.is_dir():
@@ -2342,13 +2560,13 @@ def managed_source_texts(target, docs, ctx, profile="full"):
             for src in sorted(base.rglob("*")):
                 if src.is_file():
                     rel = Path(".claude") / "skills" / base.name / src.relative_to(base)
-                    planned[str(rel)] = substitute(src.read_text(encoding="utf-8"), ctx)
+                    planned[rel.as_posix()] = substitute(src.read_text(encoding="utf-8"), ctx)
     hooks_root = Path(target) / ".claude" / "hooks"
     if hooks_root.is_dir() and any(p.suffix == ".sh" for p in hooks_root.iterdir()):
         # The hooks this project chose, plus the library every current hook sources.
         for src in sorted((SRC / "optional" / "hooks").iterdir()):
             if src.is_file() and ((hooks_root / src.name).is_file() or src.name == "lib.sh"):
-                planned[str(Path(".claude") / "hooks" / src.name)] = substitute(
+                planned[(Path(".claude") / "hooks" / src.name).as_posix()] = substitute(
                     src.read_text(encoding="utf-8"), ctx)
     for name in RUNTIME_FILES:
         planned[".ai-sdlc/bin/" + name] = substitute(
@@ -2396,6 +2614,11 @@ def load_manifest(target):
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(data, dict) and isinstance(data.get("files"), dict):
+            # Installs made on Windows before 3.4.2 recorded backslash paths. Keys are
+            # POSIX from then on, so a mixed-OS team upgrades the same manifest.
+            for key in ("files", "regions"):
+                if isinstance(data.get(key), dict):
+                    data[key] = dict((k.replace("\\", "/"), v) for k, v in data[key].items())
             return data
     except (IOError, OSError, ValueError):
         pass
@@ -2407,7 +2630,7 @@ def write_manifest(target, docs, files, regions=None):
         "schema": 1,
         "kit_version": VERSION,
         "docs_dir": docs,
-        "files": dict(sorted(files.items())),
+        "files": dict(sorted((k.replace("\\", "/"), v) for k, v in files.items())),
     }
     if regions:
         payload["regions"] = dict(sorted(regions.items()))
@@ -2600,7 +2823,10 @@ class Installer(object):
         self.wired = []
         self.harnesses = set()
         self.platforms = selected_platforms(w)
-        for name in (w.a.get("harnesses") or w.o.harnesses or ["claude"]):
+        chosen = w.a.get("harnesses")
+        if not chosen:
+            chosen = ["claude"] if w.o.harnesses is None else w.o.harnesses
+        for name in chosen:
             self.harnesses.update(HARNESS_ALIASES.get(name, ()))
         self.ctx = {
             "PROJECT_NAME": plain_text(w.a.get("name") or
@@ -2638,7 +2864,7 @@ class Installer(object):
 
     def rel(self, dest):
         try:
-            return str(Path(dest).relative_to(self.target))
+            return Path(dest).relative_to(self.target).as_posix()
         except ValueError:
             return str(dest)
 
@@ -2891,6 +3117,7 @@ class Installer(object):
             "profile": self.o.profile,
             "effort_mode": "Normal",
             "acquisition_profile": "Standard",
+            "dev_method": "Item",
             "wired": sorted(self.wired),
             "staleness_days": 90,
             "roles": [], "commands": [], "items": [], "artifacts": [], "budgets": [],
@@ -2904,7 +3131,8 @@ class Installer(object):
 
         for field, key, allowed, fallback in (
                 ("Default effort mode", "effort_mode", ("Lean", "Normal", "Beast"), "Normal"),
-                ("Acquisition profile", "acquisition_profile", ("Standard", "Advanced"), "Standard")):
+                ("Acquisition profile", "acquisition_profile", ("Standard", "Advanced"), "Standard"),
+                ("Development method", "dev_method", ("Item", "Epic"), "Item")):
             m = re.search(r"^\| \*\*%s\*\* \| ([^|]*)\|" % re.escape(field), charter, re.M)
             if m:
                 cell = plain_text(m.group(1)).strip()
@@ -3061,6 +3289,7 @@ class Installer(object):
             "profile": self.o.profile,
             "effort_mode": selected_effort(w).lower(),
             "acquisition_profile": selected_acquisition(w).lower(),
+            "dev_method": selected_dev_method(w).lower(),
             "harnesses": sorted(self.wired),
             "platform": w.a.get("platform", "") if w.a.get("platform", "none") != "none" else "",
             "deploy_platforms": installed_platforms(self.target, self.docs, self.platforms),
@@ -3256,6 +3485,8 @@ class Installer(object):
             text = fill_row(text, "**Default effort mode**", selected_effort(self.w))
         if self.o.acquisition_given:
             text = fill_row(text, "**Acquisition profile**", selected_acquisition(self.w))
+        if self.o.dev_method_given:
+            text = fill_row(text, "**Development method**", selected_dev_method(self.w))
         return text
 
     def platform_row(self, text):
@@ -3299,6 +3530,7 @@ class Installer(object):
         text = fill_row(text, "**Staleness threshold**", a.get("staleness"))
         text = fill_row(text, "**Default effort mode**", selected_effort(w))
         text = fill_row(text, "**Acquisition profile**", selected_acquisition(w))
+        text = fill_row(text, "**Development method**", selected_dev_method(w))
         if a.get("access_model"):
             text = fill_row(text, "**Access level model**", a.get("access_model"))
         if a.get("mfa_policy"):
@@ -3457,6 +3689,9 @@ def refresh_profile(target):
     if "acquisition_profile" not in data:
         data["acquisition_profile"] = "standard"
         changed = True
+    if "dev_method" not in data:
+        data["dev_method"] = "item"
+        changed = True
     if "deploy_platforms" not in data:
         data["deploy_platforms"] = installed_platforms(target, data.get("docs_dir") or "docs")
         changed = True
@@ -3508,6 +3743,15 @@ def upgrade(target, o):
         if m:
             prefix = m.group(1)
             print("Recovered prefix from charter: %s" % prefix)
+    if not prefix and (target / PROFILE_REL).is_file():
+        try:
+            data = json.loads((target / PROFILE_REL).read_text(encoding="utf-8"))
+            value = data.get("prefix") if isinstance(data, dict) else ""
+        except (IOError, OSError, ValueError):
+            value = ""
+        if isinstance(value, str) and normalize_prefix(value):
+            prefix = normalize_prefix(value)
+            print("Recovered prefix from %s: %s" % (PROFILE_REL.as_posix(), prefix))
     if not prefix:
         sys.stderr.write("error: cannot determine the work item prefix.\n")
         sys.stderr.write("       Pass it explicitly: install.sh %s <PREFIX> --upgrade\n" % target)
@@ -3528,8 +3772,8 @@ def upgrade(target, o):
     if o.profile == "compact":
         print("Compact profile: the numbered process/ documents stay uninstalled.")
     try:
-        for rel in list(planned) + list(previous_files) + [str(MANIFEST_REL)]:
-            if rel != str(MANIFEST_REL) and not is_managed_rel(rel, docs):
+        for rel in list(planned) + list(previous_files) + [MANIFEST_REL.as_posix()]:
+            if rel != MANIFEST_REL.as_posix() and not is_managed_rel(rel, docs):
                 raise RuntimeError("manifest contains an unmanaged path: %s" % rel)
             ensure_inside(target, target / rel)
     except RuntimeError as exc:
@@ -3580,7 +3824,7 @@ def upgrade(target, o):
             notes.append("AGENTS.md has no '## 9. Project overrides' heading, so it cannot be "
                          "merged safely. Diff it against %s by hand."
                          % (SRC / "template" / "AGENTS.md"))
-    charter_rel = str(Path(docs) / "project" / "charter.md")
+    charter_rel = (Path(docs) / "project" / "charter.md").as_posix()
     if (target / charter_rel).is_file():
         kit_charter = substitute((SRC / "template" / "docs" / "project" / "charter.md")
                                  .read_text(encoding="utf-8"), inst.ctx)

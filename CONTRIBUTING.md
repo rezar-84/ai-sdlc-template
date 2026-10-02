@@ -21,7 +21,7 @@ dependency after installation.
 
 ## Compatibility
 
-`install.py` uses only the Python standard library and supports Python 3.6 or newer.
+`install.py` uses only the Python standard library and supports Python 3.8 or newer (the versions CI tests).
 Installed projects must not need Python or any dependency from this repository.
 
 Do not add a stack-specific requirement to the portable process. Stack detection may

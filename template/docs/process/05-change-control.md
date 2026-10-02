@@ -76,9 +76,10 @@ approved on trust, which defeats the purpose.
 | Change | Approval |
 | --- | --- |
 | Tier 3 | Self-merge permitted if all checks pass. |
-| Tier 2 | One reviewer. |
+| Tier 2 | **One human approver.** |
 | Tier 1 | **Two human approvers**, at least one with domain ownership of the affected surface. |
 | Anything named under "Human approval required for" in `AGENTS.md` | As named there, regardless of tier. |
+| Tier 2 or 3 items inside an epic | Merged into the epic branch by the agent once checks pass and no review holds a Block. The approval above is given once per checkpoint, when the epic branch is proposed for the default branch (`11-epics.md`). A Tier 1 item inside an epic is approved on its own. |
 
 An agent may prepare, propose, and justify a change. An agent does not approve its own
 Tier 1 work, and does not count as either of the two approvers.

@@ -51,7 +51,7 @@ When in doubt, tier up.
 | Tier | Trigger (any one) | Required |
 | --- | --- | --- |
 | **1 — High** | authentication, authorisation, tenancy/isolation, payments, PII or regulated data, data migration or deletion, backfills, public-facing brand/legal copy, infrastructure or release pipeline, a model/prompt/retrieval change on any of those surfaces or in a system that takes actions, a contract other services consume, anything hard to reverse | Written plan · role review per the charter · design + ship review · ADR for the approach · human approval before merge (2 approvers) · rollback plan |
-| **2 — Standard** | a new feature or user-visible behaviour, a schema addition, a new dependency, a refactor crossing module boundaries, **any** change to a prompt, model version, retrieval configuration, eval threshold, or published dataset | Written plan · role review limited to the surfaces the change touches · tests · worklog entry |
+| **2 — Standard** | a new feature or user-visible behaviour, a schema addition, a new dependency, a refactor crossing module boundaries, **any** change to a prompt, model version, retrieval configuration, eval threshold, or published dataset | Written plan · role review limited to the surfaces the change touches · tests · worklog entry · human approval before merge (1 approver) |
 | **3 — Low** | copy/typo fix, dependency patch bump, comment, formatting, adding a test, a doc edit | One-line plan · one design-review role, or none if no role's surface is touched · **no ship review** · short worklog entry · no ADR |
 
 A Tier 3 worklog entry is a compact dated bullet containing the ID, request, changed
@@ -81,6 +81,17 @@ All three modes preserve requested scope, trust-boundary validation, security, p
 accessibility, data integrity, evidence language, traceability, rollback, and human
 approval. Documentation profile (`full` / `compact`) changes what is installed; it does
 not change the mode or any obligation.
+
+### Development method — one item at a time, or an epic
+
+Resolve it at FRAME like effort mode: the request → the work item → the charter's
+**Development method** → `Item`. **Item** is the loop below, one item at a time.
+**Epic** plans several items together, gets one human approval for that plan, then
+carries on between items until a checkpoint the plan chose (per phase, every N items, or
+at the end). It stops early on any Tier 1 item, a Block, a failed verification, a plan
+that turns out wrong, or anything irreversible. An epic shares the planning and the
+waiting; every item still gets its own tests, checks, reviews, and the approvals its tier
+requires. Rules: `{{DOCS_DIR}}/process/11-epics.md`.
 
 ---
 
@@ -114,6 +125,7 @@ enough, and say in the worklog that you did:
 | `{{DOCS_DIR}}/process/07-traceability.md` | an ID or backlog edge case, staleness, archiving |
 | `{{DOCS_DIR}}/process/09-probabilistic-and-data-systems.md` | a prompt, model, index, dataset, pipeline, or evaluation. Nothing in it applies to deterministic code. |
 | `{{DOCS_DIR}}/process/10-multi-agent.md` | more than one agent working this repository, or fanning reviews out to subagents |
+| `{{DOCS_DIR}}/process/11-epics.md` | the development method is `Epic`: planning, running, or resuming one |
 
 The card is a summary and never an amendment: **where the card and the full document
 disagree, the document wins**, and the card is the defect.

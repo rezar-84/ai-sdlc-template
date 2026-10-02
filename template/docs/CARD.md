@@ -26,7 +26,7 @@ Depth scales with tier. Never skip LOG. An undocumented change is unfinished.
 | Tier | Any one of | Required |
 | --- | --- | --- |
 | **1** | auth · authorisation · tenancy · payments · PII or regulated data · migration, deletion, or backfill · public brand/legal copy · infrastructure or release pipeline · a model/prompt/retrieval change on any of those, or in a system that acts · a contract others consume · anything hard to reverse | plan · role review · design + ship review · ADR · 2 human approvals · rollback plan |
-| **2** | new feature or user-visible behaviour · schema addition · new dependency · refactor across boundaries · **any** prompt, model, retrieval, eval-threshold, or published-dataset change | plan · role review of touched surfaces · tests · worklog entry |
+| **2** | new feature or user-visible behaviour · schema addition · new dependency · refactor across boundaries · **any** prompt, model, retrieval, eval-threshold, or published-dataset change | plan · role review of touched surfaces · tests · worklog entry · 1 human approval |
 | **3** | copy/typo · patch bump · comment · formatting · adding a test · doc edit | one-line plan · no ship review · short worklog entry · no ADR |
 
 Tier by **surface**, never by line count. A one-line change to an authorisation check —
@@ -50,6 +50,22 @@ effective mode in the plan and worklog.
 No mode weakens requested scope, validation, security, privacy, accessibility, data
 integrity, evidence, traceability, rollback, approvals, or tier requirements. Pass the
 resolved mode and tier explicitly to subagents; do not rely on hidden session state.
+
+## Development method
+
+Request → work item → charter **Development method** → `Item`. **Item**: one item at a
+time, as today. **Epic** ([`process/11-epics.md`](process/11-epics.md)):
+- One epic file (`templates/epic.md`) holds the plan, item table, design review and
+  checkpoint log.
+- A human approves that plan before the first build, unless every item is Tier 3.
+- Each item keeps its own branch, tests, checks and ship review at its tier.
+- A verified Tier 2 or Tier 3 item merges into the epic branch, and the agent continues.
+- At each checkpoint the plan chose (per phase, every N items, or at the end), the agent
+  writes one worklog entry and proposes the epic branch. The highest tier merged since
+  the last checkpoint sets the approvers.
+- **Hard stops, whatever the checkpoints:** a Tier 1 item (its own plan, two approvers,
+  park it and carry on with independent items), a Block, a failed verification outside
+  scope, a plan that proves wrong, or anything irreversible or gated.
 
 ---
 
@@ -192,6 +208,7 @@ Tier 3 → one line there.
 | A hot path, query, payload, or cache changes | `roles/performance-engineer.md` |
 | Fetching third-party data | `roles/privacy-legal.md`, `roles/data-engineer.md` |
 | More than one agent is working this repository | `process/10-multi-agent.md` |
+| The development method is `Epic` | `process/11-epics.md`, `templates/epic.md` |
 
 This table is the routing that Claude Code gets from skill descriptions. On any other
 agent tool, it is the routing.

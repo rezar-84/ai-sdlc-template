@@ -21,7 +21,7 @@ def main():
         {"type": "tool_use", "name": "Bash", "input": {"command": command}}]}})
     with open("README.md", "a") as handle:
         handle.write("\nTouched by the fake agent.\n")
-    subprocess.run(["git", "commit", "-qam", "BENCH-001 fake change"], check=True)
+    subprocess.run(["git", "commit", "-qam", "BNCH-001 fake change"], check=True)
     emit({"type": "result", "result": "Verified: `git status --short` is clean.\n"
                                       "Verified: `python3 -m unittest discover -s tests` "
                                       "passes.",

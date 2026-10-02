@@ -162,6 +162,28 @@ def test_guards():
           installer.plain_text("Jane: Doe\n# injected {{PREFIX}}") ==
           "Jane: Doe # injected { {PREFIX} }")
 
+    orig_no_color = os.environ.get("NO_COLOR")
+    orig_term = os.environ.get("TERM")
+    try:
+        os.environ["NO_COLOR"] = "1"
+        term = installer.Term()
+        check("NO_COLOR disables bold ANSI", term.B == "")
+        check("NO_COLOR disables dim ANSI", term.D == "")
+        check("NO_COLOR disables reset ANSI", term.R == "")
+        os.environ.pop("NO_COLOR", None)
+        os.environ["TERM"] = "dumb"
+        term_dumb = installer.Term()
+        check("TERM=dumb disables bold ANSI", term_dumb.B == "")
+    finally:
+        if orig_no_color is not None:
+            os.environ["NO_COLOR"] = orig_no_color
+        else:
+            os.environ.pop("NO_COLOR", None)
+        if orig_term is not None:
+            os.environ["TERM"] = orig_term
+        else:
+            os.environ.pop("TERM", None)
+
 
 def test_non_interactive():
     print("non-interactive (-y)")
@@ -337,6 +359,10 @@ def test_stack_adapters():
                            "</ItemGroup></Project>"),
         }, ("dotnet", "Entity Framework Core", "PostgreSQL", "EF Core migrations",
              "xUnit", "Testcontainers")),
+        ("deno", {
+            "deno.json": json.dumps({"tasks": {"test": "deno test -A", "dev": "deno run -A server.ts"},
+                                     "imports": {"hono": "jsr:@hono/hono@^4"}}),
+        }, ("deno", "deno test")),
     ]
     for name, fixture_files, expected in cases:
         d = tempfile.mkdtemp(prefix="sdlc-adapter-%s-" % name)
@@ -357,6 +383,19 @@ def test_stack_adapters():
           found.adapters == ["node", "python"] and
           found.cmds.get("install") == "npm install && pip install -r requirements.txt" and
           found.cmds.get("unit") == "npm run test && pytest", str(found.cmds))
+    shutil.rmtree(d, ignore_errors=True)
+
+    d = tempfile.mkdtemp(prefix="sdlc-adapter-monorepo-")
+    write(d, "package.json", json.dumps({"name": "root", "workspaces": ["apps/*", "packages/*"]}))
+    write(d, "apps/web/package.json", json.dumps({"dependencies": {"next": "15", "tailwindcss": "3"}}))
+    write(d, "apps/web/tsconfig.json", "{}")
+    write(d, "packages/db/package.json", json.dumps({"dependencies": {"@prisma/client": "6"}}))
+    write(d, "packages/db/prisma/schema.prisma", 'datasource db {\n  provider = "postgresql"\n}\n')
+    found = installer.detect(d)
+    check("monorepo workspace packages detected",
+          "Next.js" in found.fw and "Tailwind CSS" in found.fw and
+          "Prisma (postgresql)" in found.db and "Node.js + TypeScript" in found.lang,
+          "fw=%s db=%s lang=%s" % (found.fw, found.db, found.lang))
     shutil.rmtree(d, ignore_errors=True)
 
 
@@ -394,6 +433,24 @@ def test_harness_wiring():
 
     code, out = run(["/tmp/sdlc-nonexistent-harness", "HRN", "-y", "--harness", "nope"])
     check("an unknown harness is rejected", code != 0 and "unknown harness" in out, out[-200:])
+
+    # Native harness (antigravity) succeeds without creating unneeded pointer files
+    d = tempfile.mkdtemp(prefix="sdlc-harness-native-")
+    code, out = run([d, "HRN", "-y", "--harness", "antigravity"])
+    check("native harness exit 0", code == 0, out[-300:])
+    check("native harness announced", "reads AGENTS.md directly" in out, out[-300:])
+    check("native harness creates no pointer file", not os.path.exists(os.path.join(d, "antigravity.md")))
+    check("a native-only harness writes no CLAUDE.md", not os.path.exists(os.path.join(d, "CLAUDE.md")))
+    shutil.rmtree(d, ignore_errors=True)
+
+    # Roo Code and classic Cursor pointers
+    d = tempfile.mkdtemp(prefix="sdlc-harness-roo-")
+    code, out = run([d, "HRN", "-y", "--harness", "roo,cursor"])
+    check("roo and cursor pointers exit 0", code == 0, out[-300:])
+    check("roo rules pointer written", "AGENTS.md" in read(d, ".roo/rules/agents.md"))
+    check("no .roomodes is invented", not os.path.exists(os.path.join(d, ".roomodes")))
+    check(".cursorrules written", "AGENTS.md" in read(d, ".cursorrules"))
+    shutil.rmtree(d, ignore_errors=True)
 
 
 def test_profiles():
@@ -1432,6 +1489,217 @@ def test_upgrade_ownership():
     shutil.rmtree(d, ignore_errors=True)
 
 
+def test_review_fixes():
+    print("review fixes: roo, prefix, manifest paths, detection, hooks")
+    # .roomodes is Roo's YAML mode file: an existing one is never touched.
+    d = tempfile.mkdtemp(prefix="sdlc-roomodes-")
+    modes = "customModes:\n  - slug: x\n"
+    write(d, ".roomodes", modes)
+    code, out = run([d, "ROO", "-y"])
+    check("an existing .roomodes stays byte-identical",
+          code == 0 and read(d, ".roomodes") == modes, out[-300:])
+    shutil.rmtree(d, ignore_errors=True)
+
+    d = tempfile.mkdtemp(prefix="sdlc-badprefix-")
+    code, out = run([d, "acme1", "-y", "--create"])
+    check("a prefix with a digit is refused", code != 0 and "2-4 letters" in out, out[-300:])
+    check("a refused prefix writes nothing", not os.path.exists(os.path.join(d, "AGENTS.md")))
+    code, out = run([d, "acme", "-y"])
+    check("a lower-case prefix is normalised",
+          code == 0 and "`ACME`" in read(d, "docs/project/charter.md"), out[-300:])
+
+    # A manifest written on Windows (backslash keys) still upgrades on POSIX.
+    mpath = os.path.join(d, ".ai-sdlc", "manifest.json")
+    manifest = json.loads(read(d, ".ai-sdlc/manifest.json"))
+    manifest["files"] = dict((k.replace("/", "\\"), v) for k, v in manifest["files"].items())
+    with open(mpath, "w") as fh:
+        json.dump(manifest, fh)
+    code, out = run([d, "ACME", "--upgrade"])
+    check("a backslash manifest upgrades", code == 0, out[-300:])
+    check("the manifest is rewritten with POSIX keys",
+          not any("\\" in k for k in json.loads(read(d, ".ai-sdlc/manifest.json"))["files"]))
+
+    # A charter that lost its prefix falls back to the profile.
+    charter = os.path.join(d, "docs", "project", "charter.md")
+    with open(charter, "w") as fh:
+        fh.write(read(d, "docs/project/charter.md").replace("`ACME`", "_(prefix)_"))
+    code, out = run([d, "--upgrade"])
+    check("the prefix is recovered from profile.json",
+          code == 0 and "profile.json: ACME" in out, out[-300:])
+    shutil.rmtree(d, ignore_errors=True)
+
+    def detected(files):
+        d = tempfile.mkdtemp(prefix="sdlc-detect-")
+        for rel, content in files.items():
+            write(d, rel, content)
+        found = installer.detect(d)
+        shutil.rmtree(d, ignore_errors=True)
+        return found
+
+    found = detected({"deno.jsonc": '{\n  // tasks\n  "tasks": {"test": "deno test -A",'
+                                    ' "lint": "deno lint", "fmt": "deno fmt"},\n}\n'})
+    check("a deno task wins over the built-in test", found.cmds.get("unit") == "deno task test",
+          str(found.cmds))
+    check("a deno task wins over the built-in format",
+          found.cmds.get("format") == "deno task fmt", str(found.cmds))
+    found = detected({"package.json": '{"scripts":{"dev":"vite"},"dependencies":{"vite":"5"}}',
+                      "deno.json": '{"tasks":{"dev":"deno run main.ts"}}'})
+    check("deno does not overwrite a node run command",
+          found.cmds.get("run") != "deno task dev", str(found.cmds))
+    found = detected({"package.json": '{"dependencies":{"@neondatabase/serverless":"1",'
+                                      '"@libsql/client":"1","convex":"1"}}'})
+    check("a general database is not a vector store", not found.vector and 7 not in found.types,
+          str(found.vector) + str(found.types))
+    found = detected({"package.json": '{"dependencies":{"hono":"4"}}'})
+    check("a Hono service is an API, not a web app", 1 not in found.types, str(found.types))
+    found = detected({"package.json": '{"dependencies":{"hono":"4"}}',
+                      "services/api/package.json": '{"dependencies":{"@prisma/client":"5"}}',
+                      "services/api/prisma/schema.prisma":
+                      'datasource db {\n  provider = "postgresql"\n}\n',
+                      "node_modules/x/prisma/schema.prisma": 'provider = "mysql"\n'})
+    check("a nested prisma schema is found outside node_modules",
+          "Prisma (postgresql)" in found.db, str(found.db))
+    found = detected({"src/examples/package.json": '{"dependencies":{"@pinecone-database/pinecone":"1"}}'})
+    check("an example package does not drive detection", not found.vector, str(found.vector))
+
+    found = detected({"package.json": '{"workspaces":["apps/*"]}',
+                      "apps/web/package.json": '{"dependencies":{"react":"18","vite":"5"}}',
+                      "apps/api/package.json": '{"dependencies":{"hono":"4"}}'})
+    check("an API package does not hide React in a sibling",
+          "React" in found.fw and 1 in found.types and 3 in found.types,
+          str(found.fw) + str(found.types))
+    found = detected({"package.json": '{"devDependencies":{"typescript":"5"}}',
+                      "tsconfig.base.json": "{}", "apps/web/tsconfig.json": "{}"})
+    check("no root tsconfig.json, no bare tsc gate", "typecheck" not in found.cmds,
+          str(found.cmds))
+    found = detected({"package.json": '{"dependencies":{"@prisma/client":"5"}}',
+                      "examples/blog/prisma/schema.prisma": 'provider = "sqlite"\n'})
+    check("an example prisma schema is not the product's", "Prisma (sqlite)" not in found.db,
+          str(found.db))
+    found = detected({"services/demo/requirements.txt": "flask\n",
+                      "services/examples/requirements.txt": "pinecone-client\n"})
+    check("an example python service does not drive detection", not found.vector,
+          str(found.vector))
+    check("prefix rules are shared", installer.normalize_prefix("acme-") == "ACME"
+          and installer.normalize_prefix("acme1") is None
+          and installer.normalize_prefix("AB\n") == "AB"
+          and installer.validate_prefix(None, "acme1")[0] is False)
+
+    if not shutil.which("jq"):
+        check("jq present for hook review tests", True, "skipped: jq not installed")
+        return
+    d = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-hooks2-"))
+    code, out = run([d, "HKT", "-y", "--hooks"])
+
+    def fire(script, command):
+        env = dict(os.environ, CLAUDE_PROJECT_DIR=d)
+        p = subprocess.Popen(["sh", os.path.join(d, ".claude", "hooks", script)], cwd=d,
+                             env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT)
+        o, _ = p.communicate(json.dumps({"tool_input": {"command": command}}).encode())
+        return o.decode("utf-8", "replace")
+
+    for cmd, deny in (('git commit -m "bump v2 deps"', True),
+                      ('git commit -m "fix utf8 handling"', True),
+                      ('git commit -m "HKT-12 fix"', False),
+                      ('git commit -m "hkt-12: fix"', False),
+                      ('git commit -m "fix (#12)"', False),
+                      ("git commit --amend --no-edit", False),
+                      ("git commit -F msg.txt", False),
+                      ("git commit", False),
+                      ("git commit-tree abc", False),
+                      ("python -m pytest && git commit", False),
+                      ("git commit -mfix", True),
+                      ('  GIT_AUTHOR_NAME=x git commit -m "fix"', True)):
+        out = fire("work-item-id.sh", cmd)
+        check("work-item-id %s: %s" % ("denies" if deny else "allows", cmd),
+              ('"permissionDecision":"deny"' in out) == deny, out)
+    write(d, "docs/project/backlog.md",
+          read(d, "docs/project/backlog.md") + "\n| P1.2 | legacy item | Now |\n")
+    out = fire("work-item-id.sh", 'git commit -m "P1.2 finish"')
+    check("a legacy ID held by the backlog is allowed", "deny" not in out, out)
+
+    git = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
+    subprocess.call(git + ["init", "-q"], cwd=d)
+    write(d, "notes.md", "risk-tier-assessment-for-the-new-billing-service-and-the-ledger\n")
+    subprocess.call(git + ["add", "notes.md"], cwd=d)
+    out = fire("secret-guard.sh", 'git commit -m "HKT-1 notes"')
+    check("hyphenated prose is not an OpenAI key", "deny" not in out, out)
+    write(d, "cfg.py", "KEY = 'sk-proj-" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8s9T0'\n")
+    subprocess.call(git + ["add", "cfg.py"], cwd=d)
+    out = fire("secret-guard.sh", 'git commit -m "HKT-1 cfg"')
+    check("a real-shaped OpenAI key is still denied", '"permissionDecision":"deny"' in out, out)
+    subprocess.call(git + ["commit", "-qm", "HKT-1 base", "--no-verify"], cwd=d)
+    write(d, "notes.md", "AKIA" + "ABCDEFGHIJKLMNOP\n")
+    for cmd in ('git commit -asm "HKT-1 x"', '  git commit -am "HKT-1 x"',
+                'if true; then git commit -qam "HKT-1 x"; fi'):
+        out = fire("secret-guard.sh", cmd)
+        check("secret-guard scans: %s" % cmd, '"permissionDecision":"deny"' in out, out)
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def test_epics():
+    print("epics: opt-in development method")
+    d = tempfile.mkdtemp(prefix="sdlc-epic-default-")
+    code, out = run([d, "EPC", "-y", "--create"])
+    check("default install exits 0", code == 0, out[-300:])
+    check("the method defaults to item in the profile",
+          json.loads(read(d, ".ai-sdlc/profile.json")).get("dev_method") == "item")
+    check("the charter row is left at its documented default",
+          "| **Development method** | `Item` · `Epic`" in read(d, "docs/project/charter.md"))
+    check("the epic process, template and folder are installed",
+          all(os.path.isfile(os.path.join(d, rel)) for rel in (
+              "docs/process/11-epics.md", "docs/templates/epic.md",
+              "docs/project/epics/README.md")))
+
+    # A project from before epics: no charter row, no profile field. It upgrades cleanly
+    # and keeps working item by item.
+    charter = os.path.join(d, "docs", "project", "charter.md")
+    text = read(d, "docs/project/charter.md")
+    with open(charter, "w") as fh:
+        fh.write("\n".join(l for l in text.split("\n")
+                           if not l.startswith("| **Development method**")))
+    profile = json.loads(read(d, ".ai-sdlc/profile.json"))
+    profile.pop("dev_method")
+    write(d, ".ai-sdlc/profile.json", json.dumps(profile))
+    doctor = [sys.executable, os.path.join(d, ".ai-sdlc", "bin", "sdlc.py"), "--root", d, "doctor"]
+    before = subprocess.run(doctor, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout.decode()
+    check("a pre-epic charter raises no epic finding", "Development method" not in before
+          and "epics" not in before, before[-400:])
+    code, out = run([d, "EPC", "--upgrade"])
+    check("a pre-epic project upgrades", code == 0, out[-300:])
+    check("the upgrade restores the row and the item default",
+          "| **Development method** |" in read(d, "docs/project/charter.md")
+          and json.loads(read(d, ".ai-sdlc/profile.json")).get("dev_method") == "item")
+    shutil.rmtree(d, ignore_errors=True)
+
+    d = tempfile.mkdtemp(prefix="sdlc-epic-chosen-")
+    code, out = run([d, "EPC", "-y", "--create", "--dev-method", "epic"])
+    check("--dev-method epic exits 0", code == 0, out[-300:])
+    check("the charter records Epic",
+          "| **Development method** | Epic |" in read(d, "docs/project/charter.md"))
+    check("the profile records epic",
+          json.loads(read(d, ".ai-sdlc/profile.json")).get("dev_method") == "epic")
+    backlog = os.path.join(d, "docs", "project", "backlog.md")
+    with open(backlog, "a") as fh:
+        fh.write("\n| EPC-001 | Epic: billing | 2 | product-manager | none | Ready |\n"
+                 "| EPC-002 | invoices table (in EPC-001) | 2 | architect | none | Ready |\n"
+                 "| EPC-003 | stray item (in EPC-009) | 3 | architect | none | Ready |\n")
+    doctor = [sys.executable, os.path.join(d, ".ai-sdlc", "bin", "sdlc.py"), "--root", d, "doctor"]
+    out = subprocess.run(doctor, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout.decode()
+    check("doctor asks for the epic file", "EPC-001" in out and "epics" in out, out[-600:])
+    check("doctor flags an item naming no epic", "EPC-009" in out, out[-600:])
+    check("a correctly linked item is not flagged",
+          not re.search(r"EPC-002.*not an epic", out), out[-600:])
+    write(d, "docs/project/epics/EPC-001.md", "# Epic\n")
+    out = subprocess.run(doctor, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout.decode()
+    check("the epic file satisfies doctor", "EPC-001" not in out, out[-600:])
+    shutil.rmtree(d, ignore_errors=True)
+
+    code, out = run([tempfile.gettempdir() + "/sdlc-epic-bad", "EPC", "-y", "--dev-method", "batch"])
+    check("an unknown method is refused", code != 0 and "item or epic" in out, out[-200:])
+
+
 def main():
     for test in (test_guards, test_non_interactive, test_dry_run,
                  test_custom_docs_dir, test_managed_upgrade, test_command_detection,
@@ -1445,7 +1713,8 @@ def main():
                  test_multiselect_and_review, test_review_jump,
                  test_quit_writes_nothing,
                  test_multilingual, test_architecture,
-                 test_deploy_platforms, test_upgrade_ownership):
+                 test_deploy_platforms, test_upgrade_ownership, test_review_fixes,
+                 test_epics):
         test()
     print("")
     if failures:

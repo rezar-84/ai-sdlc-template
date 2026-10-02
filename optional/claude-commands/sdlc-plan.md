@@ -1,6 +1,6 @@
 ---
 description: Frame a request as a tracked work item and produce a reviewed plan
-argument-hint: "[--mode lean|normal|beast] <what you want built or changed>"
+argument-hint: "[--mode lean|normal|beast] [--epic] <what you want built or changed>"
 ---
 
 Run the FRAME → PLAN → DESIGN REVIEW steps of the loop in `AGENTS.md` for:
@@ -25,7 +25,13 @@ Follow `{{DOCS_DIR}}/process/00-operating-model.md`. Specifically:
    Definition of Ready items knowable at FRAME (`{{DOCS_DIR}}/process/03-ready-and-done.md`) —
    if one fails, record the blocker rather than guessing past it. Resolve effort mode in
    this order: `--mode` or explicit request → recorded work-item override → charter
-   default → `Normal`; record it separately from the risk tier.
+   default → `Normal`; record it separately from the risk tier. Resolve the development
+   method the same way: `--epic` or an explicit request → the work item → the charter's
+   **Development method** → `Item`. If it is `Epic`, follow
+   `{{DOCS_DIR}}/process/11-epics.md` instead of steps 3–4 below: write
+   `{{DOCS_DIR}}/project/epics/<ID>.md` from `{{DOCS_DIR}}/templates/epic.md`, add a backlog
+   row per item ending `(in <ID>)`, review the epic plan once, and ask the human to
+   approve it and to choose the checkpoints before any BUILD.
 
 3. **Plan.** Read the existing implementation before proposing anything; most bad plans
    are written against an imagined codebase. If an upstream specification already exists

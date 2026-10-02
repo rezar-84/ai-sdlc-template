@@ -240,6 +240,7 @@ here, in the shape of a role playbook: mission, engage when, reads, what it chec
 | | |
 | --- | --- |
 | **Default effort mode** | `Lean` · `Normal` · `Beast` _(default: Normal; changes breadth above the risk-tier floor, never the floor itself)_ |
+| **Development method** | `Item` · `Epic` _(default: Item. Epic plans several items together and stops at the checkpoints its plan chooses; it never removes a tier's checks or approvals. See `process/11-epics.md`)_ |
 | **Acquisition profile** | `Standard` · `Advanced` _(advanced tools require an owned or explicitly authorised target and never grant permission)_ |
 | **Always Tier 1 here** | _(the surfaces that are high-risk in this project specifically)_ |
 | **Never Tier 1 here** | _(surfaces from the `AGENTS.md` Tier 1 list that genuinely do not apply — e.g. "no PII: this project holds no personal data, see Data categories held". Without this, "when in doubt, tier up" makes almost everything Tier 1.)_ |
